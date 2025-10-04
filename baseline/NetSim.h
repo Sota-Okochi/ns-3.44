@@ -15,6 +15,7 @@
 #include "ns3/KamedaAppClient.h"
 #include "ns3/KamedaAppServer.h"
 #include "ns3/waypoint-mobility-model.h"
+#include "ns3/APMonitorTerminal.h"
 
 #include <sstream>
 #include <iomanip>
@@ -64,9 +65,17 @@ private:
     //void ConfigureAnimation();
     void SetAppLayer();
     void SetKamedaModule();
+    void SetKamedaServerOnly();  // 監視端末方式用：サーバーのみ起動
     void SetVoiceApp();
     void SetVideoApp();
+    void SetAutoLoadGeneration();  // ns-3標準機能による自動負荷生成
     void SetGreedy();
+    
+    bool LoadTermDataFromSqlite(const std::string& dbPath);
+
+    // 監視端末関連の関数
+    void SetupMonitorTerminals();
+    void ConfigureMonitorTerminal(uint32_t apId, Ptr<Node> monitorNode, Ipv4Address targetAP);
 
     int m_nth;
     int m_mob;
@@ -88,6 +97,9 @@ private:
     Ptr<Node> server_udpVideo;
     Ptr<Node> server_ping;
     Ptr<Node> server_rtt;
+    
+    // 監視端末用
+    std::vector<Ptr<Node> > monitorTerminals;
 
     std::vector<TermData> m_termData;
 

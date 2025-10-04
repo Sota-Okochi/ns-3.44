@@ -33,7 +33,7 @@ namespace APConstants {
     constexpr int DEFAULT_ACCESS_POINTS = 3; //基地局数
     constexpr int DEFAULT_AP_CAPACITY = 1000; //基地局の収容数
     
-    // 初期基地局性能値
+    // // 初期基地局性能値
     const std::vector<double> INITIAL_RTT = {20.0, 30.0, 32.0};
     const std::vector<double> INITIAL_TP_MULTIPLIER = {65500 * 2 * 8 / 1024}; // KB/s計算用
     
@@ -77,21 +77,19 @@ private:
     void make_combi_ap_term();
     void call_hungarian();
     HungarianResult hungarian(std::vector<std::vector<double> > &a, std::vector<int> &combi_ap_term);
-    void result_output();
     void combi_random();
     void combi_greedy();
-    
-    // call_hungarian()を分割したヘルパーメソッド
-    void calculate_ap_performance(const std::vector<int>& num_ap_access, 
-                                std::vector<double>& ap_rtt_current, 
-                                std::vector<double>& ap_tp_current);
+
+    void calculate_ap_performance(const std::vector<int>& num_ap_access,
+                                  std::vector<double>& ap_rtt_current,
+                                  std::vector<double>& ap_tp_current);
     void create_satisfaction_matrix(const std::vector<int>& combi_ap_term,
-                                  const std::vector<double>& ap_rtt_current,
-                                  const std::vector<double>& ap_tp_current,
-                                  std::vector<std::vector<double>>& mat_ent);
+                                    const std::vector<double>& ap_rtt_current,
+                                    const std::vector<double>& ap_tp_current,
+                                    std::vector<std::vector<double>>& mat_ent);
     int find_best_solution(const std::vector<HungarianResult>& results);
     void display_final_results(const HungarianResult& final_result, int best_index);
-    
+
     // 共通計算ロジック
     double calculate_satisfaction(int terminal_idx, int ap_idx, 
                                 const std::vector<double>& ap_rtt, 
@@ -123,6 +121,8 @@ private:
     std::vector<std::vector<int> > m_combi_ap_term_temp; //基地局から端末数分を取る全組み合わせ（制限考慮）
     int m_no_combi_ap_term;             //組み合わせNo
     std::vector<std::vector<int> > m_num_ap_access; //APに接続する端末数（RTT, TP計算用）
+
+    std::vector<double> m_initialRtt;   // JSONから読み込んだ初期RTT
     
     std::vector<int> m_best_solution;           //重み最小解
     std::vector<double> m_best_solution_value;  //重み最小解の重み・分散

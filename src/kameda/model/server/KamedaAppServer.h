@@ -45,6 +45,9 @@ private:
     void FinalizeJSONFile();
     void OutputRttStatisticsFromBinary();
     std::vector<std::string> SplitString(const std::string &input, const std::string &delimiter);
+    
+    // 監視端末データ処理関数
+    void ProcessMonitorData(std::string senderIpAddress, std::string recvMessage);
 
 };
 

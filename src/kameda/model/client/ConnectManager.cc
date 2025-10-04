@@ -23,22 +23,21 @@ ConnectManager::ConnectManager(Address serverAddress, Ptr<KamedaAppClient> clien
     m_packet = Create<Packet>();
     m_continue = false;
     m_rttData = "";
+    m_retryCount = 0;
+    m_maxRetries = 3; // 最大3回リトライ
     m_socket = nullptr;
 }
 
 void ConnectManager::StartRequest(){
-    m_continue = true;
-    if(m_nextAccess.IsRunning()){
-        Simulator::Cancel(m_nextAccess);
-    }
     m_nextAccess = Simulator::ScheduleNow(&ConnectManager::CreateConnection, this);
+    m_continue = true;
 }
 
 void ConnectManager::StopRequest(){
 
     m_continue = false;
 
-    if(m_nextAccess.IsRunning()){
+    if(m_nextAccess.IsPending()){
         Simulator::Cancel(m_nextAccess);
     }
 
@@ -50,14 +49,12 @@ void ConnectManager::StopRequest(){
 }
 
 void ConnectManager::GetRtt(uint16_t seq, Time rtt){
-    std::ofstream ofs("/home/yy/test.txt", std::ios::app);
-    ofs << m_client->GetNode()->GetId() << "\t" << rtt << std::endl;
 
     std::stringstream ss;
     ss << rtt.GetMilliSeconds();
     m_rttDatas.push_back(ss.str());
-    const int TIME = 3;
-    if(m_rttDatas.size() == TIME){
+    const int TIME = 3; // 5回→3回に短縮して高速化
+    if(m_rttDatas.size() == TIME){      //TIME回データをとった平均
         double temp = 0.0;
         for(auto d : m_rttDatas){
             std::stringstream ss; double a = 0.0;
@@ -67,25 +64,11 @@ void ConnectManager::GetRtt(uint16_t seq, Time rtt){
         std::stringstream ss2;
         ss2 << temp/(static_cast<double>(TIME));
         ss2 >> m_rttData;
-        m_rttDatas.clear();
         this->StartRequest();
     }
 }
 
 void ConnectManager::CreateConnection(){
-
-    if(!m_continue){
-        return;
-    }
-
-    if(m_socket){
-        m_socket->Close();
-        m_socket = nullptr;
-    }
-
-    if(!InetSocketAddress::IsMatchingType(m_serverAddress)){
-        NS_FATAL_ERROR("serverAddress cannot match to InetSocketAddress");
-    }
 
     m_socket = m_client->CreateTcpSocket();
     if(!m_socket){
@@ -93,8 +76,15 @@ void ConnectManager::CreateConnection(){
         return;
     }
 
-    m_socket->Bind();
-    m_socket->Connect(m_serverAddress);
+    /*std::stringstream ss;
+    ss << "ConnectManager::m_serverAddress is " << m_serverAddress;
+    NS_LOG_INFO(ss.str());*/
+    if(InetSocketAddress::IsMatchingType(m_serverAddress)){
+        m_socket->Bind();
+        m_socket->Connect(m_serverAddress);
+    }else{
+        NS_FATAL_ERROR("serverAddress cannot match to InetSocketAddress");
+    }
 
     m_socket->SetConnectCallback(
         MakeCallback(&ConnectManager::ConnectionSucceeded, this),
@@ -105,32 +95,38 @@ void ConnectManager::CreateConnection(){
 
 void ConnectManager::ConnectionSucceeded(Ptr<Socket> socket){
     NS_LOG_FUNCTION(this);
-    if(!m_continue){
-        return;
-    }
+    m_retryCount = 0; // 接続成功時にリトライカウンタをリセット
+    NS_LOG_INFO("Connection succeeded");
     SendMessage();
 }
 
 void ConnectManager::ConnectionFailed(Ptr<Socket> socket){
     NS_LOG_FUNCTION(this);
 
-    NS_LOG_INFO("Connection Failed");
+    m_retryCount++;
+    NS_LOG_INFO("Connection Failed (Retry " << m_retryCount << "/" << m_maxRetries << ")");
+    
     if(m_socket){
         m_socket->Close();
         m_socket = nullptr;
     }
-    if(m_continue){
-        m_nextAccess = Simulator::Schedule(Seconds(1.0), &ConnectManager::CreateConnection, this);
+    if(m_retryCount < m_maxRetries && m_continue) {
+        // 指数バックオフでリトライ間隔を調整
+        double retryDelay = 0.5 * (1 << (m_retryCount - 1)); // 0.5s, 1s, 2s
+        NS_LOG_INFO("Retrying connection in " << retryDelay << " seconds");
+        m_nextAccess = Simulator::Schedule(Seconds(retryDelay), &ConnectManager::CreateConnection, this);
+    } else {
+        NS_LOG_INFO("Max retries exceeded, giving up connection");
+        m_continue = false;
     }
 }
 
 int ConnectManager::SendMessage(){
     NS_LOG_FUNCTION(this);
-    if(m_rttData.empty()){
+    if(m_rttData.empty())
         return 0;
-    }
     if(!m_socket){
-        NS_LOG_WARN("Socket is not available");
+        NS_LOG_WARN("Socket unavailable when trying to send");
         return 0;
     }
     Ptr<Node> node = m_client->GetNode();
@@ -139,8 +135,6 @@ int ConnectManager::SendMessage(){
     ss << id << "," << m_rttData;
     std::string mes = ss.str();
     int sent = m_socket->Send(reinterpret_cast<const uint8_t*>(mes.data()), mes.size(), 0);
-    m_socket->Close();
-    m_socket = nullptr;
     m_rttData.clear();
     return sent;
 }

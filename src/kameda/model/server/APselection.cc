@@ -18,6 +18,118 @@
 #include <climits>
 #include <fstream>
 #include <iomanip>
+#include <regex>
+
+namespace {
+
+struct APSetting
+{
+    int baseStations = 0;
+    int terminals = 0;
+    std::vector<int> capacities;
+    std::vector<double> initialRtt;
+};
+
+std::string Trim(const std::string& str)
+{
+    const auto begin = str.find_first_not_of(" \t\n\r");
+    if (begin == std::string::npos)
+    {
+        return "";
+    }
+    const auto end = str.find_last_not_of(" \t\n\r");
+    return str.substr(begin, end - begin + 1);
+}
+
+bool ExtractJsonInt(const std::string& content, const std::string& key, int& out)
+{
+    std::regex re("\\\"" + key + "\\\"\\s*:\\s*(\\d+)");
+    std::smatch match;
+    if (std::regex_search(content, match, re))
+    {
+        out = std::stoi(match[1]);
+        return true;
+    }
+    return false;
+}
+
+bool ExtractJsonArrayInt(const std::string& content, const std::string& key, std::vector<int>& out)
+{
+    std::regex re("\\\"" + key + "\\\"\\s*:\\s*\\[(.*?)\\]");
+    std::smatch match;
+    if (!std::regex_search(content, match, re))
+    {
+        return false;
+    }
+    std::stringstream ss(match[1].str());
+    std::string item;
+    out.clear();
+    while (std::getline(ss, item, ','))
+    {
+        item = Trim(item);
+        if (!item.empty())
+        {
+            out.push_back(std::stoi(item));
+        }
+    }
+    return !out.empty();
+}
+
+bool ExtractJsonArrayDouble(const std::string& content, const std::string& key, std::vector<double>& out)
+{
+    std::regex re("\\\"" + key + "\\\"\\s*:\\s*\\[(.*?)\\]");
+    std::smatch match;
+    if (!std::regex_search(content, match, re))
+    {
+        return false;
+    }
+    std::stringstream ss(match[1].str());
+    std::string item;
+    out.clear();
+    while (std::getline(ss, item, ','))
+    {
+        item = Trim(item);
+        if (!item.empty())
+        {
+            out.push_back(std::stod(item));
+        }
+    }
+    return !out.empty();
+}
+
+bool LoadAPSetting(const std::string& path, APSetting& setting)
+{
+    std::ifstream ifs(path);
+    if (ifs.fail())
+    {
+        std::cerr << "Failed to open setting config: " << path << std::endl;
+        return false;
+    }
+    std::string content((std::istreambuf_iterator<char>(ifs)), std::istreambuf_iterator<char>());
+    if (!ExtractJsonInt(content, "baseStations", setting.baseStations))
+    {
+        std::cerr << "Failed to parse baseStations" << std::endl;
+        return false;
+    }
+    if (!ExtractJsonInt(content, "terminals", setting.terminals))
+    {
+        std::cerr << "Failed to parse terminals" << std::endl;
+        return false;
+    }
+    if (!ExtractJsonArrayInt(content, "capacities", setting.capacities))
+    {
+        std::cerr << "Failed to parse capacities" << std::endl;
+        return false;
+    }
+    if (!ExtractJsonArrayDouble(content, "initialRttHungarian", setting.initialRtt))
+    {
+        std::cerr << "Failed to parse initialRttHungarian" << std::endl;
+        return false;
+    }
+    return true;
+}
+
+} // namespace
 
 namespace ns3{
 
@@ -54,32 +166,54 @@ void APselection::tmain(){
     std::cout << "m_APNum: " << m_APNum << std::endl;
     std::cout << "m_real_rtt size: " << m_real_rtt.size() << std::endl;
     
-    //実測RTTデータからlink_rtt生成
+    // 実測RTTデータから各APの平均RTTとTP値を計算
     m_link_rtt.resize(m_APNum);
+    init_rtt.clear();
+    init_rtt.resize(m_APNum);
+    init_tp.clear();
+    init_tp.resize(m_APNum);
+    
     for(int i=0; i<m_APNum; i++){
         double sum = 0.0;
         for(auto data : m_real_rtt[i]){
             sum += data;
         }
+        
         // ゼロ除算エラーを防ぐ
         if(m_real_rtt[i].size() > 0){
-            double ave = sum / static_cast<double>(m_real_rtt[i].size());
-            m_link_rtt[i] = ave;
-            // 実測値をinit_rttにも反映（master版のアルゴリズムで使用）
-            init_rtt[i] = ave;
+            double ave_rtt = sum / static_cast<double>(m_real_rtt[i].size());
+            m_link_rtt[i] = ave_rtt;
+            init_rtt[i] = ave_rtt;
+            
+            // 実測RTTからTP値を直接計算 (RTTが小さいほどTP値が大きくなる)
+            init_tp[i] = APConstants::INITIAL_TP_MULTIPLIER[0] / ave_rtt;
+            
             std::cout << "AP:" << i << "\tSUM:" << sum
-                    << "\tSIZE:" << m_real_rtt[i].size() << "\tAVE:" << ave << std::endl;
+                    << "\tSIZE:" << m_real_rtt[i].size() 
+                    << "\tAVE_RTT:" << ave_rtt << "ms"
+                    << "\tTP:" << init_tp[i] << "KB/s" << std::endl;
         } else {
-            // データがない場合はデフォルト値を設定
-            m_link_rtt[i] = init_rtt[i];  // 設定ファイルの値を使用
-            std::cout << "AP:" << i << "\tNo data - using config RTT: " << init_rtt[i] << "ms" << std::endl;
+            // データがない場合は設定ファイルの値を使用
+            double default_rtt = 50.0; // デフォルト値
+            if (!m_initialRtt.empty())
+            {
+                if (static_cast<size_t>(i) < m_initialRtt.size())
+                {
+                    default_rtt = m_initialRtt[i];
+                }
+                else
+                {
+                    default_rtt = m_initialRtt.back();
+                }
+            }
+            
+            m_link_rtt[i] = default_rtt;
+            init_rtt[i] = default_rtt;
+            init_tp[i] = APConstants::INITIAL_TP_MULTIPLIER[0] / default_rtt;
+            
+            std::cout << "AP:" << i << "\tNo data - using config RTT: " << default_rtt << "ms"
+                    << "\tTP:" << init_tp[i] << "KB/s" << std::endl;
         }
-    }
-    
-    // 初期TP値を再計算（実測RTTに基づく）
-    init_tp.clear();
-    for(double rtt : init_rtt) {
-        init_tp.push_back(APConstants::INITIAL_TP_MULTIPLIER[0] / rtt);
     }
     
     cal_need_rt();
@@ -99,9 +233,7 @@ void APselection::tmain(){
 
     // Greedy法との比較
     combi_greedy();
-    
-    // 結果をファイルに出力
-    result_output();
+
     
     std::cout << "=== APselection::tmain() END ===" << std::endl;
 }
@@ -135,50 +267,25 @@ void APselection::setData(std::string senderIpAddress, std::string recvMessage){
 void APselection::init(){
     NS_LOG_FUNCTION(this);
 
-    // setting.txtから基本パラメータを読み込み
-    std::string filename = "/home/sota/ns-3.30/TextData/setting.txt";
-    std::ifstream ifs(filename);
-    if(ifs.fail()){
-        std::cerr << "No Input File" << std::endl;
+    APSetting setting;
+    const std::string settingPath = "/home/sota/ns-3.44/TextData/setting.json";
+    if (!LoadAPSetting(settingPath, setting))
+    {
         return;
     }
-    int line = 1;   //n行目
-    std::string str;
-    while(std::getline(ifs, str)){
-        std::stringstream ss(str);
-        switch(line){
-            case 2:{     //基地局数
-                ss >> m_APNum;
-                aps = m_APNum;  // 新旧両方の変数を設定
-                break;}
-            case 4:{     //端末数
-                ss >> m_termNum;
-                terms = m_termNum;  // 新旧両方の変数を設定
-                break;}
-            case 8:{     //各基地局のRTT
-                std::vector<std::string> ret = split(str, ',');
-                for(auto r : ret){
-                    std::stringstream ss(r);
-                    double d; ss >> d;
-                    init_rtt.push_back(d);  // 初期RTTとして保存
-                }
-                break;}
-            case 6:{     //各基地局の収容数
-                std::vector<std::string> ret = split(str, ',');
-                for(auto r : ret){
-                    std::stringstream ss(r);
-                    int i; ss >> i;
-                    m_capa.push_back(i);
-                }
-                break;}
-            default:
-                ;
-        }
-        line++;
+    m_APNum = setting.baseStations;
+    aps = m_APNum;
+    m_termNum = setting.terminals;
+    terms = m_termNum;
+    m_capa = setting.capacities;
+    m_initialRtt = setting.initialRtt;
+    if (m_initialRtt.empty())
+    {
+        m_initialRtt.assign(m_APNum, 50.0);
     }
 
     // termData_1st.txtから端末のアプリケーション情報を読み込み
-    std::string filename_rand = "/home/sota/ns-3.30/TextData/termData_1st.txt";
+    std::string filename_rand = "/home/sota/ns-3.44/TextData/termData_1st.txt";
     std::ifstream ifs2(filename_rand);
     if(ifs2.fail()){
         std::cerr << "No Input File RAND" << std::endl;
@@ -211,10 +318,9 @@ void APselection::init(){
         }
     }
 
-    // 初期TP値を計算
-    init_tp.clear();
-    for(double rtt : init_rtt) {
-        init_tp.push_back(APConstants::INITIAL_TP_MULTIPLIER[0] / rtt);
+    std::cout << "=== 初期設定値 ===" << std::endl;
+    for(size_t i = 0; i < init_rtt.size(); i++){
+        std::cout << "AP:" << i << "\tRTT:" << init_rtt[i] << "ms\tTP:" << init_tp[i] << "KB/s" << std::endl;
     }
 
     // 接続時TP, RTTの増加量を設定
@@ -232,7 +338,6 @@ void APselection::init(){
 void APselection::cal_need_rt(){
     
     for(int i=0;i<terms;i++){
-        
         if(m_use_appli.at(i) == static_cast<int>(APConstants::AppType::BROWSER)){
             m_need.push_back(APConstants::BROWSER_REQUIRED_TP);   //ブラウザ（TP）
         }
@@ -515,18 +620,14 @@ int APselection::find_best_solution(const std::vector<HungarianResult>& results)
     return best_index;
 }
 
-// 最終結果の表示（ランダム/Greedyと同形式）
+// 最終結果の表示（監視端末用に簡略化）
 void APselection::display_final_results(const HungarianResult& final_result, int best_index) {
     std::cout << "\n===== ハンガリアン法による基地局割り当て =====" << "\n";
 
-    // 結果の配列表示
-    std::cout << "ハンガリアン法結果: [";
-    for(int i = 0; i < terms; i++){
-        std::cout << final_result.combiApTermArray[i] << " ";
-    }
-    std::cout << "]" << "\n";
+    // 監視端末方式では詳細な配列表示は不要（50台分の配列は長すぎる）
+    std::cout << "監視端末RTT値による最適化完了 (端末数: " << terms << "台)" << "\n";
 
-    // 各APの接続台数
+    // 各APの接続台数のみ表示
     std::vector<int> count_ap(aps, 0);
     for(int i = 0; i < terms; i++){
         int ap_id = final_result.combiApTermArray[i]; // 1ベース
@@ -701,13 +802,9 @@ void APselection::combi_greedy(){
 
 
 
-    // 結果表示
+    // 結果表示（監視端末用に簡略化）
     std::cout << "\n===== Greedy法による基地局割り当て =====" << "\n";
-    std::cout << "Greedy法結果: [";
-    for(int i = 0; i < terms; i++){
-        std::cout << greedy_solution[i] << " ";
-    }
-    std::cout << "]" << "\n";
+    std::cout << "監視端末RTT値によるGreedy法最適化完了 (端末数: " << terms << "台)" << "\n";
 
     std::cout << "各基地局接続台数: ";
     for(int j = 0; j < aps; j++){
@@ -719,15 +816,6 @@ void APselection::combi_greedy(){
     std::cout << "■ハンガリアン法の調和平均: " << std::fixed << std::setprecision(6) << m_best_solution_value[0] << "\n";
     double improvement = m_best_solution_value[0] / greedy_harmean;
     std::cout << "■性能向上率: " << std::fixed << std::setprecision(2) << improvement << "倍\n";
-}
-
-void APselection::result_output() {
-    std::cout << "\n===== 最終結果 =====" << std::endl;
-    std::cout << "シミュレーション完了時刻: " << Simulator::Now().GetSeconds() << "s" << std::endl;
-    std::cout << "基地局数: " << m_APNum << ", 端末数: " << m_termNum << std::endl;
-
-    
-    std::cout << "===== 結果出力完了 =====" << std::endl;
 }
 
 }

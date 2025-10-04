@@ -14,6 +14,8 @@
 #include "ns3/APselection.h"
 
 #include <fstream>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 namespace ns3{
 
@@ -83,10 +85,13 @@ void KamedaAppServer::StartApplication(){
         MakeCallback(&KamedaAppServer::HandleError, this));
 
     // RTTデータファイルを初期化（古いデータをクリア）
-    InitializeRttDataFile();
+    InitializeRttDataFile(); // ここで関数の呼び出し 
     
-    // タイムアウトを短縮して無限ループを防ぐ
-    Simulator::Schedule(Seconds(3), &KamedaAppServer::Ending, this); // 3秒後にEnding関数を呼び出す（最適化処理）
+    // バッチ処理対応：タイムアウト時間を最適化
+    // 監視端末方式: 3台の監視端末からのデータ収集完了を待つ（6.5秒で確実に実行）
+    std::cout << "=== Scheduling Ending() function at 6.5s ===" << std::endl;
+    Simulator::Schedule(Seconds(6.5), &KamedaAppServer::Ending, this); // 6.5秒後にEnding関数を呼び出す（監視端末対応）
+    std::cout << "=== Ending() function scheduled successfully ===" << std::endl;
 }
 
 void KamedaAppServer::StopApplication(){
@@ -104,7 +109,13 @@ void KamedaAppServer::HandleRead(Ptr<Socket> socket){
     [[maybe_unused]] int recvSize = socket->RecvFrom((uint8_t*)buf, sizeof(buf)/sizeof(char), 0, recvFrom);
 
     std::string recvMessage = buf;
-    std::cout << "Received message: 端末" << recvMessage << "ms" << std::endl;
+    
+    // 監視端末からのデータかチェック
+    if (recvMessage.find("MONITOR_AP") == 0) {
+        std::cout << "Received MONITOR message: " << recvMessage << std::endl;
+    } else {
+        std::cout << "Received message: 端末" << recvMessage << "ms" << std::endl;
+    }
 
     /*if(recvMessge.find("GET ", 0) != 0){
         NS_FATAL_ERROR("")
@@ -140,10 +151,71 @@ void KamedaAppServer::HandleRead(Ptr<Socket> socket){
     // オプション: JSON形式でも出力
     // WriteRttDataJSON(senderIpAddress, recvMessage);
     
-    // APselectionへRTTデータを送信
+    // 監視端末からのデータか通常端末からのデータかで処理を分岐
+    if (recvMessage.find("MONITOR_AP") == 0) {
+        // 監視端末からのデータを処理
+        ProcessMonitorData(senderIpAddress, recvMessage);
+    } else {
+        // 通常端末からのデータを処理
+        if(apselect) {
+            apselect->setData(senderIpAddress, recvMessage);
+        }
+    }
+}
+
+// 監視端末からのデータを処理
+void KamedaAppServer::ProcessMonitorData(std::string senderIpAddress, std::string recvMessage) {
+    std::cout << "=== KamedaAppServer::ProcessMonitorData() called ===" << std::endl;
+    std::cout << "Monitor IP: " << senderIpAddress << std::endl;
+    std::cout << "Monitor Message: " << recvMessage << std::endl;
+
+    // メッセージをパース: "MONITOR_AP1,331.667"
+    std::cout << "Original message: '" << recvMessage << "'" << std::endl;
+    std::vector<std::string> parts = SplitString(recvMessage, ",");
+    std::cout << "Split parts count: " << parts.size() << std::endl;
+    for (size_t i = 0; i < parts.size(); i++) {
+        std::cout << "Part[" << i << "]: '" << parts[i] << "'" << std::endl;
+    }
+    
+    if (parts.size() != 2) {
+        std::cout << "Invalid monitor message format" << std::endl;
+        return;
+    }
+
+    // AP番号を抽出: "MONITOR_AP1" -> "1"
+    std::string apPart = parts[0];
+    if (apPart.find("MONITOR_AP") != 0) {
+        std::cout << "Invalid monitor AP format" << std::endl;
+        return;
+    }
+    
+    std::string apNumStr = apPart.substr(10); // "MONITOR_AP"の長さは10
+    std::cout << "Extracted AP number string: '" << apNumStr << "'" << std::endl;
+    
+    if (apNumStr.empty()) {
+        std::cout << "Empty AP number string" << std::endl;
+        return;
+    }
+    
+    int apNo = std::stoi(apNumStr);
+    
+    // RTT値を抽出
+    double rttValue = std::stod(parts[1]);
+    
+    std::cout << "Processed Monitor Data: AP=" << apNo << ", RTT=" << rttValue << "ms" << std::endl;
+    
+    // APselectionに監視端末データを送信
     if(apselect) {
-        // APselectionにRTTデータを送信（setData関数を使用）
-        apselect->setData(senderIpAddress, recvMessage);
+        // 監視端末データを直接APselectionに送信
+        // IPアドレスを監視端末用に変換: "10.0.10.1" -> "10.1.0.1" (AP0の形式)
+        std::stringstream apIpAddress;
+        apIpAddress << "10.1." << apNo << ".1";
+        
+        std::stringstream monitorMsg;
+        monitorMsg << "MONITOR_" << apNo << "," << rttValue;
+        apselect->setData(apIpAddress.str(), monitorMsg.str());
+        
+        // Monitor data forwarded silently to reduce output
     }
 }
 
@@ -183,8 +255,16 @@ void KamedaAppServer::SERVER_LOG_INFO(std::string info){
 
 // RTTデータファイルを初期化（バイナリ形式）
 void KamedaAppServer::InitializeRttDataFile(){
+    // ディレクトリが存在しない場合は作成
+    std::string dir_path("/home/sota/ns-3.30/TextData");
+    struct stat info;
+    if(stat(dir_path.c_str(), &info) != 0 || !(info.st_mode & S_IFDIR)) {
+        mkdir(dir_path.c_str(), 0755);
+        std::cout << "Created directory: " << dir_path << std::endl;
+    }
+    
     // バイナリファイル初期化
-    std::string bin_filename("/home/sota/ns-3.30/master/data/rtt_output.bin");
+    std::string bin_filename("/home/sota/ns-3.30/TextData/rtt_output.bin");
     std::ofstream bin_ofs(bin_filename, std::ios::out | std::ios::binary | std::ios::trunc);
     
     if(bin_ofs.is_open()) {
@@ -248,12 +328,21 @@ void KamedaAppServer::WriteRttDataBinary(std::string senderIpAddress, std::strin
     // RTTレコード作成
     RTTRecord record;
     record.timestamp = Simulator::Now().GetSeconds();
-    record.terminal_id = static_cast<uint32_t>(std::stoi(msgParts[0]));
+    
+    // 監視端末の場合は特別な処理
+    if (msgParts[0].find("MONITOR_AP") == 0) {
+        // 監視端末の場合、terminal_idはAP番号をベースにした特別なID
+        record.terminal_id = static_cast<uint32_t>(1000 + apNo); // 1000番台を監視端末用に使用
+    } else {
+        // 通常の端末の場合
+        record.terminal_id = static_cast<uint32_t>(std::stoi(msgParts[0]));
+    }
+    
     record.ap_id = static_cast<uint32_t>(apNo);
     record.rtt_value = rttValue;
 
     // バイナリファイルに高速書き込み
-    std::string filename("/home/sota/ns-3.30/master/data/rtt_output.bin");
+    std::string filename("/home/sota/ns-3.30/TextData/rtt_output.bin");
     std::ofstream ofs(filename, std::ios::out | std::ios::binary | std::ios::app);
     
     if(ofs.is_open()) {
@@ -320,7 +409,7 @@ std::vector<std::string> KamedaAppServer::SplitString(const std::string &input, 
 }
 
 void KamedaAppServer::Ending(){
-    std::cout << "=== KamedaAppServer::Ending() called ===" << std::endl;
+    std::cout << "=== KamedaAppServer::Ending() called at " << Simulator::Now().GetSeconds() << "s ===" << std::endl;
     
     // JSON形式を完成させる
     // FinalizeJSONFile();
@@ -336,6 +425,7 @@ void KamedaAppServer::Ending(){
     }
     
     std::cout << "=== KamedaAppServer::Ending() completed ===" << std::endl;
+    Simulator::Stop();
 }
 
 // JSON形式ファイルを完成させる
@@ -355,7 +445,7 @@ void KamedaAppServer::FinalizeJSONFile(){
 void KamedaAppServer::OutputRttStatisticsFromBinary(){
     std::cout << "=== Reading RTT data from binary file ===" << std::endl;
     
-    std::string filename("/home/sota/ns-3.30/master/data/rtt_output.bin");
+    std::string filename("/home/sota/ns-3.30/TextData/rtt_output.bin");
     std::ifstream ifs(filename, std::ios::in | std::ios::binary);
     
     if(!ifs.is_open()) {

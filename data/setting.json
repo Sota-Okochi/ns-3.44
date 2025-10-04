@@ -1,0 +1,14 @@
+{
+  "baseStations": 3,
+  "terminals": 20,
+  "capacities": [
+    100,
+    100,
+    100
+  ],
+  "initialRttHungarian": [
+    20.0,
+    30.0,
+    32.0
+  ]
+}

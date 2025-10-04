@@ -43,6 +43,10 @@ private:
     std::string m_rttData;
 
     std::vector<std::string> m_rttDatas;
+    
+    // リトライ機能用メンバー変数
+    int m_retryCount;
+    int m_maxRetries;
 
 };
 

@@ -1,10 +1,67 @@
 
 
 #include "NetSim.h"
+#include <regex>
 
 NS_LOG_COMPONENT_DEFINE("researchMain");
 
-#define	PROG_DIR	"/home/sota/ns-3.44/TextData/"
+#define INPUT_DIR	"/home/sota/ns-3.44/data/"
+#define OUTPUT_DIR	"/home/sota/ns-3.44/TextData/"
+
+namespace {
+
+struct BaselineSetting
+{
+    int baseStations = 0;
+    int terminals = 0;
+};
+
+std::string Trim(const std::string& str)
+{
+    const auto begin = str.find_first_not_of(" \t\n\r");
+    if (begin == std::string::npos)
+    {
+        return "";
+    }
+    const auto end = str.find_last_not_of(" \t\n\r");
+    return str.substr(begin, end - begin + 1);
+}
+
+bool ExtractJsonInt(const std::string& content, const std::string& key, int& out)
+{
+    std::regex re("\\\"" + key + "\\\"\\s*:\\s*(\\d+)");
+    std::smatch match;
+    if (std::regex_search(content, match, re))
+    {
+        out = std::stoi(match[1]);
+        return true;
+    }
+    return false;
+}
+
+bool LoadBaselineSetting(const std::string& path, BaselineSetting& setting)
+{
+    std::ifstream ifs(path);
+    if (ifs.fail())
+    {
+        std::cerr << "Failed to open setting config: " << path << std::endl;
+        return false;
+    }
+    std::string content((std::istreambuf_iterator<char>(ifs)), std::istreambuf_iterator<char>());
+    if (!ExtractJsonInt(content, "baseStations", setting.baseStations))
+    {
+        std::cerr << "Failed to parse baseStations from setting config" << std::endl;
+        return false;
+    }
+    if (!ExtractJsonInt(content, "terminals", setting.terminals))
+    {
+        std::cerr << "Failed to parse terminals from setting config" << std::endl;
+        return false;
+    }
+    return true;
+}
+
+} // namespace
 
 namespace ns3 {
 
@@ -26,17 +83,17 @@ static void PingRtt (uint16_t seq, Time rtt)
 {
     std::string filename;
     if(G_nth == 1){
-        filename = DATA_DIR + "outputData_1st.txt";
+        filename = std::string(OUTPUT_DIR) + "outputData_1st.txt";
     }else if(G_nth == 2){
-        filename = DATA_DIR + "outputData_2nd.txt";
+        filename = std::string(OUTPUT_DIR) + "outputData_2nd.txt";
     }else if(G_nth == 3){
-        filename = DATA_DIR + "outputData_hungarian.txt";
-    }else{
+        filename = std::string(OUTPUT_DIR) + "outputData_hungarian.txt";
+    }else{  
         std::cerr << "nth error in PingRtt" << std::endl;
     }
 
     std::ofstream ofs(filename, std::ios::app);
-    ofs << seq << " " << rtt.GetMilliSeconds() << std::endl;
+  ofs << seq << " " << rtt.GetMilliSeconds() << std::endl;
 }
 
 NetSim::NetSim(){
@@ -60,34 +117,23 @@ void NetSim::Init(int argc, char *argv[]){
     G_nth = m_nth;
 
     //APと端末の数
-    std::string filename = DATA_DIR + "setting.txt";
-    std::ifstream ifs(filename);
-    if(ifs.fail()){
-        std::cerr << "No Input File" << std::endl;
+    BaselineSetting setting;
+    const std::string settingPath = std::string(INPUT_DIR) + "setting.json";
+    if (!LoadBaselineSetting(settingPath, setting))
+    {
         return;
     }
-    int line = 1;   //n行目
-    std::string str;
-    while(std::getline(ifs, str)){
-        std::stringstream ss(str);
-        if(4 < line ){    //5行目以降
-            break;
-        }else if(line == 2){     //2行目
-            ss >> wifiAPNum;
-        }else if(line == 4){    //4行目
-            ss >> termNum;
-        }
-        line++;
-    }
+    wifiAPNum = static_cast<uint32_t>(setting.baseStations);
+    termNum = static_cast<uint32_t>(setting.terminals);
 
     //端末データの読み込み
     std::string filename2;
     if(m_nth == 1){
-        filename2 = DATA_DIR + "termData_1st.txt";
+        filename2 = std::string(INPUT_DIR) + "termData_1st.txt";
     }else if(m_nth == 2){
-        filename2 = DATA_DIR + "termData_2nd.txt";
+        filename2 = std::string(INPUT_DIR) + "termData_2nd.txt";
     }else if(m_nth == 3){
-        filename2 = DATA_DIR + "reconnect_hungarian.txt";
+        filename2 = std::string(INPUT_DIR) + "reconnect_hungarian.txt";
     }else{
         std::cerr << "nth error" << std::endl;
     }
@@ -210,7 +256,7 @@ void NetSim::ConfigureDataLinkLayer(){
     csma.SetChannelAttribute ("DataRate", StringValue ("1Gbps"));
     csma.SetChannelAttribute ("Delay"   , StringValue("0.5ms"));
     csmaDevices = csma.Install (csmaNodes);
-    std::string csmast = std::string(PROG_DIR) + "csma";
+    std::string csmast = std::string(OUTPUT_DIR) + "csma";
     csma.EnablePcapAll(csmast);
 }
 
@@ -244,7 +290,7 @@ void NetSim::ConfigureWifi(uint32_t count){ //count is wifiAP number
         wifiDevices[count].Add(temp);
     }
     std::stringstream ss;
-    ss << PROG_DIR << "wifi" << count;
+    ss << OUTPUT_DIR << "wifi" << count;
     //phy.EnablePcapAll(ss.str());
 }
 
@@ -278,7 +324,7 @@ void NetSim::ConfigureLTE(uint32_t count){ //count is wifiAP number
         wifiDevices[count].Add(temp);
     }
     std::stringstream ss;
-    ss << PROG_DIR << "wifi" << count;
+    ss << OUTPUT_DIR << "wifi" << count;
     //phy.EnablePcapAll(ss.str());
 }
 
@@ -360,7 +406,7 @@ void NetSim::ConfigureP2P(uint32_t count){
     csma.SetChannelAttribute ("Delay"   , StringValue("0.1ms"));
     p2pDevices[count] = csma.Install (p2pNodes[count]);
     std::stringstream ss;
-    ss << PROG_DIR << "pointToPoint" << count;
+    ss << OUTPUT_DIR << "pointToPoint" << count;
     //pointToPoint.EnablePcapAll(ss.str());
     csma.EnablePcapAll(ss.str());
 }
@@ -493,7 +539,7 @@ void NetSim::SetVideoApp(void){
         udpServer = UdpServerHelper(multicast_port);
         serverApps = udpServer.Install(server_udpVideo);
 
-        std::string traceFile = std::string(PROG_DIR) + "Verbose_Jurassic.dat";
+        std::string traceFile = std::string(INPUT_DIR) + "Verbose_Jurassic.dat";
         UdpTraceClientHelper udpClient(server_udpVideo->GetObject<Ipv4>()->GetAddress(1,0).GetLocal(), multicast_port, traceFile);
 
         ApplicationContainer videoClientApps;
@@ -509,8 +555,7 @@ void NetSim::SetGreedy(void){
     NS_LOG_INFO("Set Greedy");
 
 #if 0
-    Ipv4Address destAddr = server_ping->GetObject<Ipv4>()->GetAddress(1,0).GetLocal();
-    PingHelper ping(destAddr);
+    PingHelper ping = PingHelper(InetSocketAddress(server_ping->GetObject<Ipv4>()->GetAddress(1,0).GetLocal(), 0));
     ping.SetAttribute("Interval", TimeValue(MilliSeconds(500)));
     ping.SetAttribute("Size", UintegerValue(1400));
     NodeContainer pingers;
@@ -572,7 +617,6 @@ void NetSim::RunSim(){
     SetAppLayer();
 
     std::cout << "=====Simulator::Start()=====" << std::endl;
-    Simulator::Stop(Seconds(5.0));
     Simulator::Run();
     Simulator::Destroy();
     std::cout << "=====Simulator::End()=====" << std::endl;
