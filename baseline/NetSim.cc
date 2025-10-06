@@ -14,6 +14,8 @@ struct BaselineSetting
 {
     int baseStations = 0;
     int terminals = 0;
+    std::vector<int> capacities;
+    std::vector<double> initialRtt;
 };
 
 std::string Trim(const std::string& str)
@@ -39,6 +41,50 @@ bool ExtractJsonInt(const std::string& content, const std::string& key, int& out
     return false;
 }
 
+bool ExtractJsonArrayInt(const std::string& content, const std::string& key, std::vector<int>& out)
+{
+    std::regex re("\\\"" + key + "\\\"\\s*:\\s*\\[([^\\]]*)\\]");
+    std::smatch match;
+    if (!std::regex_search(content, match, re))
+    {
+        return false;
+    }
+    std::stringstream ss(match[1].str());
+    std::string item;
+    out.clear();
+    while (std::getline(ss, item, ','))
+    {
+        item = Trim(item);
+        if (!item.empty())
+        {
+            out.push_back(std::stoi(item));
+        }
+    }
+    return !out.empty();
+}
+
+bool ExtractJsonArrayDouble(const std::string& content, const std::string& key, std::vector<double>& out)
+{
+    std::regex re("\\\"" + key + "\\\"\\s*:\\s*\\[([^\\]]*)\\]");
+    std::smatch match;
+    if (!std::regex_search(content, match, re))
+    {
+        return false;
+    }
+    std::stringstream ss(match[1].str());
+    std::string item;
+    out.clear();
+    while (std::getline(ss, item, ','))
+    {
+        item = Trim(item);
+        if (!item.empty())
+        {
+            out.push_back(std::stod(item));
+        }
+    }
+    return !out.empty();
+}
+
 bool LoadBaselineSetting(const std::string& path, BaselineSetting& setting)
 {
     std::ifstream ifs(path);
@@ -57,6 +103,22 @@ bool LoadBaselineSetting(const std::string& path, BaselineSetting& setting)
     {
         std::cerr << "Failed to parse terminals from setting config" << std::endl;
         return false;
+    }
+    if (!ExtractJsonArrayInt(content, "capacities", setting.capacities))
+    {
+        setting.capacities.assign(setting.baseStations, 100);
+    }
+    if (!ExtractJsonArrayDouble(content, "initialRttHungarian", setting.initialRtt))
+    {
+        setting.initialRtt.assign(setting.baseStations, 50.0);
+    }
+    if (setting.capacities.size() < static_cast<size_t>(setting.baseStations))
+    {
+        setting.capacities.resize(setting.baseStations, 100);
+    }
+    if (setting.initialRtt.size() < static_cast<size_t>(setting.baseStations))
+    {
+        setting.initialRtt.resize(setting.baseStations, 50.0);
     }
     return true;
 }
@@ -126,6 +188,11 @@ void NetSim::Init(int argc, char *argv[]){
     wifiAPNum = static_cast<uint32_t>(setting.baseStations);
     termNum = static_cast<uint32_t>(setting.terminals);
 
+    m_apSelectionInput.baseStations = setting.baseStations;
+    m_apSelectionInput.terminals = setting.terminals;
+    m_apSelectionInput.capacities = setting.capacities;
+    m_apSelectionInput.initialRtt = setting.initialRtt;
+
     //端末データの読み込み
     std::string filename2;
     if(m_nth == 1){
@@ -164,6 +231,7 @@ void NetSim::Init(int argc, char *argv[]){
             data.y = 0.0;
         }
         m_termData.push_back(data);
+        m_apSelectionInput.useAppli.push_back(data.use_appli);
     }
 }
 
@@ -479,7 +547,7 @@ void NetSim::SetKamedaModule(void){
 
     // サーバのインストール
     NS_LOG_LOGIC("install server app");
-    Ptr<KamedaAppServer> appServer = Create<KamedaAppServer>();
+    Ptr<KamedaAppServer> appServer = CreateObject<KamedaAppServer>(m_apSelectionInput);
     server_rtt->AddApplication(appServer);
     appServer->SetStartTime(Seconds(1.0));
     appServer->SetStopTime(Seconds(5.0));

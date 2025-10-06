@@ -13,7 +13,7 @@ namespace ns3 {
 class KamedaAppServer : public Application{
 
 public:
-    KamedaAppServer();
+    explicit KamedaAppServer(const ApSelectionInput& input);
     virtual ~KamedaAppServer();
 
 protected:
@@ -36,6 +36,7 @@ private:
 
     bool m_file_out;
     Ptr<APselection> apselect;
+    ApSelectionInput m_input;
     void Ending();
     
     // RTTデータの高速出力関連の関数

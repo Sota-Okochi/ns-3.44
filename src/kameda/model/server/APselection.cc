@@ -18,118 +18,6 @@
 #include <climits>
 #include <fstream>
 #include <iomanip>
-#include <regex>
-
-namespace {
-
-struct APSetting
-{
-    int baseStations = 0;
-    int terminals = 0;
-    std::vector<int> capacities;
-    std::vector<double> initialRtt;
-};
-
-std::string Trim(const std::string& str)
-{
-    const auto begin = str.find_first_not_of(" \t\n\r");
-    if (begin == std::string::npos)
-    {
-        return "";
-    }
-    const auto end = str.find_last_not_of(" \t\n\r");
-    return str.substr(begin, end - begin + 1);
-}
-
-bool ExtractJsonInt(const std::string& content, const std::string& key, int& out)
-{
-    std::regex re("\\\"" + key + "\\\"\\s*:\\s*(\\d+)");
-    std::smatch match;
-    if (std::regex_search(content, match, re))
-    {
-        out = std::stoi(match[1]);
-        return true;
-    }
-    return false;
-}
-
-bool ExtractJsonArrayInt(const std::string& content, const std::string& key, std::vector<int>& out)
-{
-    std::regex re("\\\"" + key + "\\\"\\s*:\\s*\\[(.*?)\\]");
-    std::smatch match;
-    if (!std::regex_search(content, match, re))
-    {
-        return false;
-    }
-    std::stringstream ss(match[1].str());
-    std::string item;
-    out.clear();
-    while (std::getline(ss, item, ','))
-    {
-        item = Trim(item);
-        if (!item.empty())
-        {
-            out.push_back(std::stoi(item));
-        }
-    }
-    return !out.empty();
-}
-
-bool ExtractJsonArrayDouble(const std::string& content, const std::string& key, std::vector<double>& out)
-{
-    std::regex re("\\\"" + key + "\\\"\\s*:\\s*\\[(.*?)\\]");
-    std::smatch match;
-    if (!std::regex_search(content, match, re))
-    {
-        return false;
-    }
-    std::stringstream ss(match[1].str());
-    std::string item;
-    out.clear();
-    while (std::getline(ss, item, ','))
-    {
-        item = Trim(item);
-        if (!item.empty())
-        {
-            out.push_back(std::stod(item));
-        }
-    }
-    return !out.empty();
-}
-
-bool LoadAPSetting(const std::string& path, APSetting& setting)
-{
-    std::ifstream ifs(path);
-    if (ifs.fail())
-    {
-        std::cerr << "Failed to open setting config: " << path << std::endl;
-        return false;
-    }
-    std::string content((std::istreambuf_iterator<char>(ifs)), std::istreambuf_iterator<char>());
-    if (!ExtractJsonInt(content, "baseStations", setting.baseStations))
-    {
-        std::cerr << "Failed to parse baseStations" << std::endl;
-        return false;
-    }
-    if (!ExtractJsonInt(content, "terminals", setting.terminals))
-    {
-        std::cerr << "Failed to parse terminals" << std::endl;
-        return false;
-    }
-    if (!ExtractJsonArrayInt(content, "capacities", setting.capacities))
-    {
-        std::cerr << "Failed to parse capacities" << std::endl;
-        return false;
-    }
-    if (!ExtractJsonArrayDouble(content, "initialRttHungarian", setting.initialRtt))
-    {
-        std::cerr << "Failed to parse initialRttHungarian" << std::endl;
-        return false;
-    }
-    return true;
-}
-
-} // namespace
 
 namespace ns3{
 
@@ -264,72 +152,51 @@ void APselection::setData(std::string senderIpAddress, std::string recvMessage){
     std::cout << "Data stored: AP=" << apNo << ", RTT=" << d << "ms" << std::endl;
 }
 
-void APselection::init(){
+void APselection::init(const ApSelectionInput& input){
     NS_LOG_FUNCTION(this);
 
-    APSetting setting;
-    const std::string settingPath = "/home/sota/ns-3.44/TextData/setting.json";
-    if (!LoadAPSetting(settingPath, setting))
-    {
-        return;
-    }
-    m_APNum = setting.baseStations;
+    m_input = input;
+    m_isInitialized = true;
+
+    m_APNum = input.baseStations;
     aps = m_APNum;
-    m_termNum = setting.terminals;
+    m_termNum = input.terminals;
     terms = m_termNum;
-    m_capa = setting.capacities;
-    m_initialRtt = setting.initialRtt;
+    m_capa = input.capacities;
+    if (m_capa.size() < static_cast<size_t>(aps))
+    {
+        m_capa.resize(aps, APConstants::DEFAULT_AP_CAPACITY);
+    }
+
+    m_initialRtt = input.initialRtt;
     if (m_initialRtt.empty())
     {
-        m_initialRtt.assign(m_APNum, 50.0);
+        m_initialRtt.assign(aps, 50.0);
+    }
+    else if (m_initialRtt.size() < static_cast<size_t>(aps))
+    {
+        m_initialRtt.resize(aps, m_initialRtt.back());
     }
 
-    // termData_1st.txtから端末のアプリケーション情報を読み込み
-    std::string filename_rand = "/home/sota/ns-3.44/TextData/termData_1st.txt";
-    std::ifstream ifs2(filename_rand);
-    if(ifs2.fail()){
-        std::cerr << "No Input File RAND" << std::endl;
-        // ファイルがない場合は乱数で生成
-        std::random_device rd;
-        std::mt19937 gen(rd());
-        std::uniform_int_distribution<> app_dist(static_cast<int>(APConstants::AppType::BROWSER), 
-                                               static_cast<int>(APConstants::AppType::LIVE_STREAM));
-        
-        std::cout << "===== 各端末のアプリケーション（乱数生成） =====\n";
-        std::cout << "[";
-        for(int i = 0; i < terms; i++) {
-            int app_num = app_dist(gen);
-            m_use_appli.push_back(app_num);
-            std::cout << m_use_appli[i];
-            if(i < terms - 1) std::cout << ", ";
-        }
-        std::cout << "]\n";
-    } else {
-        int line_count = 0;
-        for(std::string line; std::getline(ifs2, line); ){
-            line_count++;
-            std::vector<std::string> cuts = splitString(line, " ");
-            if(cuts.size() < 2) {
-                continue;
-            }
-            std::stringstream ss(cuts.at(1));
-            int temp; ss >> temp;
-            m_use_appli.push_back(temp);
-        }
+    m_use_appli = input.useAppli;
+    if (m_use_appli.size() < static_cast<size_t>(terms))
+    {
+        m_use_appli.resize(terms, static_cast<int>(APConstants::AppType::BROWSER));
     }
 
-    std::cout << "=== 初期設定値 ===" << std::endl;
-    for(size_t i = 0; i < init_rtt.size(); i++){
-        std::cout << "AP:" << i << "\tRTT:" << init_rtt[i] << "ms\tTP:" << init_tp[i] << "KB/s" << std::endl;
-    }
-
-    // 接続時TP, RTTの増加量を設定
     incRTT.assign(aps, APConstants::RTT_INCREASE_PER_TERMINAL);
     incTP.assign(aps, APConstants::TP_DECREASE_PER_TERMINAL);
 
-    // 実測RTTデータ用の配列を初期化
-    m_real_rtt.resize(m_APNum);
-    
+    init_rtt.assign(aps, 0.0);
+    init_tp.assign(aps, 0.0);
+    m_real_rtt.clear();
+    m_real_rtt.resize(aps);
+
+    std::cout << "=== 初期設定値 ===" << std::endl;
+    for(int i = 0; i < aps; i++){
+        std::cout << "AP:" << i << "\tRTT:" << m_initialRtt[i] << "ms\tTP:" << (APConstants::INITIAL_TP_MULTIPLIER[0] / m_initialRtt[i]) << "KB/s" << std::endl;
+    }
+
     std::cout << "=== APselection::init() completed ===" << std::endl;
     std::cout << "APs: " << m_APNum << ", Terms: " << m_termNum << std::endl;
 }

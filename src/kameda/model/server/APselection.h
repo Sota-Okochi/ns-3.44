@@ -53,6 +53,14 @@ namespace APConstants {
     constexpr double MAX_SATISFACTION = 100.0;
 }
 
+struct ApSelectionInput {
+    int baseStations = APConstants::DEFAULT_ACCESS_POINTS;
+    int terminals = APConstants::DEFAULT_TERMINALS;
+    std::vector<int> capacities;
+    std::vector<double> initialRtt;
+    std::vector<int> useAppli;
+};
+
 // PythonのhungarianResult相当の構造体
 struct HungarianResult {
     double maxSum;
@@ -68,7 +76,7 @@ class APselection : public Object{
 public:
     APselection();
     virtual ~APselection();
-    void init();
+    void init(const ApSelectionInput& input);
     void tmain();
     void setData(std::string senderIpAddress, std::string recvMessage);
     
@@ -123,6 +131,8 @@ private:
     std::vector<std::vector<int> > m_num_ap_access; //APに接続する端末数（RTT, TP計算用）
 
     std::vector<double> m_initialRtt;   // JSONから読み込んだ初期RTT
+    ApSelectionInput m_input;
+    bool m_isInitialized = false;
     
     std::vector<int> m_best_solution;           //重み最小解
     std::vector<double> m_best_solution_value;  //重み最小解の重み・分散

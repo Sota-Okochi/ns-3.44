@@ -29,15 +29,17 @@ struct RTTRecord {
     double rtt_value;
 };
 
-KamedaAppServer::KamedaAppServer(){
+KamedaAppServer::KamedaAppServer(const ApSelectionInput& input)
+    : m_input(input)
+{
     NS_LOG_FUNCTION(this);
 
     m_listeningPort = 8080;
     m_socket = NULL;
     m_file_out = false; // ファイル出力を無効化
-    // APselectionを有効化
-    apselect = Create<APselection>();
-    apselect->init();
+    // APselectionを有効化（外部から渡された設定を利用）
+    apselect = CreateObject<APselection>();
+    apselect->init(m_input);
 }
 
 KamedaAppServer::~KamedaAppServer(){
@@ -243,7 +245,7 @@ void KamedaAppServer::SERVER_LOG_INFO(std::string info){
     ss << "NODE_ID:" << GetNode()->GetId();
 
     if(m_file_out){
-        std::string filename("/home/sota/ns-3.30/TextData/server_log.txt");
+        std::string filename("/home/sota/ns-3.44/TextData/server_log.txt");
         std::ofstream ofs(filename, std::ios::out | std::ios::app);
         ofs << "SERVER_LOG_INFO" << "[" << ss.str() << "] " <<
                     Simulator::Now().GetSeconds() << "[s] " << info << std::endl;
@@ -256,7 +258,7 @@ void KamedaAppServer::SERVER_LOG_INFO(std::string info){
 // RTTデータファイルを初期化（バイナリ形式）
 void KamedaAppServer::InitializeRttDataFile(){
     // ディレクトリが存在しない場合は作成
-    std::string dir_path("/home/sota/ns-3.30/TextData");
+    std::string dir_path("/home/sota/ns-3.44/TextData");
     struct stat info;
     if(stat(dir_path.c_str(), &info) != 0 || !(info.st_mode & S_IFDIR)) {
         mkdir(dir_path.c_str(), 0755);
@@ -264,8 +266,8 @@ void KamedaAppServer::InitializeRttDataFile(){
     }
     
     // バイナリファイル初期化
-    std::string bin_filename("/home/sota/ns-3.30/TextData/rtt_output.bin");
-    std::ofstream bin_ofs(bin_filename, std::ios::out | std::ios::binary | std::ios::trunc);
+    std::string bin_filename("/home/sota/ns-3.44/TextData/rtt_output.bin");
+    std::ofstream bin_ofs(bin_filename, std::ios::out | std::ios::binary | std::ios::trunc);        
     
     if(bin_ofs.is_open()) {
         // ヘッダー情報をバイナリで書き込み
@@ -342,7 +344,7 @@ void KamedaAppServer::WriteRttDataBinary(std::string senderIpAddress, std::strin
     record.rtt_value = rttValue;
 
     // バイナリファイルに高速書き込み
-    std::string filename("/home/sota/ns-3.30/TextData/rtt_output.bin");
+    std::string filename("/home/sota/ns-3.44/TextData/rtt_output.bin");
     std::ofstream ofs(filename, std::ios::out | std::ios::binary | std::ios::app);
     
     if(ofs.is_open()) {
@@ -372,7 +374,7 @@ void KamedaAppServer::WriteRttDataJSON(std::string senderIpAddress, std::string 
     double rttValue; ss2 >> rttValue;
 
     // JSON形式で追記
-    std::string filename("/home/sota/ns-3.30/master/data/rtt_output.json");
+    std::string filename("/home/sota/ns-3.44/master/data/rtt_output.json");
     std::ofstream ofs(filename, std::ios::out | std::ios::app);
     
     if(ofs.is_open()) {
@@ -430,7 +432,7 @@ void KamedaAppServer::Ending(){
 
 // JSON形式ファイルを完成させる
 void KamedaAppServer::FinalizeJSONFile(){
-    std::string filename("/home/sota/ns-3.30/master/data/rtt_output.json");
+    std::string filename("/home/sota/ns-3.44/master/data/rtt_output.json");
     std::ofstream ofs(filename, std::ios::out | std::ios::app);
     
     if(ofs.is_open()) {
@@ -445,7 +447,7 @@ void KamedaAppServer::FinalizeJSONFile(){
 void KamedaAppServer::OutputRttStatisticsFromBinary(){
     std::cout << "=== Reading RTT data from binary file ===" << std::endl;
     
-    std::string filename("/home/sota/ns-3.30/TextData/rtt_output.bin");
+    std::string filename("/home/sota/ns-3.44/TextData/rtt_output.bin");
     std::ifstream ifs(filename, std::ios::in | std::ios::binary);
     
     if(!ifs.is_open()) {

@@ -14,6 +14,7 @@
 #include "ns3/lte-module.h"
 #include "ns3/KamedaAppClient.h"
 #include "ns3/KamedaAppServer.h"
+#include "ns3/APselection.h"
 #include "ns3/waypoint-mobility-model.h"
 #include "ns3/APMonitorTerminal.h"
 
@@ -102,6 +103,7 @@ private:
     std::vector<Ptr<Node> > monitorTerminals;
 
     std::vector<TermData> m_termData;
+    ApSelectionInput m_apSelectionInput;
 
     std::vector<std::string> split(const std::string& input, char delimiter)
 {
