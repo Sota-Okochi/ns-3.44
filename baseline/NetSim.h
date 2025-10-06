@@ -28,7 +28,7 @@
 namespace ns3 {
 
 extern int G_nth;
-const std::string DATA_DIR = "/home/sota/ns-3.44/TextData/";
+const std::string DATA_DIR = "/home/sota/ns-3.44/OUTPUT/";
 
 enum APID{
     LTE = 0,

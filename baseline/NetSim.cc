@@ -6,7 +6,7 @@
 NS_LOG_COMPONENT_DEFINE("researchMain");
 
 #define INPUT_DIR	"/home/sota/ns-3.44/data/"
-#define OUTPUT_DIR	"/home/sota/ns-3.44/TextData/"
+#define OUTPUT_DIR	"/home/sota/ns-3.44/OUTPUT/"
 
 namespace {
 

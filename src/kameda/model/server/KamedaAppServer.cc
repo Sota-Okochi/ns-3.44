@@ -245,7 +245,7 @@ void KamedaAppServer::SERVER_LOG_INFO(std::string info){
     ss << "NODE_ID:" << GetNode()->GetId();
 
     if(m_file_out){
-        std::string filename("/home/sota/ns-3.44/TextData/server_log.txt");
+        std::string filename("/home/sota/ns-3.44/OUTPUT/server_log.txt");
         std::ofstream ofs(filename, std::ios::out | std::ios::app);
         ofs << "SERVER_LOG_INFO" << "[" << ss.str() << "] " <<
                     Simulator::Now().GetSeconds() << "[s] " << info << std::endl;
@@ -258,7 +258,7 @@ void KamedaAppServer::SERVER_LOG_INFO(std::string info){
 // RTTデータファイルを初期化（バイナリ形式）
 void KamedaAppServer::InitializeRttDataFile(){
     // ディレクトリが存在しない場合は作成
-    std::string dir_path("/home/sota/ns-3.44/TextData");
+    std::string dir_path("/home/sota/ns-3.44/OUTPUT");
     struct stat info;
     if(stat(dir_path.c_str(), &info) != 0 || !(info.st_mode & S_IFDIR)) {
         mkdir(dir_path.c_str(), 0755);
@@ -266,7 +266,7 @@ void KamedaAppServer::InitializeRttDataFile(){
     }
     
     // バイナリファイル初期化
-    std::string bin_filename("/home/sota/ns-3.44/TextData/rtt_output.bin");
+    std::string bin_filename("/home/sota/ns-3.44/OUTPUT/rtt_output.bin");
     std::ofstream bin_ofs(bin_filename, std::ios::out | std::ios::binary | std::ios::trunc);        
     
     if(bin_ofs.is_open()) {
@@ -344,7 +344,7 @@ void KamedaAppServer::WriteRttDataBinary(std::string senderIpAddress, std::strin
     record.rtt_value = rttValue;
 
     // バイナリファイルに高速書き込み
-    std::string filename("/home/sota/ns-3.44/TextData/rtt_output.bin");
+    std::string filename("/home/sota/ns-3.44/OUTPUT/rtt_output.bin");
     std::ofstream ofs(filename, std::ios::out | std::ios::binary | std::ios::app);
     
     if(ofs.is_open()) {
@@ -447,7 +447,7 @@ void KamedaAppServer::FinalizeJSONFile(){
 void KamedaAppServer::OutputRttStatisticsFromBinary(){
     std::cout << "=== Reading RTT data from binary file ===" << std::endl;
     
-    std::string filename("/home/sota/ns-3.44/TextData/rtt_output.bin");
+    std::string filename("/home/sota/ns-3.44/OUTPUT/rtt_output.bin");
     std::ifstream ifs(filename, std::ios::in | std::ios::binary);
     
     if(!ifs.is_open()) {

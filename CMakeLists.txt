@@ -183,15 +183,10 @@ process_options()
 # Build NS3 library core
 add_subdirectory(src)
 
-# Build NS library examples
-add_subdirectory(examples)
 
 # Build scratch/simulation scripts
 add_subdirectory(baseline)
-add_subdirectory(scratch)
 
-# Build test utils
-add_subdirectory(utils)
 
 write_lock()
 write_configtable()
