@@ -26,7 +26,7 @@ PYTHON = ['/usr/bin/python3']
 VALGRIND_FOUND = False 
 
 
-ns3_runnable_programs = ['/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/build/baseline/ns3.44-baseline-default', '/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/build/src/tap-bridge/ns3.44-tap-creator-default', '/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/build/src/fd-net-device/ns3.44-tap-device-creator-default', '/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/build/src/fd-net-device/ns3.44-raw-sock-creator-default', ]
+ns3_runnable_programs = ['/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/build/master/ns3.44-master-default', '/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/build/src/tap-bridge/ns3.44-tap-creator-default', '/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/build/src/fd-net-device/ns3.44-tap-device-creator-default', '/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/build/src/fd-net-device/ns3.44-raw-sock-creator-default', ]
 
 ns3_runnable_scripts = []
 

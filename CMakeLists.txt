@@ -185,7 +185,7 @@ add_subdirectory(src)
 
 
 # Build scratch/simulation scripts
-add_subdirectory(baseline)
+add_subdirectory(master)
 
 
 write_lock()
