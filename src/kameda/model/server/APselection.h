@@ -51,6 +51,8 @@ namespace APConstants {
     // ハンガリアン法計算用
     constexpr double PRECISION_MULTIPLIER = 1000000.0; // 10^6
     constexpr double MAX_SATISFACTION = 100.0;
+    constexpr double MIN_SATISFACTION_THRESHOLD = 1e-6;
+    constexpr double HARMONIC_WEIGHT_BASE = 2000.0;
 }
 
 struct ApSelectionInput {
@@ -106,7 +108,10 @@ private:
                                  const std::vector<double>& ap_rtt,
                                  const std::vector<double>& ap_tp);
     
-    std::vector<std::vector<double> > m_real_rtt;   //各基地局ごとに計測したRTTデータ
+    std::vector<double> m_monitor_rtt;   // 各基地局ごとの平均RTT
+    std::vector<double> m_rtt_sum;       // 平均算出用の合計値
+    std::vector<uint32_t> m_rtt_count;   // 平均算出用のサンプル数
+    std::vector<bool> m_has_rtt;         // RTT取得済みフラグ
     std::vector<double> m_link_rtt;                   //接続時のRTTデータ
     
     std::vector<double> init_rtt;                   //初期のRTTデータ

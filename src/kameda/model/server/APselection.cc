@@ -52,7 +52,7 @@ void APselection::tmain(){
     NS_LOG_FUNCTION(this);
     std::cout << "=== APselection::tmain() START ===" << std::endl;
     std::cout << "m_APNum: " << m_APNum << std::endl;
-    std::cout << "m_real_rtt size: " << m_real_rtt.size() << std::endl;
+    std::cout << "m_monitor_rtt size: " << m_monitor_rtt.size() << std::endl;
     
     // 実測RTTデータから各APの平均RTTとTP値を計算
     m_link_rtt.resize(m_APNum);
@@ -62,23 +62,14 @@ void APselection::tmain(){
     init_tp.resize(m_APNum);
     
     for(int i=0; i<m_APNum; i++){
-        double sum = 0.0;
-        for(auto data : m_real_rtt[i]){
-            sum += data;
-        }
-        
-        // ゼロ除算エラーを防ぐ
-        if(m_real_rtt[i].size() > 0){
-            double ave_rtt = sum / static_cast<double>(m_real_rtt[i].size());
+        if(m_has_rtt[i]){
+            double ave_rtt = m_monitor_rtt[i];
             m_link_rtt[i] = ave_rtt;
             init_rtt[i] = ave_rtt;
-            
-            // 実測RTTからTP値を直接計算 (RTTが小さいほどTP値が大きくなる)
+
             init_tp[i] = APConstants::INITIAL_TP_MULTIPLIER[0] / ave_rtt;
-            
-            std::cout << "AP:" << i << "\tSUM:" << sum
-                    << "\tSIZE:" << m_real_rtt[i].size() 
-                    << "\tAVE_RTT:" << ave_rtt << "ms"
+
+            std::cout << "AP:" << i << "\tMONITOR AVE_RTT:" << ave_rtt << "ms"
                     << "\tTP:" << init_tp[i] << "KB/s" << std::endl;
         } else {
             // データがない場合は設定ファイルの値を使用
@@ -148,8 +139,18 @@ void APselection::setData(std::string senderIpAddress, std::string recvMessage){
     }
     std::stringstream ss2(ret2[1]);
     double d; ss2 >> d;
-    m_real_rtt[apNo].push_back(d);
-    std::cout << "Data stored: AP=" << apNo << ", RTT=" << d << "ms" << std::endl;
+    if(static_cast<size_t>(apNo) >= m_monitor_rtt.size()) {
+        std::cout << "Invalid AP index" << std::endl;
+        return;
+    }
+
+    m_rtt_sum[apNo] += d;
+    m_rtt_count[apNo] += 1;
+    m_monitor_rtt[apNo] = m_rtt_sum[apNo] / static_cast<double>(m_rtt_count[apNo]);
+    m_has_rtt[apNo] = true;
+
+    std::cout << "Monitor data stored: AP=" << apNo << ", RTT=" << d
+              << "ms, AVG=" << m_monitor_rtt[apNo] << "ms" << std::endl;
 }
 
 void APselection::init(const ApSelectionInput& input){
@@ -189,8 +190,10 @@ void APselection::init(const ApSelectionInput& input){
 
     init_rtt.assign(aps, 0.0);
     init_tp.assign(aps, 0.0);
-    m_real_rtt.clear();
-    m_real_rtt.resize(aps);
+    m_monitor_rtt.assign(aps, 0.0);
+    m_rtt_sum.assign(aps, 0.0);
+    m_rtt_count.assign(aps, 0);
+    m_has_rtt.assign(aps, false);
 
     std::cout << "=== 初期設定値 ===" << std::endl;
     for(int i = 0; i < aps; i++){
@@ -341,6 +344,17 @@ void APselection::call_hungarian(){
         
         // ハンガリアン法を呼び出し
         HungarianResult result = hungarian(mat_ent, m_combi_ap_term[i]);
+
+        std::cout << "組み合わせ" << (i + 1) << ": ";
+        for (size_t idx = 0; idx < m_combi_ap_term[i].size(); ++idx)
+        {
+            std::cout << m_combi_ap_term[i][idx];
+            if (idx + 1 < m_combi_ap_term[i].size())
+            {
+                std::cout << " ";
+            }
+        }
+        std::cout << " | 調和平均: " << result.Harmean << std::endl;
         
         hungarianResultAll.push_back(result);
         
@@ -369,7 +383,7 @@ void APselection::call_hungarian(){
 
 }
 
-//ハンガリアン法の計算（Pythonのhungarian_kai.pyのhungarian相当）
+//ハンガリアン法の計算
 HungarianResult APselection::hungarian(std::vector<std::vector<double> > &a, std::vector<int> &combi_ap_term) {
     
     std::vector<std::vector<double> > b(terms,std::vector<double> (terms));
@@ -379,10 +393,16 @@ HungarianResult APselection::hungarian(std::vector<std::vector<double> > &a, std
     
     int n = a.size(), p, q;
     
-    // コスト行列を整数に変換（最大化のため符号反転）
-    for(int i=0;i<n;i++)
-        for(int j=0;j<n;j++)
-            b[i][j] = (int) (a[i][j] * fix_digit);  // 符号反転を削除（満足度を最大化）
+    // 調和平均最大化に向けたコスト変換（満足度が低いほどコストが大きい）
+    for (int i = 0; i < n; i++)
+    {
+        for (int j = 0; j < n; j++)
+        {
+            double satis = std::max(a[i][j], APConstants::MIN_SATISFACTION_THRESHOLD);
+            double weight = 1.0 / satis;
+            b[i][j] = static_cast<int>(weight * APConstants::HARMONIC_WEIGHT_BASE);
+        }
+    }
     
     std::vector<double> fx(n, -LONG_MAX), fy(n, 0);  // fx初期値を最小値に変更
     std::vector<int> x(n, -1), y(n, -1);
@@ -415,13 +435,15 @@ HungarianResult APselection::hungarian(std::vector<std::vector<double> > &a, std
     wk_solution_value[0] = 0;  // 合計
     wk_solution_value[2] = 0;  // 逆数の合計
     
-    for(int i=0; i<n; i++){
-        double satis = a[i][x[i]];  // 元のコスト行列から満足度を取得
-        
+    for (int i = 0; i < n; i++)
+    {
+        double satis = std::max(a[i][x[i]], APConstants::MIN_SATISFACTION_THRESHOLD);
+
         wk_solution_value[0] += satis;           // 合計
-        wk_solution_value[2] += 1.0 / satis;    // 逆数の合計
-        
-        if(satis < min_max){
+        wk_solution_value[2] += 1.0 / satis;     // 逆数の合計
+
+        if (satis < min_max)
+        {
             min_max = satis;  // 最小値
         }
     }
@@ -476,14 +498,17 @@ int APselection::find_best_solution(const std::vector<HungarianResult>& results)
     double best_harmean = 0;
     int best_index = 0;
     
-    for(size_t i = 0; i < results.size(); i++){
-        if(results[i].Harmean > best_harmean){
-            best_harmean = results[i].Harmean;
+    for (size_t i = 0; i < results.size(); i++)
+    {
+        double har = results[i].Harmean;
+        if (har > best_harmean)
+        {
+            best_harmean = har;
             best_index = i;
         }
     }
     
-    std::cout << "\n■調和平均の最大値: " << best_harmean << " (組み合わせ番号: " << best_index << ")\n";
+    std::cout << "\n■調和平均の最大値: " << best_harmean << " (組み合わせ番号: " << best_index+1 << ")\n";
     return best_index;
 }
 
@@ -491,8 +516,12 @@ int APselection::find_best_solution(const std::vector<HungarianResult>& results)
 void APselection::display_final_results(const HungarianResult& final_result, int best_index) {
     std::cout << "\n===== ハンガリアン法による基地局割り当て =====" << "\n";
 
-    // 監視端末方式では詳細な配列表示は不要（50台分の配列は長すぎる）
-    std::cout << "監視端末RTT値による最適化完了 (端末数: " << terms << "台)" << "\n";
+    // 結果表示
+    std::cout << "ハンガリアン法結果: [";
+    for(int i=0; i<terms; i++){
+        std::cout << final_result.combiApTermArray[i] << " "; //ハンガリアン法
+    }
+    std::cout << "]" << "\n";
 
     // 各APの接続台数のみ表示
     std::vector<int> count_ap(aps, 0);
@@ -671,13 +700,20 @@ void APselection::combi_greedy(){
 
     // 結果表示（監視端末用に簡略化）
     std::cout << "\n===== Greedy法による基地局割り当て =====" << "\n";
-    std::cout << "監視端末RTT値によるGreedy法最適化完了 (端末数: " << terms << "台)" << "\n";
+
+        // 結果表示
+    std::cout << "グリーディ法結果: [";
+    for(int i=0; i<terms; i++){
+        std::cout << greedy_solution[i] << " ";
+    }
+    std::cout << "]" << "\n";
 
     std::cout << "各基地局接続台数: ";
-    for(int j = 0; j < aps; j++){
+    for(int j=0; j<aps; j++){
         std::cout << "AP" << (j+1) << ":" << count_ap[j] << "台 ";
     }
     std::cout << "\n";
+
 
     std::cout << "■Greedy法の調和平均: " << std::fixed << std::setprecision(6) << greedy_harmean << "\n";
     std::cout << "■ハンガリアン法の調和平均: " << std::fixed << std::setprecision(6) << m_best_solution_value[0] << "\n";

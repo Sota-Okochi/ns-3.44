@@ -75,7 +75,6 @@ private:
     bool LoadTermDataFromSqlite(const std::string& dbPath);
 
     // 監視端末関連の関数
-    void SetupMonitorTerminals();
     void ConfigureMonitorTerminal(uint32_t apId, Ptr<Node> monitorNode, Ipv4Address targetAP);
 
     int m_nth;

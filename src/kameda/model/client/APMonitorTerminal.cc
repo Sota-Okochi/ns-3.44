@@ -127,28 +127,41 @@ void APMonitorTerminal::SendPeriodicPing()
     PingHelper ping(m_targetAP);
     ping.SetAttribute("Interval", TimeValue(Seconds(0.1)));
     ping.SetAttribute("Size", UintegerValue(64));
+    ping.SetAttribute("Count", UintegerValue(m_samplesPerReport));
+    ping.SetAttribute("Count", UintegerValue(m_samplesPerReport));
+    ping.SetAttribute("StopTime", TimeValue(Seconds(m_measureInterval)));
     
     m_currentPingApp = ping.Install(GetNode());
     
     // ping実行時間を設定（十分な時間を確保）
     m_currentPingApp.Start(Seconds(0.0));
-    m_currentPingApp.Stop(Seconds(m_measureInterval));
     
-    // RTTコールバックを設定（このノード専用に設定）
-    std::stringstream callbackPath;
-    callbackPath << "/NodeList/" << GetNode()->GetId() << "/ApplicationList/*/$ns3::V4Ping/Rtt";
-    Config::ConnectWithoutContext(callbackPath.str(),
-                                  MakeCallback(&APMonitorTerminal::OnRttMeasured, this));
+    // RTTコールバックを設定（PingアプリケーションのRttトレースに接続）
+    if (m_currentPingApp.GetN() > 0)
+    {
+        Ptr<Application> app = m_currentPingApp.Get(0);
+        Ptr<Ping> pingApp = DynamicCast<Ping>(app);
+        if (pingApp)
+        {
+            pingApp->TraceConnectWithoutContext("Rtt",
+                                               MakeCallback(&APMonitorTerminal::HandlePingRtt, this));
+        }
+    }
     
     m_totalPings++;
     
-    std::cout << "AP" << m_apId << " ping sent to " << m_targetAP 
+    std::cout << "MONITOR_AP" << m_apId << " ping sent to " << m_targetAP 
               << " at time " << Simulator::Now().GetSeconds() << "s (Total: " << m_totalPings << ")" << std::endl;
     
     // 次のping送信をスケジュール
     if (m_isMonitoring) {
         m_pingEvent = Simulator::Schedule(Seconds(m_measureInterval), &APMonitorTerminal::SendPeriodicPing, this);
     }
+}
+
+void APMonitorTerminal::HandlePingRtt(uint16_t /*seq*/, Time rtt)
+{
+    OnRttMeasured(rtt);
 }
 
 void APMonitorTerminal::OnRttMeasured(Time rtt)

@@ -266,18 +266,31 @@ void NetSim::CreateNetworkTopology(){
     p2pDevices.resize(wifiAPNum);
     wifiDevices.resize(wifiAPNum);
 
-    // term生成
-    for(uint32_t i=0; i<termNum; i++){
-        Ptr<Node> term = CreateObject<Node>();
-        wifiNodes[ m_termData[i].apNo -1 ].Add(term);
-        terms.push_back(term);
+    // wifiAP生成（各NodeContainerの先頭にAPを配置）
+    wifiAPs.clear();
+    for(uint32_t i=0; i<wifiAPNum; i++){
+        Ptr<Node> apNode = CreateObject<Node>();
+        wifiNodes[i].Add(apNode);
+        wifiAPs.push_back(apNode);
     }
 
-    // wifiAP生成
-    for(uint32_t i=0; i<wifiAPNum; i++){
-        Ptr<Node> temp = CreateObject<Node>();
-        wifiNodes[ i ].Add(temp);
-        wifiAPs.push_back(temp);
+    // 監視端末生成（AP0〜AP2に1台ずつ：AP以外のノードとして追加）
+    monitorTerminals.assign(3, nullptr);
+    uint32_t monitorCount = std::min<uint32_t>(3, wifiAPNum);
+    for(uint32_t apId = 0; apId < monitorCount; apId++) {
+        Ptr<Node> monitor = CreateObject<Node>();
+        monitorTerminals[apId] = monitor;
+        wifiNodes[apId].Add(monitor);
+    }
+    for(uint32_t apId = monitorCount; apId < monitorTerminals.size(); apId++) {
+        monitorTerminals[apId] = CreateObject<Node>();
+    }
+
+    // term生成（AP以外のノードとして追加）
+    for(uint32_t i=0; i<termNum; i++){
+        Ptr<Node> term = CreateObject<Node>();
+        wifiNodes[m_termData[i].apNo -1].Add(term);
+        terms.push_back(term);
     }
 
     //p2p生成
@@ -308,11 +321,28 @@ void NetSim::ConfigureDataLinkLayer(){
 
     // wifi
     NS_LOG_LOGIC("set wifi devices");
-    ConfigureLTE(0);
-    for(uint32_t i=1; i<wifiAPNum; i++){
+    for(uint32_t i=0; i<wifiAPNum; i++){
         ConfigureLTE(i);
     }
     ConfigureMobility();
+
+    // 監視端末の配置（APごとに固定位置）
+    for(uint32_t apId = 0; apId < monitorTerminals.size(); apId++) {
+        Ptr<Node> monitor = monitorTerminals[apId];
+        MobilityHelper mobility;
+        mobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
+        Ptr<ListPositionAllocator> posList = CreateObject<ListPositionAllocator>();
+        double baseX = 0.0;
+        double baseY = 0.0;
+        switch(apId) {
+            case 0: baseX = 0.0; baseY = -25.0; break;
+            case 1: baseX = 25.0; baseY = 25.0; break;
+            case 2: baseX = -25.0; baseY = 25.0; break;
+        }
+        posList->Add(Vector(baseX, baseY, 0.0));
+        mobility.SetPositionAllocator(posList);
+        mobility.Install(monitor);
+    }
     // p2p
     NS_LOG_LOGIC("set p2p devices");
     for(uint32_t i=0; i<p2pNodes.size(); i++){
@@ -552,15 +582,39 @@ void NetSim::SetKamedaModule(void){
     appServer->SetStartTime(Seconds(1.0));
     appServer->SetStopTime(Seconds(5.0));
 
-    //クライアントのインストール
-    NS_LOG_LOGIC("install client apps");
-    Ipv4Address server_pingA = server_ping->GetObject<Ipv4>()->GetAddress(1,0).GetLocal();
-    Ipv4Address server_rttA = server_rtt->GetObject<Ipv4>()->GetAddress(1,0).GetLocal();
-    for(auto term : terms){
-        Ptr<KamedaAppClient> appClient = Create<KamedaAppClient>(server_pingA, server_rttA);
-        term->AddApplication(appClient);
-        appClient->SetStartTime(Seconds(2.0));
-        appClient->SetStopTime(Seconds(5.0));
+    // 監視端末ノードの位置設定とアプリ設定（CreateNetworkTopologyで生成済みを利用）
+    if (monitorTerminals.size() < 3) {
+        monitorTerminals.resize(3, nullptr);
+    }
+
+    for(uint32_t apId = 0; apId < monitorTerminals.size(); apId++) {
+        Ptr<Node> monitor = monitorTerminals[apId];
+        if (monitor == nullptr) {
+            continue;
+        }
+
+        MobilityHelper mobility;
+        mobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
+        Ptr<ListPositionAllocator> posList = CreateObject<ListPositionAllocator>();
+        double baseX = 0.0;
+        double baseY = 0.0;
+        switch(apId) {
+            case 0: baseX = 0.0; baseY = -25.0; break;
+            case 1: baseX = 25.0; baseY = 25.0; break;
+            case 2: baseX = -25.0; baseY = 25.0; break;
+        }
+        posList->Add(Vector(baseX, baseY, 0.0));
+        mobility.SetPositionAllocator(posList);
+        mobility.Install(monitor);
+
+        if (apId < wifiAPs.size()) {
+            Ptr<APMonitorTerminal> monitorApp = CreateObject<APMonitorTerminal>(apId,
+                wifiAPs[apId]->GetObject<Ipv4>()->GetAddress(1,0).GetLocal(),
+                server_rtt->GetObject<Ipv4>()->GetAddress(1,0).GetLocal());
+            monitor->AddApplication(monitorApp);
+            monitorApp->SetStartTime(Seconds(1.0));
+            monitorApp->SetStopTime(Seconds(6.0));
+        }
     }
 }
 
@@ -573,7 +627,7 @@ void NetSim::SetVoiceApp(void){
     const int phoneMAXPACKETS = 1000000;
     const int phonePACKETSIZE = 60;
     for(uint32_t i=0; i<terms.size(); i++){
-        if(m_termData[i].use_appli != 1){        //通話アプリケーションの場合以外
+        if(m_termData[i].use_appli != 3){        //通話アプリケーションの場合以外
             continue;
         }
         PacketSinkHelper packetsh("ns3::UdpSocketFactory", InetSocketAddress(Ipv4Address::GetAny(), port));
@@ -599,7 +653,7 @@ void NetSim::SetVideoApp(void){
 
     uint16_t multicast_port = 10000; // ポート番号をさらに別の値に変更
     for(uint32_t i=0; i<terms.size(); i++){
-        if(m_termData[i].use_appli != 3){        //通話アプリケーションの場合以外
+        if(m_termData[i].use_appli != 4){        //通話アプリケーションの場合以外
             continue;
         }
         UdpServerHelper udpServer;

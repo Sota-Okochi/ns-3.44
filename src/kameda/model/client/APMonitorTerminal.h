@@ -7,6 +7,7 @@
 #include "ns3/applications-module.h"
 #include "ns3/internet-apps-module.h"
 #include "ns3/internet-module.h"
+#include "ns3/ping.h"
 
 namespace ns3 {
 
@@ -37,6 +38,7 @@ public:
      * \brief RTTコールバック関数
      */
     void OnRttMeasured(Time rtt);
+    void HandlePingRtt(uint16_t seq, Time rtt);
 
 protected:
     virtual void StartApplication() override;
