@@ -1,12 +1,8 @@
 
 
 #include "NetSim.h"
-#include <regex>
 
 NS_LOG_COMPONENT_DEFINE("researchMain");
-
-#define INPUT_DIR	"/home/sota/ns-3.44/data/"
-#define OUTPUT_DIR	"/home/sota/ns-3.44/OUTPUT/"
 
 namespace {
 
@@ -262,102 +258,154 @@ void NetSim::CreateNetworkTopology(){
     std::cout << "==== CreateNetworkTopology ====" << std::endl;
     NS_LOG_FUNCTION(this);
 
-    //vectorのサイズ指定
+    InitializeNodeContainers();
+    CreateWifiApNodes();
+    CreateMonitorNodes();
+    CreateTerminalNodes();
+    CreateRouterNodes();
+    CreateServerNodes();
+}
+
+void NetSim::InitializeNodeContainers()
+{
     p2pNodes.resize(wifiAPNum);
     wifiNodes.resize(wifiAPNum);
     p2pDevices.resize(wifiAPNum);
     wifiDevices.resize(wifiAPNum);
+}
 
-    // wifiAP生成（各NodeContainerの先頭にAPを配置）
+void NetSim::CreateWifiApNodes()
+{
     wifiAPs.clear();
-    for(uint32_t i=0; i<wifiAPNum; i++){
+    for (uint32_t i = 0; i < wifiAPNum; ++i)
+    {
         Ptr<Node> apNode = CreateObject<Node>();
         wifiNodes[i].Add(apNode);
         wifiAPs.push_back(apNode);
     }
+}
 
-    // 監視端末生成（AP0〜AP2に1台ずつ：AP以外のノードとして追加）
+void NetSim::CreateMonitorNodes()
+{
     monitorTerminals.assign(3, nullptr);
-    uint32_t monitorCount = std::min<uint32_t>(3, wifiAPNum);
-    for(uint32_t apId = 0; apId < monitorCount; apId++) {
+    uint32_t monitorCount = std::min<uint32_t>(monitorTerminals.size(), wifiAPNum);
+
+    for (uint32_t apId = 0; apId < monitorCount; ++apId)
+    {
         Ptr<Node> monitor = CreateObject<Node>();
         monitorTerminals[apId] = monitor;
         wifiNodes[apId].Add(monitor);
     }
-    for(uint32_t apId = monitorCount; apId < monitorTerminals.size(); apId++) {
+
+    for (uint32_t apId = monitorCount; apId < monitorTerminals.size(); ++apId)
+    {
         monitorTerminals[apId] = CreateObject<Node>();
     }
+}
 
-    // term生成（AP以外のノードとして追加）
-    for(uint32_t i=0; i<termNum; i++){
+void NetSim::CreateTerminalNodes()
+{
+    for (uint32_t i = 0; i < termNum; ++i)
+    {
         Ptr<Node> term = CreateObject<Node>();
-        wifiNodes[m_termData[i].apNo -1].Add(term);
+        wifiNodes[m_termData[i].apNo - 1].Add(term);
         terms.push_back(term);
     }
+}
 
-    //p2p生成
-    for(uint32_t i=0; i<wifiAPNum; i++){
+void NetSim::CreateRouterNodes()
+{
+    for (uint32_t i = 0; i < wifiAPNum; ++i)
+    {
         Ptr<Node> router = CreateObject<Node>();
         p2pNodes[i].Add(wifiAPs[i]);
         p2pNodes[i].Add(router);
         routers.push_back(router);
     }
+}
 
-    //csma生成
+void NetSim::CreateServerNodes()
+{
     server_udpVoice = CreateObject<Node>();
     server_udpVideo = CreateObject<Node>();
-    server_ping = CreateObject<Node>();
     server_rtt = CreateObject<Node>();
+
     csmaNodes.Add(server_rtt);
-    csmaNodes.Add(server_ping);
     csmaNodes.Add(server_udpVideo);
     csmaNodes.Add(server_udpVoice);
-    for(auto r : routers){
-        csmaNodes.Add(r);
-    }
 
+    for (const auto& router : routers)
+    {
+        csmaNodes.Add(router);
+    }
+}
+
+Vector NetSim::GetMonitorPosition(uint32_t apId) const
+{
+    switch (apId)
+    {
+    case 0:
+        return Vector(0.0, -25.0, 0.0);
+    case 1:
+        return Vector(25.0, 25.0, 0.0);
+    case 2:
+        return Vector(-25.0, 25.0, 0.0);
+    default:
+        return Vector(0.0, 0.0, 0.0);
+    }
 }
 
 void NetSim::ConfigureDataLinkLayer(){
     std::cout << "==== ConfigureDataLinkLayer ====" << std::endl;
     NS_LOG_FUNCTION(this);
 
-    // wifi
+    ConfigureWifiDevices();
+    ConfigureMobility();
+    ConfigureMonitorPlacement();
+    ConfigureP2PDevices();
+    ConfigureCsmaDevices();
+}
+
+void NetSim::ConfigureWifiDevices()
+{
     NS_LOG_LOGIC("set wifi devices");
-    for(uint32_t i=0; i<wifiAPNum; i++){
+    for (uint32_t i = 0; i < wifiAPNum; ++i)
+    {
         ConfigureLTE(i);
     }
-    ConfigureMobility();
+}
 
-    // 監視端末の配置（APごとに固定位置）
-    for(uint32_t apId = 0; apId < monitorTerminals.size(); apId++) {
+void NetSim::ConfigureMonitorPlacement()
+{
+    for (uint32_t apId = 0; apId < monitorTerminals.size(); ++apId)
+    {
         Ptr<Node> monitor = monitorTerminals[apId];
         MobilityHelper mobility;
         mobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
         Ptr<ListPositionAllocator> posList = CreateObject<ListPositionAllocator>();
-        double baseX = 0.0;
-        double baseY = 0.0;
-        switch(apId) {
-            case 0: baseX = 0.0; baseY = -25.0; break;
-            case 1: baseX = 25.0; baseY = 25.0; break;
-            case 2: baseX = -25.0; baseY = 25.0; break;
-        }
-        posList->Add(Vector(baseX, baseY, 0.0));
+        posList->Add(GetMonitorPosition(apId));
         mobility.SetPositionAllocator(posList);
         mobility.Install(monitor);
     }
-    // p2p
+}
+
+void NetSim::ConfigureP2PDevices()
+{
     NS_LOG_LOGIC("set p2p devices");
-    for(uint32_t i=0; i<p2pNodes.size(); i++){
+    for (uint32_t i = 0; i < p2pNodes.size(); ++i)
+    {
         ConfigureP2P(i);
     }
-    // csma
+}
+
+void NetSim::ConfigureCsmaDevices()
+{
     NS_LOG_LOGIC("set csma device");
     CsmaHelper csma;
-    csma.SetChannelAttribute ("DataRate", StringValue ("1Gbps"));
-    csma.SetChannelAttribute ("Delay"   , StringValue("0.5ms"));
-    csmaDevices = csma.Install (csmaNodes);
-    std::string csmast = std::string(OUTPUT_DIR) + "csma";
+    csma.SetChannelAttribute("DataRate", StringValue("1Gbps"));
+    csma.SetChannelAttribute("Delay", StringValue("0.5ms"));
+    csmaDevices = csma.Install(csmaNodes);
+    const std::string csmast = std::string(OUTPUT_DIR) + "csma";
     csma.EnablePcapAll(csmast);
 }
 
@@ -371,13 +419,15 @@ void NetSim::ConfigureWifi(uint32_t count){ //count is wifiAP number
     YansWifiPhyHelper phy;
     phy.SetChannel(channel.Create());
     phy.Set("RxGain", DoubleValue(0));
+    phy.Set("Antennas", UintegerValue(2));
+    phy.Set("MaxSupportedTxSpatialStreams", UintegerValue(2));
+    phy.Set("MaxSupportedRxSpatialStreams", UintegerValue(2));
     phy.SetPcapDataLinkType(WifiPhyHelper::DLT_IEEE802_11_RADIO);
 
     WifiHelper wifi;
-    wifi.SetStandard(WIFI_STANDARD_80211b);
-    wifi.SetRemoteStationManager("ns3::ArfWifiManager");/*,
-                                    "DataMode", StringValue("OfdmRate54Mbps"),
-                                    "ControlMode", StringValue("OfdmRate54Mbps"));*/
+    wifi.SetStandard(WIFI_STANDARD_80211ax);
+    wifi.SetRemoteStationManager("ns3::MinstrelHtWifiManager");
+    wifi.ConfigHeOptions("BssColor", UintegerValue((count % 63) + 1));
 
     WifiMacHelper mac;
     std::stringstream ssidss;
@@ -401,29 +451,41 @@ void NetSim::ConfigureLTE(uint32_t count){ //count is wifiAP number
     NS_LOG_FUNCTION(this);
     YansWifiChannelHelper channel = YansWifiChannelHelper::Default();
     channel.SetPropagationDelay("ns3::ConstantSpeedPropagationDelayModel");
-    channel.AddPropagationLoss("ns3::FixedRssLossModel", "Rss", DoubleValue(-80));
+    channel.AddPropagationLoss("ns3::LogDistancePropagationLossModel",
+                               "Exponent", DoubleValue(2.2));
+    channel.AddPropagationLoss("ns3::NakagamiPropagationLossModel",
+                               "m0", DoubleValue(1.0),
+                               "m1", DoubleValue(1.0),
+                               "m2", DoubleValue(1.0));
 
     YansWifiPhyHelper phy;
     phy.SetChannel(channel.Create());
     phy.Set("RxGain", DoubleValue(0));
+    phy.Set("Antennas", UintegerValue(2));
+    phy.Set("MaxSupportedTxSpatialStreams", UintegerValue(2));
+    phy.Set("MaxSupportedRxSpatialStreams", UintegerValue(2));
     phy.SetPcapDataLinkType(WifiPhyHelper::DLT_IEEE802_11_RADIO);
 
     WifiHelper wifi;
-    wifi.SetStandard(WIFI_STANDARD_80211a);
-    wifi.SetRemoteStationManager("ns3::ConstantRateWifiManager");/*,
-                                    "DataMode", StringValue("DsssRate1Mbps"),
-                                    "ControlMode", StringValue("DsssRate1Mbps"));*/
+    wifi.SetStandard(WIFI_STANDARD_80211ax);
+    wifi.SetRemoteStationManager("ns3::MinstrelHtWifiManager");
+    wifi.ConfigHeOptions("BssColor", UintegerValue((count % 63) + 1));
 
     WifiMacHelper mac;
     std::stringstream ssidss;
     ssidss << "main-SSID-" << count;
     Ssid ssid = Ssid (ssidss.str());
-    mac.SetType ("ns3::ApWifiMac", "Ssid", SsidValue (ssid));
-    wifiDevices[count] = wifi.Install (phy, mac, wifiNodes[count].Get(0));
+
+    mac.SetType("ns3::ApWifiMac",
+                "Ssid", SsidValue(ssid));
+
+    wifiDevices[count] = wifi.Install(phy, mac, wifiNodes[count].Get(0));
+
+    mac.SetType("ns3::StaWifiMac",
+                "Ssid", SsidValue(ssid));
 
     for(uint32_t i=1; i<wifiNodes[count].GetN(); i++){
-        mac.SetType ("ns3::StaWifiMac", "Ssid", SsidValue (ssid));
-        NetDeviceContainer temp = wifi.Install (phy, mac, wifiNodes[count].Get(i));
+        NetDeviceContainer temp = wifi.Install(phy, mac, wifiNodes[count].Get(i));
         wifiDevices[count].Add(temp);
     }
     std::stringstream ss;
@@ -435,67 +497,106 @@ void NetSim::ConfigureMobility(){
     std::cout << "==== ConfigureMobility ====" << std::endl;
     NS_LOG_FUNCTION(this);
 
-    const int diff[4][2] = {{1,1},{-1,1},{1,-1},{-1,-1}};
-    const int base = 25;
+    ConfigureApMobility();
+    ConfigureTermMobility();
+}
+
+void NetSim::ConfigureApMobility()
+{
+    static const int kOffsets[4][2] = {{1, 1}, {-1, 1}, {1, -1}, {-1, -1}};
+    static const int kBase = 25;
+
     NS_LOG_LOGIC("set mobility");
-    for(uint32_t i=0; i<wifiAPNum; i++){
-        if(i==0){
-            MobilityHelper mobility;
-            mobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
-            Ptr<ListPositionAllocator> posList = CreateObject<ListPositionAllocator>();
-            posList->Add(Vector(0, -25, 0));
-            mobility.SetPositionAllocator(posList);
-            mobility.Install(wifiAPs[i]);
-        }else{
-            MobilityHelper mobility;
-            mobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
-            Ptr<ListPositionAllocator> posList = CreateObject<ListPositionAllocator>();
-            posList->Add(Vector(base*diff[i-1][0], base*diff[i-1][1], 0));
-            mobility.SetPositionAllocator(posList);
-            mobility.Install(wifiAPs[i]);
-        }
-    }/*
-    for(int i=0; i<termNum; i++){
+    for (uint32_t i = 0; i < wifiAPNum; ++i)
+    {
         MobilityHelper mobility;
         mobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
         Ptr<ListPositionAllocator> posList = CreateObject<ListPositionAllocator>();
-        posList->Add(Vector(m_termData.at(i).x, m_termData.at(i).y, 0));
+
+        if (i == 0)
+        {
+            posList->Add(Vector(0.0, -25.0, 0.0));
+        }
+        else
+        {
+            const int* offset = kOffsets[i - 1];
+            posList->Add(Vector(kBase * offset[0], kBase * offset[1], 0.0));
+        }
+
         mobility.SetPositionAllocator(posList);
-        mobility.Install(terms[i]);
-    }*/
-    double distance = 8;
-    MobilityHelper mobility;
-    double point = -25;
-    int width = 8;
-    if(termNum == 64){
-        distance = 50.0 / 8.0;
-        width = 8;
-    }else if(termNum == 81){
-        distance = 50.0 / 9.0;
-        width = 9;
-    }else if(termNum == 100){
-        distance = 50.0 / 10.0;
-        width = 10;
+        mobility.Install(wifiAPs[i]);
     }
+}
+
+void NetSim::ConfigureTermMobility()
+{
+    double distance = 8.0;
+    double minPoint = -25.0;
+    uint32_t gridWidth = 8;
+
+    if (termNum == 64)
+    {
+        distance = 50.0 / 8.0;
+        gridWidth = 8;
+    }
+    else if (termNum == 81)
+    {
+        distance = 50.0 / 9.0;
+        gridWidth = 9;
+    }
+    else if (termNum == 100)
+    {
+        distance = 50.0 / 10.0;
+        gridWidth = 10;
+    }
+
+    MobilityHelper mobility;
     mobility.SetPositionAllocator("ns3::GridPositionAllocator",
-        "MinX", DoubleValue(point),
-        "MinY", DoubleValue(point),
-        "DeltaX", DoubleValue(distance),
-        "DeltaY", DoubleValue(distance),
-        "GridWidth", UintegerValue(width),
-        "LayoutType", StringValue("RowFirst"));
-    if(m_mob == 2){
+                                  "MinX", DoubleValue(minPoint),
+                                  "MinY", DoubleValue(minPoint),
+                                  "DeltaX", DoubleValue(distance),
+                                  "DeltaY", DoubleValue(distance),
+                                  "GridWidth", UintegerValue(gridWidth),
+                                  "LayoutType", StringValue("RowFirst"));
+
+    if (m_mob == 2)
+    {
         mobility.SetMobilityModel("ns3::RandomWalk2dMobilityModel",
-        "Bounds",RectangleValue (Rectangle (-50,50,-50, 50)),
-        "Distance",StringValue("10"),
-        "Speed",StringValue ("ns3::ConstantRandomVariable[Constant=1.0]"),
-        "Mode",StringValue ("Time"),
-        "Time",StringValue("1s") );
-    }else{
+                                   "Bounds", RectangleValue(Rectangle(-50, 50, -50, 50)),
+                                   "Distance", StringValue("10"),
+                                   "Speed", StringValue("ns3::ConstantRandomVariable[Constant=1.0]"),
+                                   "Mode", StringValue("Time"),
+                                   "Time", StringValue("1s"));
+    }
+    else
+    {
         mobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
     }
-    for(uint32_t i=0; i<termNum;i++)
-        mobility.Install(terms[i]);
+
+    for (const auto& term : terms)
+    {
+        mobility.Install(term);
+    }
+}
+
+void NetSim::AttachMonitorApplication(uint32_t apId, Ptr<Node> monitor)
+{
+    if (monitor == nullptr || apId >= wifiAPs.size())
+    {
+        return;
+    }
+
+    Ptr<Ipv4> serverIpv4 = server_rtt->GetObject<Ipv4>();
+    if (serverIpv4 == nullptr)
+    {
+        return;
+    }
+
+    Ipv4Address serverAddress = serverIpv4->GetAddress(1, 0).GetLocal();
+    Ptr<APMonitorTerminal> monitorApp = CreateObject<APMonitorTerminal>(apId, serverAddress, serverAddress);
+    monitor->AddApplication(monitorApp);
+    monitorApp->SetStartTime(Seconds(1.0));
+    monitorApp->SetStopTime(Seconds(6.0));
 }
 
 void NetSim::ConfigureP2P(uint32_t count){
@@ -590,39 +691,14 @@ void NetSim::SetKamedaModule(void){
     appServer->SetStartTime(Seconds(1.0));
     appServer->SetStopTime(Seconds(5.0));
 
-    // 監視端末ノードの位置設定とアプリ設定（CreateNetworkTopologyで生成済みを利用）
+    // 監視端末ノードのアプリ設定（CreateNetworkTopologyで生成済みを利用）
     if (monitorTerminals.size() < 3) {
         monitorTerminals.resize(3, nullptr);
     }
 
     for(uint32_t apId = 0; apId < monitorTerminals.size(); apId++) {
         Ptr<Node> monitor = monitorTerminals[apId];
-        if (monitor == nullptr) {
-            continue;
-        }
-
-        MobilityHelper mobility;
-        mobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
-        Ptr<ListPositionAllocator> posList = CreateObject<ListPositionAllocator>();
-        double baseX = 0.0;
-        double baseY = 0.0;
-        switch(apId) {
-            case 0: baseX = 0.0; baseY = -25.0; break;
-            case 1: baseX = 25.0; baseY = 25.0; break;
-            case 2: baseX = -25.0; baseY = 25.0; break;
-        }
-        posList->Add(Vector(baseX, baseY, 0.0));
-        mobility.SetPositionAllocator(posList);
-        mobility.Install(monitor);
-
-        if (apId < wifiAPs.size()) {
-            Ptr<APMonitorTerminal> monitorApp = CreateObject<APMonitorTerminal>(apId,
-                server_rtt->GetObject<Ipv4>()->GetAddress(1,0).GetLocal(),
-                server_rtt->GetObject<Ipv4>()->GetAddress(1,0).GetLocal());
-            monitor->AddApplication(monitorApp);
-            monitorApp->SetStartTime(Seconds(1.0));
-            monitorApp->SetStopTime(Seconds(6.0));
-        }
+        AttachMonitorApplication(apId, monitor);
     }
 }
 
@@ -685,12 +761,12 @@ void NetSim::SetGreedy(void){
     NS_LOG_INFO("Set Greedy");
 
 #if 0
-    PingHelper ping = PingHelper(InetSocketAddress(server_ping->GetObject<Ipv4>()->GetAddress(1,0).GetLocal(), 0));
+    PingHelper ping(InetSocketAddress(server_rtt->GetObject<Ipv4>()->GetAddress(1,0).GetLocal(), 0));
     ping.SetAttribute("Interval", TimeValue(MilliSeconds(500)));
     ping.SetAttribute("Size", UintegerValue(1400));
     NodeContainer pingers;
 
-    for(int i=0; i<termNum;i++){
+    for(uint32_t i=0; i<termNum; i++){
             pingers.Add(terms[i]);
     }
 
@@ -701,39 +777,6 @@ void NetSim::SetGreedy(void){
     Config::ConnectWithoutContext ("/NodeList/*/ApplicationList/*/$ns3::Ping/Rtt",
                     MakeCallback (&PingRtt));
 #endif
-
-    std::random_device rand;
-    std::mt19937 mt(rand());
-    std::vector<int> arr;
-    for(uint32_t i=0; i<termNum; i++){
-        arr.push_back(i);
-    }
-    std::shuffle(arr.begin(),arr.end(),mt);
-    const int MAX = 10;
-    int apn[3] = {0};
-
-    for(auto it = arr.begin(); it != arr.end(); it++){
-        int i = *it;
-        int apid = m_termData[i].apNo; apid -= 1;
-        if(apn[apid] >= MAX){
-            continue;
-        }else{
-            apn[apid]++;
-
-            Ipv4Address destAddr = server_ping->GetObject<Ipv4>()->GetAddress(1,0).GetLocal();
-            PingHelper ping(destAddr);
-            ping.SetAttribute("Interval", TimeValue(MilliSeconds(500)));
-            ping.SetAttribute("Size", UintegerValue(80));
-            NodeContainer pingers;
-            pingers.Add(terms[i]);
-            ApplicationContainer apps = ping.Install(pingers);
-            apps.Start(Seconds(1.0 + 0.01*i));
-            apps.Stop(Seconds(5.0 + 0.01*i));
-
-            Config::ConnectWithoutContext ("/NodeList/*/ApplicationList/*/$ns3::Ping/Rtt",
-                            MakeCallback (&PingRtt));
-            }
-    }
 }
 
 void NetSim::RunSim(){

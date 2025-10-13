@@ -17,6 +17,7 @@
 #include "ns3/APselection.h"
 #include "ns3/waypoint-mobility-model.h"
 #include "ns3/APMonitorTerminal.h"
+#include "ns3/wifi-helper.h"
 
 #include <sstream>
 #include <iomanip>
@@ -24,11 +25,13 @@
 #include <fstream>
 #include <random>
 #include <algorithm>
+#include <regex>
 
 namespace ns3 {
 
 extern int G_nth;
-const std::string DATA_DIR = "/home/sota/ns-3.44/OUTPUT/";
+const std::string OUTPUT_DIR = "/home/sota/ns-3.44/OUTPUT/";
+const std::string INPUT_DIR = "/home/sota/ns-3.44/data/";
 
 enum APID{
     LTE = 0,
@@ -77,6 +80,21 @@ private:
     // 監視端末関連の関数
     void ConfigureMonitorTerminal(uint32_t apId, Ptr<Node> monitorNode, Ipv4Address targetAP);
 
+    void InitializeNodeContainers();
+    void CreateWifiApNodes();
+    void CreateMonitorNodes();
+    void CreateTerminalNodes();
+    void CreateRouterNodes();
+    void CreateServerNodes();
+    void ConfigureApMobility();
+    void ConfigureTermMobility();
+    Vector GetMonitorPosition(uint32_t apId) const;
+    void AttachMonitorApplication(uint32_t apId, Ptr<Node> monitor);
+    void ConfigureWifiDevices();
+    void ConfigureMonitorPlacement();
+    void ConfigureP2PDevices();
+    void ConfigureCsmaDevices();
+
     int m_nth;
     int m_mob;
 
@@ -95,7 +113,6 @@ private:
     std::vector<Ptr<Node> > routers;
     Ptr<Node> server_udpVoice;
     Ptr<Node> server_udpVideo;
-    Ptr<Node> server_ping;
     Ptr<Node> server_rtt;
     
     // 監視端末用
