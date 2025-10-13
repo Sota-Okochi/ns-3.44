@@ -345,16 +345,6 @@ void APselection::call_hungarian(){
         // ハンガリアン法を呼び出し
         HungarianResult result = hungarian(mat_ent, m_combi_ap_term[i]);
 
-        std::cout << "組み合わせ" << (i + 1) << ": ";
-        for (size_t idx = 0; idx < m_combi_ap_term[i].size(); ++idx)
-        {
-            std::cout << m_combi_ap_term[i][idx];
-            if (idx + 1 < m_combi_ap_term[i].size())
-            {
-                std::cout << " ";
-            }
-        }
-        std::cout << " | 調和平均: " << result.Harmean << std::endl;
         
         hungarianResultAll.push_back(result);
         

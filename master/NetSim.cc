@@ -236,6 +236,7 @@ void NetSim::Init(int argc, char *argv[]){
 }
 
 void NetSim::Configure(){
+    std::cout << "==== Configure ====" << std::endl;
     NS_LOG_FUNCTION(this);
 
     //LogComponentEnable("KamedaAppClient", LOG_LEVEL_INFO);
@@ -258,6 +259,7 @@ void NetSim::Configure(){
 }
 
 void NetSim::CreateNetworkTopology(){
+    std::cout << "==== CreateNetworkTopology ====" << std::endl;
     NS_LOG_FUNCTION(this);
 
     //vectorのサイズ指定
@@ -317,6 +319,7 @@ void NetSim::CreateNetworkTopology(){
 }
 
 void NetSim::ConfigureDataLinkLayer(){
+    std::cout << "==== ConfigureDataLinkLayer ====" << std::endl;
     NS_LOG_FUNCTION(this);
 
     // wifi
@@ -359,6 +362,7 @@ void NetSim::ConfigureDataLinkLayer(){
 }
 
 void NetSim::ConfigureWifi(uint32_t count){ //count is wifiAP number
+    std::cout << "==== ConfigureWifi ====" << std::endl;
     NS_LOG_FUNCTION(this);
     YansWifiChannelHelper channel = YansWifiChannelHelper::Default();
     channel.SetPropagationDelay("ns3::ConstantSpeedPropagationDelayModel");
@@ -393,6 +397,7 @@ void NetSim::ConfigureWifi(uint32_t count){ //count is wifiAP number
 }
 
 void NetSim::ConfigureLTE(uint32_t count){ //count is wifiAP number
+    std::cout << "==== ConfigureLTE ====" << std::endl;
     NS_LOG_FUNCTION(this);
     YansWifiChannelHelper channel = YansWifiChannelHelper::Default();
     channel.SetPropagationDelay("ns3::ConstantSpeedPropagationDelayModel");
@@ -427,6 +432,7 @@ void NetSim::ConfigureLTE(uint32_t count){ //count is wifiAP number
 }
 
 void NetSim::ConfigureMobility(){
+    std::cout << "==== ConfigureMobility ====" << std::endl;
     NS_LOG_FUNCTION(this);
 
     const int diff[4][2] = {{1,1},{-1,1},{1,-1},{-1,-1}};
@@ -493,6 +499,7 @@ void NetSim::ConfigureMobility(){
 }
 
 void NetSim::ConfigureP2P(uint32_t count){
+    std::cout << "==== ConfigureP2P ====" << std::endl;
     NS_LOG_FUNCTION(this);
 
     /*PointToPointHelper pointToPoint;
@@ -510,6 +517,7 @@ void NetSim::ConfigureP2P(uint32_t count){
 }
 
 void NetSim::ConfigureNetworkLayer(){
+    std::cout << "==== ConfigureNetworkLayer ====" << std::endl;
     NS_LOG_FUNCTION(this);
 
     NS_LOG_LOGIC("Install internet stack");
@@ -609,7 +617,7 @@ void NetSim::SetKamedaModule(void){
 
         if (apId < wifiAPs.size()) {
             Ptr<APMonitorTerminal> monitorApp = CreateObject<APMonitorTerminal>(apId,
-                wifiAPs[apId]->GetObject<Ipv4>()->GetAddress(1,0).GetLocal(),
+                server_rtt->GetObject<Ipv4>()->GetAddress(1,0).GetLocal(),
                 server_rtt->GetObject<Ipv4>()->GetAddress(1,0).GetLocal());
             monitor->AddApplication(monitorApp);
             monitorApp->SetStartTime(Seconds(1.0));
@@ -653,7 +661,7 @@ void NetSim::SetVideoApp(void){
 
     uint16_t multicast_port = 10000; // ポート番号をさらに別の値に変更
     for(uint32_t i=0; i<terms.size(); i++){
-        if(m_termData[i].use_appli != 4){        //通話アプリケーションの場合以外
+        if(m_termData[i].use_appli != 2){        //動画ストリーミング場合以外
             continue;
         }
         UdpServerHelper udpServer;
