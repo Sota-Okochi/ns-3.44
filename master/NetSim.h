@@ -18,6 +18,7 @@
 #include "ns3/waypoint-mobility-model.h"
 #include "ns3/APMonitorTerminal.h"
 #include "ns3/wifi-helper.h"
+#include "ns3/nr-module.h"
 
 #include <sstream>
 #include <iomanip>
@@ -63,6 +64,8 @@ private:
     void ConfigureDataLinkLayer();
     void ConfigureWifi(uint32_t count);
     void ConfigureLTE(uint32_t count);
+    void ConfigureNrForAp0();
+    void ConfigureNrIpAfterNetwork();
     void ConfigureP2P(uint32_t count);
     void ConfigureMobility();
     void ConfigureNetworkLayer();
@@ -105,6 +108,11 @@ private:
     NetDeviceContainer csmaDevices;
     std::vector<NetDeviceContainer> p2pDevices;
     std::vector<NetDeviceContainer> wifiDevices;
+    // NR devices (AP0専用)
+    NetDeviceContainer m_nrGnbDevs;
+    NetDeviceContainer m_nrUeDevs;
+    Ptr<NrHelper> m_nrHelper;
+    Ptr<NrPointToPointEpcHelper> m_nrEpcHelper;
 
     uint32_t termNum;
     uint32_t wifiAPNum;

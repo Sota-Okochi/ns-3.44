@@ -1,5 +1,3 @@
-
-
 #include "NetSim.h"
 
 NS_LOG_COMPONENT_DEFINE("researchMain");
@@ -123,6 +121,21 @@ bool LoadBaselineSetting(const std::string& path, BaselineSetting& setting)
 
 namespace ns3 {
 
+// --- Readability helpers (no behavior change) ---
+static const Ipv4Address CSMA_NET("10.100.0.0");
+static const Ipv4Mask    CSMA_MASK("255.255.255.0");
+static const Ipv4Address SERVER_IP("10.100.0.1");
+static const Ipv4Address UE_NET("7.0.0.0");
+static const Ipv4Mask    UE_MASK("255.0.0.0");
+
+static inline void EnableIpForwardIfPresent(Ptr<Ipv4> ipv4)
+{
+    if (ipv4)
+    {
+        ipv4->SetAttribute("IpForward", BooleanValue(true));
+    }
+}
+
 int G_nth = 0;
 
     std::vector<std::string> split2(const std::string& input, char delimiter)
@@ -152,6 +165,44 @@ static void PingRtt (uint16_t seq, Time rtt)
 
     std::ofstream ofs(filename, std::ios::app);
   ofs << seq << " " << rtt.GetMilliSeconds() << std::endl;
+}
+
+static void DumpIpv4Info(const std::string& title, Ptr<Node> node)
+{
+    if (!node) return;
+    std::cout << "[ROUTE] === " << title << " (Node " << node->GetId() << ") ===" << std::endl;
+    Ptr<Ipv4> ipv4 = node->GetObject<Ipv4>();
+    if (!ipv4)
+    {
+        std::cout << "[ROUTE] (no ipv4)" << std::endl;
+        return;
+    }
+    // IF一覧
+    for (uint32_t ifIndex = 0; ifIndex < ipv4->GetNInterfaces(); ++ifIndex)
+    {
+        for (uint32_t a = 0; a < ipv4->GetNAddresses(ifIndex); ++a)
+        {
+            Ipv4InterfaceAddress ifaddr = ipv4->GetAddress(ifIndex, a);
+            std::cout << "[ROUTE] IF=" << ifIndex
+                      << " addr=" << ifaddr.GetLocal()
+                      << "/" << ifaddr.GetMask()
+                      << " bcast=" << ifaddr.GetBroadcast()
+                      << std::endl;
+        }
+    }
+    // 経路一覧
+    Ipv4StaticRoutingHelper rh;
+    Ptr<Ipv4StaticRouting> rt = rh.GetStaticRouting(ipv4);
+    uint32_t nRoutes = rt->GetNRoutes();
+    for (uint32_t r = 0; r < nRoutes; ++r)
+    {
+        Ipv4RoutingTableEntry e = rt->GetRoute(r);
+        std::cout << "[ROUTE] route#" << r
+                  << " dst=" << e.GetDest() << "/" << e.GetDestNetworkMask()
+                  << " gw=" << e.GetGateway()
+                  << " if=" << e.GetInterface()
+                  << std::endl;
+    }
 }
 
 NetSim::NetSim(){
@@ -258,12 +309,12 @@ void NetSim::CreateNetworkTopology(){
     std::cout << "==== CreateNetworkTopology ====" << std::endl;
     NS_LOG_FUNCTION(this);
 
-    InitializeNodeContainers();
-    CreateWifiApNodes();
-    CreateMonitorNodes();
-    CreateTerminalNodes();
-    CreateRouterNodes();
-    CreateServerNodes();
+    InitializeNodeContainers(); // p2pNodes, wifiNodes, p2pDevices, wifiDevicesの初期化
+    CreateWifiApNodes(); // wifiAPsの初期化
+    CreateMonitorNodes(); // monitorの初期化とアタッチ
+    CreateTerminalNodes(); // termsの初期化とアタッチ
+    CreateRouterNodes(); // routersの初期化とアタッチ
+    CreateServerNodes(); // serverの初期化とアタッチ
 }
 
 void NetSim::InitializeNodeContainers()
@@ -308,7 +359,12 @@ void NetSim::CreateTerminalNodes()
     for (uint32_t i = 0; i < termNum; ++i)
     {
         Ptr<Node> term = CreateObject<Node>();
-        wifiNodes[m_termData[i].apNo - 1].Add(term);
+        uint32_t apIndex = static_cast<uint32_t>(std::max(0, m_termData[i].apNo - 1));
+        if (apIndex >= wifiNodes.size())
+        {
+            apIndex = 0;
+        }
+        wifiNodes[apIndex].Add(term);
         terms.push_back(term);
     }
 }
@@ -345,13 +401,13 @@ Vector NetSim::GetMonitorPosition(uint32_t apId) const
     switch (apId)
     {
     case 0:
-        return Vector(0.0, -25.0, 0.0);
+        return Vector(0.0, -25.0, 1.5);
     case 1:
-        return Vector(25.0, 25.0, 0.0);
+        return Vector(25.0, 25.0, 1.5);
     case 2:
-        return Vector(-25.0, 25.0, 0.0);
+        return Vector(-25.0, 25.0, 1.5);
     default:
-        return Vector(0.0, 0.0, 0.0);
+        return Vector(0.0, 0.0, 1.5);
     }
 }
 
@@ -362,6 +418,7 @@ void NetSim::ConfigureDataLinkLayer(){
     ConfigureWifiDevices();
     ConfigureMobility();
     ConfigureMonitorPlacement();
+    ConfigureNrForAp0();
     ConfigureP2PDevices();
     ConfigureCsmaDevices();
 }
@@ -371,21 +428,32 @@ void NetSim::ConfigureWifiDevices()
     NS_LOG_LOGIC("set wifi devices");
     for (uint32_t i = 0; i < wifiAPNum; ++i)
     {
+        // AP0はWi-Fiを張らず、NRで置換するためスキップ
+        if (i == 0)
+        {
+            continue;
+        }
         ConfigureLTE(i);
     }
 }
 
 void NetSim::ConfigureMonitorPlacement()
 {
+    // std::cout << "[DBG] ConfigureMonitorPlacement monitorsN=" << monitorTerminals.size() << std::endl;
     for (uint32_t apId = 0; apId < monitorTerminals.size(); ++apId)
     {
         Ptr<Node> monitor = monitorTerminals[apId];
+        // std::cout << "[DBG]  monitor#" << apId << " ptr=" << (monitor ? 1 : 0) << std::endl;
         MobilityHelper mobility;
         mobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
         Ptr<ListPositionAllocator> posList = CreateObject<ListPositionAllocator>();
         posList->Add(GetMonitorPosition(apId));
         mobility.SetPositionAllocator(posList);
+        if (monitor)
+        {
         mobility.Install(monitor);
+            std::cout << "[DBG]   installed monitor#" << apId << std::endl;
+        }
     }
 }
 
@@ -419,25 +487,37 @@ void NetSim::ConfigureWifi(uint32_t count){ //count is wifiAP number
     YansWifiPhyHelper phy;
     phy.SetChannel(channel.Create());
     phy.Set("RxGain", DoubleValue(0));
-    phy.Set("Antennas", UintegerValue(2));
-    phy.Set("MaxSupportedTxSpatialStreams", UintegerValue(2));
-    phy.Set("MaxSupportedRxSpatialStreams", UintegerValue(2));
+    // 5GHz channel 36 (5180MHz), 20MHz, single stream for robustness
+    phy.Set("ChannelNumber", UintegerValue(36));
+    phy.Set("ChannelWidth", UintegerValue(20));
+    phy.Set("Antennas", UintegerValue(1));
+    phy.Set("MaxSupportedTxSpatialStreams", UintegerValue(1));
+    phy.Set("MaxSupportedRxSpatialStreams", UintegerValue(1));
     phy.SetPcapDataLinkType(WifiPhyHelper::DLT_IEEE802_11_RADIO);
 
     WifiHelper wifi;
     wifi.SetStandard(WIFI_STANDARD_80211ax);
-    wifi.SetRemoteStationManager("ns3::MinstrelHtWifiManager");
+    // 固定レート: HE MCS 7 をデータ、制御は MCS0
+    wifi.SetRemoteStationManager(
+        "ns3::ConstantRateWifiManager",
+        "DataMode", StringValue("HeMcs7"),
+        "ControlMode", StringValue("HeMcs0")
+    );
     wifi.ConfigHeOptions("BssColor", UintegerValue((count % 63) + 1));
 
     WifiMacHelper mac;
     std::stringstream ssidss;
     ssidss << "main-SSID-" << count;
     Ssid ssid = Ssid (ssidss.str());
-    mac.SetType ("ns3::ApWifiMac", "Ssid", SsidValue (ssid));
+    mac.SetType ("ns3::ApWifiMac",
+                 "Ssid", SsidValue (ssid),
+                 "BeaconInterval", TimeValue(MicroSeconds(52224)));
     wifiDevices[count] = wifi.Install (phy, mac, wifiNodes[count].Get(0));
 
     for(uint32_t i=1; i<wifiNodes[count].GetN(); i++){
-        mac.SetType ("ns3::StaWifiMac", "Ssid", SsidValue (ssid));
+        mac.SetType ("ns3::StaWifiMac",
+                     "Ssid", SsidValue (ssid),
+                     "ActiveProbing", BooleanValue(true));
         NetDeviceContainer temp = wifi.Install (phy, mac, wifiNodes[count].Get(i));
         wifiDevices[count].Add(temp);
     }
@@ -449,26 +529,32 @@ void NetSim::ConfigureWifi(uint32_t count){ //count is wifiAP number
 void NetSim::ConfigureLTE(uint32_t count){ //count is wifiAP number
     std::cout << "==== ConfigureLTE ====" << std::endl;
     NS_LOG_FUNCTION(this);
-    YansWifiChannelHelper channel = YansWifiChannelHelper::Default();
-    channel.SetPropagationDelay("ns3::ConstantSpeedPropagationDelayModel");
-    channel.AddPropagationLoss("ns3::LogDistancePropagationLossModel",
-                               "Exponent", DoubleValue(2.2));
-    channel.AddPropagationLoss("ns3::NakagamiPropagationLossModel",
-                               "m0", DoubleValue(1.0),
-                               "m1", DoubleValue(1.0),
-                               "m2", DoubleValue(1.0));
-
-    YansWifiPhyHelper phy;
-    phy.SetChannel(channel.Create());
+    // Spectrum WIFI PHYでHEを安定化
+    SpectrumWifiPhyHelper phy;
+    // スペクトラム・チャネル構成
+    Ptr<MultiModelSpectrumChannel> spectrumChannel = CreateObject<MultiModelSpectrumChannel>();
+    Ptr<ConstantSpeedPropagationDelayModel> delay = CreateObject<ConstantSpeedPropagationDelayModel>();
+    spectrumChannel->SetPropagationDelayModel(delay);
+    Ptr<LogDistancePropagationLossModel> loss = CreateObject<LogDistancePropagationLossModel>();
+    spectrumChannel->AddPropagationLossModel(loss);
+    phy.SetChannel(spectrumChannel);
     phy.Set("RxGain", DoubleValue(0));
-    phy.Set("Antennas", UintegerValue(2));
-    phy.Set("MaxSupportedTxSpatialStreams", UintegerValue(2));
-    phy.Set("MaxSupportedRxSpatialStreams", UintegerValue(2));
+    // 単一空間ストリーム
+    phy.Set("Antennas", UintegerValue(1));
+    phy.Set("MaxSupportedTxSpatialStreams", UintegerValue(1));
+    phy.Set("MaxSupportedRxSpatialStreams", UintegerValue(1));
     phy.SetPcapDataLinkType(WifiPhyHelper::DLT_IEEE802_11_RADIO);
 
     WifiHelper wifi;
     wifi.SetStandard(WIFI_STANDARD_80211ax);
-    wifi.SetRemoteStationManager("ns3::MinstrelHtWifiManager");
+    // 固定レート: データ HeMcs3 / 制御 HeMcs0（1SS/20MHz向け、保守的）
+    wifi.SetRemoteStationManager(
+        "ns3::ConstantRateWifiManager",
+        "DataMode", StringValue("HeMcs3"),
+        "ControlMode", StringValue("HeMcs0")
+    );
+    // RTS/CTS 有効化で結合性向上
+    Config::SetDefault ("ns3::WifiRemoteStationManager::RtsCtsThreshold", UintegerValue (0));
     wifi.ConfigHeOptions("BssColor", UintegerValue((count % 63) + 1));
 
     WifiMacHelper mac;
@@ -477,12 +563,16 @@ void NetSim::ConfigureLTE(uint32_t count){ //count is wifiAP number
     Ssid ssid = Ssid (ssidss.str());
 
     mac.SetType("ns3::ApWifiMac",
-                "Ssid", SsidValue(ssid));
+                "Ssid", SsidValue(ssid),
+                "QosSupported", BooleanValue(true),
+                "BeaconInterval", TimeValue(MicroSeconds(52224)));
 
     wifiDevices[count] = wifi.Install(phy, mac, wifiNodes[count].Get(0));
 
     mac.SetType("ns3::StaWifiMac",
-                "Ssid", SsidValue(ssid));
+                "Ssid", SsidValue(ssid),
+                "ActiveProbing", BooleanValue(true),
+                "QosSupported", BooleanValue(true));
 
     for(uint32_t i=1; i<wifiNodes[count].GetN(); i++){
         NetDeviceContainer temp = wifi.Install(phy, mac, wifiNodes[count].Get(i));
@@ -507,24 +597,29 @@ void NetSim::ConfigureApMobility()
     static const int kBase = 25;
 
     NS_LOG_LOGIC("set mobility");
-    for (uint32_t i = 0; i < wifiAPNum; ++i)
+    uint32_t apCount = std::min<uint32_t>(wifiAPNum, static_cast<uint32_t>(wifiAPs.size()));
+    for (uint32_t i = 0; i < apCount; ++i)
     {
+        std::cout << "[DBG]  AP#" << i << " nodePtr=" << (wifiAPs[i] ? 1 : 0) << std::endl;
         MobilityHelper mobility;
         mobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
         Ptr<ListPositionAllocator> posList = CreateObject<ListPositionAllocator>();
 
         if (i == 0)
         {
-            posList->Add(Vector(0.0, -25.0, 0.0));
+            posList->Add(Vector(0.0, -25.0, 10.0)); // gNB高さ
         }
         else
         {
             const int* offset = kOffsets[i - 1];
-            posList->Add(Vector(kBase * offset[0], kBase * offset[1], 0.0));
+            posList->Add(Vector(kBase * offset[0], kBase * offset[1], 3.0));
         }
 
         mobility.SetPositionAllocator(posList);
+        if (i < wifiAPs.size() && wifiAPs[i] != nullptr)
+        {
         mobility.Install(wifiAPs[i]);
+        }
     }
 }
 
@@ -573,9 +668,16 @@ void NetSim::ConfigureTermMobility()
         mobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
     }
 
-    for (const auto& term : terms)
+    // std::cout << "[DBG] ConfigureTermMobility termsN=" << terms.size() << std::endl;
+    for (uint32_t idx = 0; idx < terms.size(); ++idx)
+    {
+        Ptr<Node> term = terms[idx];
+        // std::cout << "[DBG]  term#" << idx << " ptr=" << (term ? 1 : 0) << std::endl;
+        if (term != nullptr)
     {
         mobility.Install(term);
+            std::cout << "[DBG]   installed term#" << idx << std::endl;
+        }
     }
 }
 
@@ -603,18 +705,15 @@ void NetSim::ConfigureP2P(uint32_t count){
     std::cout << "==== ConfigureP2P ====" << std::endl;
     NS_LOG_FUNCTION(this);
 
-    /*PointToPointHelper pointToPoint;
-    pointToPoint.SetDeviceAttribute  ("DataRate", StringValue ("100Mbps"));
-    pointToPoint.SetChannelAttribute ("Delay", StringValue ("2ms"));
-    pointToPoint.SetQueue ("ns3::DropTailQueue", "MaxPackets", UintegerValue (10000));*/
-    CsmaHelper csma;
-    csma.SetChannelAttribute ("DataRate", StringValue ("1Gbps"));
-    csma.SetChannelAttribute ("Delay"   , StringValue("0.1ms"));
-    p2pDevices[count] = csma.Install (p2pNodes[count]);
+    // AP-Router 間は本来の PointToPoint を使用（ARP無しで次ホップ解決が容易）
+    PointToPointHelper pointToPoint;
+    pointToPoint.SetDeviceAttribute  ("DataRate", StringValue ("1Gbps"));
+    pointToPoint.SetChannelAttribute ("Delay", StringValue ("0.1ms"));
+    pointToPoint.SetQueue ("ns3::DropTailQueue<Packet>", "MaxSize", StringValue ("10000p"));
+    p2pDevices[count] = pointToPoint.Install (p2pNodes[count]);
     std::stringstream ss;
     ss << OUTPUT_DIR << "pointToPoint" << count;
-    //pointToPoint.EnablePcapAll(ss.str());
-    csma.EnablePcapAll(ss.str());
+    pointToPoint.EnablePcapAll(ss.str());
 }
 
 void NetSim::ConfigureNetworkLayer(){
@@ -622,15 +721,24 @@ void NetSim::ConfigureNetworkLayer(){
     NS_LOG_FUNCTION(this);
 
     NS_LOG_LOGIC("Install internet stack");
+    // 既定値の強制設定は環境により失敗することがあるため削除（個別ノードで設定済み）
     InternetStackHelper stack;
 	stack.InstallAll();
 
     NS_LOG_LOGIC("Install ipv4 addresses");
 	Ipv4AddressHelper address;
 
-	address.SetBase ("10.0.0.0", "255.255.255.0");
+	address.SetBase ("10.100.0.0", "255.255.255.0");
 	Ipv4InterfaceContainer csmaInterfaces;
 	csmaInterfaces = address.Assign (csmaDevices);
+
+    // NR/UEへのIP付与とデフォルトルートは、IPスタックとCSMA割当完了後に実施
+    ConfigureNrIpAfterNetwork();
+
+    // AP-ルータ間(2ノードCSMA)のIP確保を先に行い、静的ルーティング情報に使う
+    std::vector<Ipv4Address> apP2PIps(wifiAPNum, Ipv4Address("0.0.0.0"));
+    std::vector<Ipv4Address> routerP2PIps(wifiAPNum, Ipv4Address("0.0.0.0"));
+    std::vector<uint32_t> routerP2PIfIndex(wifiAPNum, 0);
 
     for(uint32_t i=0; i<wifiAPNum; i++){
         std::stringstream ss;
@@ -638,6 +746,15 @@ void NetSim::ConfigureNetworkLayer(){
         address.SetBase(Ipv4Address(ss.str().c_str()), "255.255.255.0");
         Ipv4InterfaceContainer p2pInterfaces;
         p2pInterfaces = address.Assign(p2pDevices[i]);
+        apP2PIps[i] = p2pInterfaces.GetAddress(0);
+        routerP2PIps[i] = p2pInterfaces.GetAddress(1);
+        Ptr<Ipv4> routerIpv4 = routers[i]->GetObject<Ipv4>();
+        int32_t outIf = routerIpv4->GetInterfaceForAddress(p2pInterfaces.GetAddress(1));
+        if (outIf < 0)
+        {
+            outIf = routerIpv4->GetInterfaceForDevice(p2pDevices[i].Get(1));
+        }
+        routerP2PIfIndex[i] = (outIf < 0) ? 0u : static_cast<uint32_t>(outIf);
     }
 
     Ipv4StaticRoutingHelper staticRouting;
@@ -651,9 +768,72 @@ void NetSim::ConfigureNetworkLayer(){
         std::stringstream ss2;
         ss2 << "10.1." << i << ".1";
         // Ipv4Address gateway = Ipv4Address(ss2.str().c_str()); // 未使用変数をコメントアウト
+        if (wifiDevices[i].GetN() == 0)
+        {
+            // AP0はNR化のためWiFiなし
+            continue;
+        }
         address.SetBase(baseip, "255.255.255.0");
         Ipv4InterfaceContainer wifiInterfaces;
         wifiInterfaces = address.Assign(wifiDevices[i]);
+        // ルータ/APのIPフォワーディングを有効化
+        Ptr<Ipv4> apIpv4 = wifiAPs[i]->GetObject<Ipv4>();
+        EnableIpForwardIfPresent(apIpv4);
+        Ptr<Ipv4> rIpv4 = routers[i]->GetObject<Ipv4>();
+        EnableIpForwardIfPresent(rIpv4);
+        // ルータにWiFiサブネットへの経路を追加（次ホップはAPのP2P側IP）
+        Ptr<Ipv4StaticRouting> rStatic = staticRouting.GetStaticRouting(rIpv4);
+        if (apP2PIps[i] != Ipv4Address("0.0.0.0"))
+        {
+            rStatic->AddNetworkRouteTo(baseip, Ipv4Mask("255.255.255.0"), apP2PIps[i], routerP2PIfIndex[i]);
+        }
+        // AP側に中央CSMA(10.100.0.0/24)への経路を追加（次ホップ: ルータのP2P側IP）
+        if (apIpv4 && routerP2PIps[i] != Ipv4Address("0.0.0.0"))
+        {
+            int32_t apIf = apIpv4->GetInterfaceForDevice(p2pDevices[i].Get(0));
+            if (apIf < 0)
+            {
+                apIf = apIpv4->GetInterfaceForAddress(apP2PIps[i]);
+            }
+            if (apIf >= 0)
+            {
+                Ptr<Ipv4StaticRouting> apStatic = staticRouting.GetStaticRouting(apIpv4);
+                // デフォルトはP2Pのルータへ
+                apStatic->SetDefaultRoute(routerP2PIps[i], static_cast<uint32_t>(apIf));
+                apStatic->AddNetworkRouteTo(CSMA_NET, CSMA_MASK, routerP2PIps[i], static_cast<uint32_t>(apIf));
+                // 念のためサーバへのホストルートも追加
+                apStatic->AddHostRouteTo(SERVER_IP, routerP2PIps[i], static_cast<uint32_t>(apIf));
+            }
+        }
+        // 各STAにデフォルトGW（APのWiFi側IP）を設定（正しいIF番号を自動検出）
+        Ipv4Address apWifiIp = wifiInterfaces.GetAddress(0);
+        for(uint32_t termID=1; termID<wifiNodes[i].GetN(); termID++){
+            Ptr<Node> termNode = wifiNodes[i].Get(termID);
+            Ptr<Ipv4> tIpv4 = termNode->GetObject<Ipv4>();
+            if (!tIpv4) { continue; }
+            // 端末のWiFi IFを動的検出（10.1.i.0/24 上のIF）
+            int32_t wifiIf = -1;
+            for (uint32_t ifIndex = 0; ifIndex < tIpv4->GetNInterfaces(); ++ifIndex)
+            {
+                uint32_t nAddresses = tIpv4->GetNAddresses(ifIndex);
+                for (uint32_t a = 0; a < nAddresses; ++a)
+                {
+                    Ipv4InterfaceAddress ifaddr = tIpv4->GetAddress(ifIndex, a);
+                    if (ifaddr.GetLocal().CombineMask(Ipv4Mask("255.255.255.0")) == baseip)
+                    {
+                        wifiIf = static_cast<int32_t>(ifIndex);
+                    }
+                }
+            }
+            // みつからない場合のフォールバック: 1
+            uint32_t outIf = wifiIf >= 0 ? static_cast<uint32_t>(wifiIf) : 1u;
+            Ptr<Ipv4StaticRouting> termStatic = staticRouting.GetStaticRouting(tIpv4);
+            termStatic->SetDefaultRoute(apWifiIp, outIf);
+            // サーバへのホストルートも追加（経路解決の安定化）
+            termStatic->AddHostRouteTo(SERVER_IP, apWifiIp, outIf);
+            // 中央CSMAへのネットワークルートも明示（冗長だが安定性向上）
+            termStatic->AddNetworkRouteTo(CSMA_NET, CSMA_MASK, apWifiIp, outIf);
+        }
 /*
         NS_LOG_LOGIC("set static routing");
         routerStatic->AddNetworkRouteTo(baseip, Ipv4Mask("255.255.255.0"), gateway, 1);
@@ -666,9 +846,254 @@ void NetSim::ConfigureNetworkLayer(){
         }*/
     }
 
-    NS_LOG_LOGIC("set ipv4 routing table");
-    Ipv4GlobalRoutingHelper::PopulateRoutingTables ();
+    // サーバ(中央CSMA上)から各WiFiサブネット(10.1.i.0/24)への戻り経路を追加
+    // それぞれ対応するルータのCSMAアドレスを次ホップに使用
+    std::vector<Ipv4Address> routerCsmaIps(wifiAPNum, Ipv4Address("0.0.0.0"));
+    for (uint32_t i = 0; i < wifiAPNum; ++i)
+    {
+        Ptr<Ipv4> rIpv4 = routers[i]->GetObject<Ipv4>();
+        if (!rIpv4) { continue; }
+        for (uint32_t ifIndex = 0; ifIndex < rIpv4->GetNInterfaces(); ++ifIndex)
+        {
+            uint32_t nAddresses = rIpv4->GetNAddresses(ifIndex);
+            for (uint32_t a = 0; a < nAddresses; ++a)
+            {
+                Ipv4InterfaceAddress ifaddr = rIpv4->GetAddress(ifIndex, a);
+                if (ifaddr.GetLocal().CombineMask(CSMA_MASK) == CSMA_NET)
+                {
+                    routerCsmaIps[i] = ifaddr.GetLocal();
+                }
+            }
+        }
+    }
 
+    auto addRoutesOnServer = [&](Ptr<Node> server){
+        if (!server) return;
+        Ptr<Ipv4> sIpv4 = server->GetObject<Ipv4>();
+        if (!sIpv4) return;
+        // サーバのCSMA出力IFを特定
+        int32_t csIf = -1;
+        for (uint32_t ifIndex = 0; ifIndex < sIpv4->GetNInterfaces(); ++ifIndex)
+        {
+            for (uint32_t a = 0; a < sIpv4->GetNAddresses(ifIndex); ++a)
+            {
+                Ipv4InterfaceAddress ifaddr = sIpv4->GetAddress(ifIndex, a);
+                if (ifaddr.GetLocal().CombineMask(CSMA_MASK) == CSMA_NET)
+                {
+                    csIf = static_cast<int32_t>(ifIndex);
+                }
+            }
+        }
+        if (csIf < 0) return;
+        Ptr<Ipv4StaticRouting> sStatic = staticRouting.GetStaticRouting(sIpv4);
+        for (uint32_t i = 0; i < wifiAPNum; ++i)
+        {
+            if (wifiDevices[i].GetN() == 0) { continue; } // AP0はWiFi無し
+            if (routerCsmaIps[i] == Ipv4Address("0.0.0.0")) { continue; }
+            std::stringstream ssnet; ssnet << "10.1." << i << ".0";
+            sStatic->AddNetworkRouteTo(Ipv4Address(ssnet.str().c_str()), Ipv4Mask("255.255.255.0"), routerCsmaIps[i], static_cast<uint32_t>(csIf));
+        }
+    };
+
+    addRoutesOnServer(server_rtt);
+    addRoutesOnServer(server_udpVideo);
+    addRoutesOnServer(server_udpVoice);
+
+    // NR(EPC) 連携: PGW を CSMA に参加させた場合、7.0.0.0/8 を PGW 経由に静的経路設定
+    if (m_nrEpcHelper)
+    {
+        Ptr<Node> pgw = m_nrEpcHelper->GetPgwNode();
+        Ptr<Ipv4> pgwIpv4 = pgw ? pgw->GetObject<Ipv4>() : nullptr;
+        Ipv4Address pgwCsmaAddr("0.0.0.0");
+        uint32_t pgwCsmaIf = 0;
+        if (pgwIpv4)
+        {
+            for (uint32_t ifIndex = 0; ifIndex < pgwIpv4->GetNInterfaces(); ++ifIndex)
+            {
+                uint32_t nAddresses = pgwIpv4->GetNAddresses(ifIndex);
+                for (uint32_t a = 0; a < nAddresses; ++a)
+                {
+                    Ipv4InterfaceAddress ifaddr = pgwIpv4->GetAddress(ifIndex, a);
+                    if (ifaddr.GetLocal().CombineMask(Ipv4Mask("255.255.255.0")) == Ipv4Address("10.100.0.0"))
+                    {
+                        pgwCsmaAddr = ifaddr.GetLocal();
+                        pgwCsmaIf = ifIndex;
+                    }
+                }
+            }
+        }
+        if (pgwCsmaAddr != Ipv4Address("0.0.0.0"))
+        {
+            Ipv4StaticRoutingHelper rh;
+            const Ipv4Address ueNet = UE_NET;
+            const Ipv4Mask    ueMask = UE_MASK;
+            for (uint32_t k = 0; k < csmaNodes.GetN(); ++k)
+            {
+                Ptr<Node> n = csmaNodes.Get(k);
+                if (n == pgw)
+                {
+                    continue; // PGW 自身は不要
+                }
+                Ptr<Ipv4> ipv4 = n->GetObject<Ipv4>();
+                if (!ipv4)
+                {
+                    continue;
+                }
+                // このノードのCSMA出力IFを探索（10.0.0.0/24）
+                int32_t outIf = -1;
+                for (uint32_t ifIndex = 0; ifIndex < ipv4->GetNInterfaces(); ++ifIndex)
+                {
+                    uint32_t nAddresses = ipv4->GetNAddresses(ifIndex);
+                    for (uint32_t a = 0; a < nAddresses; ++a)
+                    {
+                        Ipv4InterfaceAddress ifaddr = ipv4->GetAddress(ifIndex, a);
+                        if (ifaddr.GetLocal().CombineMask(CSMA_MASK) == CSMA_NET)
+                        {
+                            outIf = static_cast<int32_t>(ifIndex);
+                        }
+                    }
+                }
+                if (outIf >= 0)
+                {
+                    Ptr<Ipv4StaticRouting> rt = rh.GetStaticRouting(ipv4);
+                    rt->AddNetworkRouteTo(ueNet, ueMask, pgwCsmaAddr, static_cast<uint32_t>(outIf));
+                }
+            }
+        }
+    }
+
+    // 主要ノードのIF/経路をダンプ（AP1/2, Router1/2, Monitor1/2, Server）
+    if (wifiAPNum >= 3)
+    {
+        // AP1/2 は index 1,2
+        DumpIpv4Info("AP1", wifiAPs[1]);
+        DumpIpv4Info("AP2", wifiAPs[2]);
+        DumpIpv4Info("ROUTER1", routers[0]);
+        DumpIpv4Info("ROUTER2", routers[1]);
+        if (routers.size() >= 3)
+        {
+            DumpIpv4Info("ROUTER3", routers[2]);
+        }
+        // Monitor は index 1,2 を期待
+        if (monitorTerminals.size() >= 3)
+        {
+            DumpIpv4Info("MONITOR1", monitorTerminals[1]);
+            DumpIpv4Info("MONITOR2", monitorTerminals[2]);
+        }
+        DumpIpv4Info("SERVER_RTT", server_rtt);
+    }
+
+    // グローバルルーティングはVirtualNetDeviceで落ちるため使わず、上記の静的経路で運用
+    //NS_LOG_LOGIC("set ipv4 routing table");
+    //Ipv4GlobalRoutingHelper::PopulateRoutingTables ();
+
+}
+
+void NetSim::ConfigureNrForAp0()
+{
+    // AP0 だけ 5G NR に置換。WiFi 構成は他APで維持。
+    if (wifiAPNum == 0 || wifiNodes.empty())
+    {
+        return;
+    }
+
+    // ヘルパ生成
+    m_nrHelper = CreateObject<NrHelper>();
+    m_nrEpcHelper = CreateObject<NrPointToPointEpcHelper>();
+    m_nrHelper->SetEpcHelper(m_nrEpcHelper);
+
+    // 周波数・BWP（Sub-6: 3.5GHz / 40MHz）+ 3GPPチャネル割当
+    std::vector<CcBwpCreator::SimpleOperationBandConf> bandConfs = {
+        CcBwpCreator::SimpleOperationBandConf(3.5e9, 40e6, 1)
+    };
+    // 屋外マクロは高架、端末は地上として高さ前提を満たすようにAP/UE高さを上で設定済み
+    // シンプル化のためUMa(都市マクロ)モデルを使用
+    auto bwpsPair = m_nrHelper->CreateBandwidthParts(bandConfs, "UMa", "Default", "ThreeGpp");
+    auto allBwps = bwpsPair.second;
+    std::cout << "[DBG][NR] BWP count=" << allBwps.size() << std::endl;
+
+    // gNB = AP0 ノード
+    NodeContainer gnb;
+    if (wifiAPs.size() > 0 && wifiAPs[0] != nullptr)
+    {
+        gnb.Add(wifiAPs[0]);
+    }
+    if (gnb.GetN() == 0)
+    {
+        return;
+    }
+    m_nrGnbDevs = m_nrHelper->InstallGnbDevice(gnb, allBwps);
+    std::cout << "[DBG][NR] gNB devices=" << m_nrGnbDevs.GetN() << std::endl;
+
+    // UE = AP0 配下の全ノード（インデックス1以降: 監視端末＋端末群）
+    NodeContainer ue;
+    for (uint32_t i = 1; i < wifiNodes[0].GetN(); ++i)
+    {
+        Ptr<Node> n = wifiNodes[0].Get(i);
+        if (n)
+        {
+            ue.Add(n);
+        }
+    }
+    if (ue.GetN() == 0)
+    {
+        return;
+    }
+    m_nrUeDevs = m_nrHelper->InstallUeDevice(ue, allBwps);
+    std::cout << "[DBG][NR] UE devices=" << m_nrUeDevs.GetN() << std::endl;
+
+    // アタッチはIPスタック導入後(ConfigureNrIpAfterNetwork)に実施
+
+    // PGW を CSMA バックボーンに参加させる（アドレス付与は ConfigureNetworkLayer で一括）
+    Ptr<Node> pgw = m_nrEpcHelper->GetPgwNode();
+    if (pgw)
+    {
+        csmaNodes.Add(pgw);
+    }
+}
+
+void NetSim::ConfigureNrIpAfterNetwork()
+{
+    if (!m_nrEpcHelper || m_nrUeDevs.GetN() == 0)
+    {
+        return;
+    }
+    // まずUEノードへIPスタックを念のため導入
+    InternetStackHelper internet;
+    for (auto it = m_nrUeDevs.Begin(); it != m_nrUeDevs.End(); ++it)
+    {
+        Ptr<Node> n = (*it)->GetNode();
+        if (!n->GetObject<Ipv4>())
+        {
+            internet.Install(n);
+        }
+    }
+
+    // UEにIPv4アドレスを割当
+    Ipv4InterfaceContainer ueIf = m_nrEpcHelper->AssignUeIpv4Address(m_nrUeDevs);
+    (void)ueIf;
+
+    // UEのデフォルトGW設定
+    Ipv4StaticRoutingHelper rh;
+    Ipv4Address gw = m_nrEpcHelper->GetUeDefaultGatewayAddress();
+    for (auto it = m_nrUeDevs.Begin(); it != m_nrUeDevs.End(); ++it)
+    {
+        Ptr<NetDevice> dev = *it;
+        Ptr<Node> n = dev->GetNode();
+        Ptr<Ipv4> ipv4 = n->GetObject<Ipv4>();
+        if (!ipv4)
+        {
+            continue;
+        }
+        Ptr<Ipv4StaticRouting> rt = rh.GetStaticRouting(ipv4);
+        rt->SetDefaultRoute(gw, 1);
+    }
+
+    // IPが整ったので、ここでアタッチを実施
+    if (m_nrGnbDevs.GetN() > 0 && m_nrUeDevs.GetN() > 0)
+    {
+        m_nrHelper->AttachToClosestGnb(m_nrUeDevs, m_nrGnbDevs);
+    }
 }
 
 void NetSim::SetAppLayer(){
@@ -787,7 +1212,7 @@ void NetSim::RunSim(){
     CreateNetworkTopology();
     ConfigureDataLinkLayer();
     ConfigureNetworkLayer();
-    SetAppLayer();
+    SetAppLayer(); // 各種アプリケーションの設定
 
     std::cout << "=====Simulator::Start()=====" << std::endl;
     Simulator::Run();

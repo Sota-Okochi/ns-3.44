@@ -98,6 +98,9 @@ private:
     double m_averageRtt;                // 平均RTT
     double m_minRtt;                    // 最小RTT
     double m_maxRtt;                    // 最大RTT
+
+    // 診断用（最初の1バーストだけAP直叩き）
+    bool m_didDiag;                     // 最初のAP疎通診断を実施済みか
 };
 
 } // namespace ns3

@@ -31,7 +31,8 @@ APMonitorTerminal::APMonitorTerminal(uint32_t apId, Ipv4Address targetAP, Ipv4Ad
       m_successfulPings(0),
       m_averageRtt(0.0),
       m_minRtt(std::numeric_limits<double>::max()),
-      m_maxRtt(0.0)
+      m_maxRtt(0.0),
+      m_didDiag(false)
 {
     NS_LOG_FUNCTION(this);
     std::cout << "=== APMonitorTerminal created for AP" << m_apId << " ===" << std::endl;
@@ -123,8 +124,18 @@ void APMonitorTerminal::SendPeriodicPing()
         m_currentPingApp.Stop(Seconds(Simulator::Now().GetSeconds()));
     }
     
+    // 診断: 最初の一回だけ AP 自身にping（AP1/2のL2/ARP含む疎通確認）
+    Ipv4Address dst = m_targetAP;
+    if (!m_didDiag && m_apId != 0) {
+        // apId=1→10.1.1.1, apId=2→10.1.2.1
+        uint32_t third = static_cast<uint32_t>(m_apId);
+        uint32_t raw = (10u<<24) | (1u<<16) | (third<<8) | 1u; // 10.1.apId.1
+        dst = Ipv4Address(raw);
+        m_didDiag = true;
+    }
+
     // V4PingHelperを使用してping送信
-    PingHelper ping(m_targetAP);
+    PingHelper ping(dst);
     ping.SetAttribute("Interval", TimeValue(Seconds(0.1)));
     ping.SetAttribute("Size", UintegerValue(64));
     ping.SetAttribute("Count", UintegerValue(m_samplesPerReport));
@@ -150,7 +161,7 @@ void APMonitorTerminal::SendPeriodicPing()
     
     m_totalPings++;
     
-    std::cout << "MONITOR_AP" << m_apId << " ping sent to " << m_targetAP 
+    std::cout << "MONITOR_AP" << m_apId << " ping sent to " << dst 
               << " at time " << Simulator::Now().GetSeconds() << "s (Total: " << m_totalPings << ")" << std::endl;
     
     // 次のping送信をスケジュール
