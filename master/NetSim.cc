@@ -1,4 +1,5 @@
 #include "NetSim.h"
+#include <fstream>
 
 NS_LOG_COMPONENT_DEFINE("researchMain");
 
