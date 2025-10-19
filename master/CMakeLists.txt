@@ -1,6 +1,6 @@
 set(master_sources
-    /home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/master/main.cc
-    /home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/master/NetSim.cc
+    main.cc
+    NetSim.cc
 )
 
 build_exec(

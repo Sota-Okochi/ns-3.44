@@ -31,8 +31,8 @@
 namespace ns3 {
 
 extern int G_nth;
-const std::string OUTPUT_DIR = "/home/sota/ns-3.44/OUTPUT/";
-const std::string INPUT_DIR = "/home/sota/ns-3.44/data/";
+const std::string OUTPUT_DIR = std::string(PROJECT_SOURCE_PATH) + "/OUTPUT/";
+const std::string INPUT_DIR = std::string(PROJECT_SOURCE_PATH) + "/data/";
 
 enum APID{
     LTE = 0,
