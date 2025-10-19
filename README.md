@@ -53,7 +53,7 @@ sudo apt-get install -y libc6-dev sqlite sqlite3 libsqlite3-dev libeigen3-dev
 
 クローン
 ```
-
+git clone https://github.com/Sota-Okochi/ns-3.44.git
 ```
 
 
@@ -81,7 +81,8 @@ sudo apt-get install -y libc6-dev sqlite sqlite3 libsqlite3-dev libeigen3-dev
   - NetSim.cc/h: トポロジ構築・アプリ設定・ルーティング
 - data/: 入力データ（上記ファイルを配置）
 - OUTPUT/: 実行時出力（RTT/PCAP など）
-- src/, contrib/: ns-3 本体モジュール
+- src/: ns-3 本体モジュール
+- contrib/: 外部モジュール
 
 
 ### 実験環境
