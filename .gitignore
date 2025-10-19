@@ -23,3 +23,6 @@ OUTPUT/
 .idea/
 .DS_Store
 *:Zone.Identifier
+
+# Windows ADS
+*:Zone.Identifier
