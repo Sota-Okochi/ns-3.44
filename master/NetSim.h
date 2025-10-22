@@ -115,7 +115,7 @@ private:
     Ptr<NrPointToPointEpcHelper> m_nrEpcHelper;
 
     uint32_t termNum;
-    uint32_t wifiAPNum;
+    uint32_t APnum;
     std::vector<Ptr<Node> > terms;
     std::vector<Ptr<Node> > wifiAPs;
     std::vector<Ptr<Node> > routers;

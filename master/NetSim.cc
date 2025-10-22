@@ -207,7 +207,7 @@ static void DumpIpv4Info(const std::string& title, Ptr<Node> node)
 
 NetSim::NetSim(){
     termNum = 1;
-    wifiAPNum = 1;
+    APnum = 1;
     m_nth = 0;
     m_mob = 1;
 }
@@ -232,7 +232,7 @@ void NetSim::Init(int argc, char *argv[]){
     {
         return;
     }
-    wifiAPNum = static_cast<uint32_t>(setting.baseStations);
+    APnum = static_cast<uint32_t>(setting.baseStations);
     termNum = static_cast<uint32_t>(setting.terminals);
 
     m_apSelectionInput.baseStations = setting.baseStations;
@@ -319,16 +319,16 @@ void NetSim::CreateNetworkTopology(){
 
 void NetSim::InitializeNodeContainers()
 {
-    p2pNodes.resize(wifiAPNum);
-    wifiNodes.resize(wifiAPNum);
-    p2pDevices.resize(wifiAPNum);
-    wifiDevices.resize(wifiAPNum);
+    p2pNodes.resize(APnum);
+    wifiNodes.resize(APnum);
+    p2pDevices.resize(APnum);
+    wifiDevices.resize(APnum);
 }
 
 void NetSim::CreateWifiApNodes()
 {
     wifiAPs.clear();
-    for (uint32_t i = 0; i < wifiAPNum; ++i)
+    for (uint32_t i = 0; i < APnum; ++i)
     {
         Ptr<Node> apNode = CreateObject<Node>();
         wifiNodes[i].Add(apNode);
@@ -339,7 +339,7 @@ void NetSim::CreateWifiApNodes()
 void NetSim::CreateMonitorNodes()
 {
     monitorTerminals.assign(3, nullptr);
-    uint32_t monitorCount = std::min<uint32_t>(monitorTerminals.size(), wifiAPNum);
+    uint32_t monitorCount = std::min<uint32_t>(monitorTerminals.size(), APnum);
 
     for (uint32_t apId = 0; apId < monitorCount; ++apId)
     {
@@ -371,7 +371,7 @@ void NetSim::CreateTerminalNodes()
 
 void NetSim::CreateRouterNodes()
 {
-    for (uint32_t i = 0; i < wifiAPNum; ++i)
+    for (uint32_t i = 0; i < APnum; ++i)
     {
         Ptr<Node> router = CreateObject<Node>();
         p2pNodes[i].Add(wifiAPs[i]);
@@ -426,7 +426,7 @@ void NetSim::ConfigureDataLinkLayer(){
 void NetSim::ConfigureWifiDevices()
 {
     NS_LOG_LOGIC("set wifi devices");
-    for (uint32_t i = 0; i < wifiAPNum; ++i)
+    for (uint32_t i = 0; i < APnum; ++i)
     {
         // AP0はWi-Fiを張らず、NRで置換するためスキップ
         if (i == 0)
@@ -597,7 +597,7 @@ void NetSim::ConfigureApMobility()
     static const int kBase = 25;
 
     NS_LOG_LOGIC("set mobility");
-    uint32_t apCount = std::min<uint32_t>(wifiAPNum, static_cast<uint32_t>(wifiAPs.size()));
+    uint32_t apCount = std::min<uint32_t>(APnum, static_cast<uint32_t>(wifiAPs.size()));
     for (uint32_t i = 0; i < apCount; ++i)
     {
         std::cout << "[DBG]  AP#" << i << " nodePtr=" << (wifiAPs[i] ? 1 : 0) << std::endl;
@@ -736,11 +736,11 @@ void NetSim::ConfigureNetworkLayer(){
     ConfigureNrIpAfterNetwork();
 
     // AP-ルータ間(2ノードCSMA)のIP確保を先に行い、静的ルーティング情報に使う
-    std::vector<Ipv4Address> apP2PIps(wifiAPNum, Ipv4Address("0.0.0.0"));
-    std::vector<Ipv4Address> routerP2PIps(wifiAPNum, Ipv4Address("0.0.0.0"));
-    std::vector<uint32_t> routerP2PIfIndex(wifiAPNum, 0);
+    std::vector<Ipv4Address> apP2PIps(APnum, Ipv4Address("0.0.0.0"));
+    std::vector<Ipv4Address> routerP2PIps(APnum, Ipv4Address("0.0.0.0"));
+    std::vector<uint32_t> routerP2PIfIndex(APnum, 0);
 
-    for(uint32_t i=0; i<wifiAPNum; i++){
+    for(uint32_t i=0; i<APnum; i++){
         std::stringstream ss;
         ss << "10.0." << i+1 << ".0";
         address.SetBase(Ipv4Address(ss.str().c_str()), "255.255.255.0");
@@ -761,7 +761,7 @@ void NetSim::ConfigureNetworkLayer(){
     Ptr<Ipv4StaticRouting> routerStatic;
     //routerStatic = staticRouting.GetStaticRouting(router->GetObject<Ipv4>());
 
-    for(uint32_t i=0; i<wifiAPNum; i++){
+    for(uint32_t i=0; i<APnum; i++){
         std::stringstream ss1;
         ss1 << "10.1." << i << ".0";
         Ipv4Address baseip = Ipv4Address(ss1.str().c_str());
@@ -848,8 +848,8 @@ void NetSim::ConfigureNetworkLayer(){
 
     // サーバ(中央CSMA上)から各WiFiサブネット(10.1.i.0/24)への戻り経路を追加
     // それぞれ対応するルータのCSMAアドレスを次ホップに使用
-    std::vector<Ipv4Address> routerCsmaIps(wifiAPNum, Ipv4Address("0.0.0.0"));
-    for (uint32_t i = 0; i < wifiAPNum; ++i)
+    std::vector<Ipv4Address> routerCsmaIps(APnum, Ipv4Address("0.0.0.0"));
+    for (uint32_t i = 0; i < APnum; ++i)
     {
         Ptr<Ipv4> rIpv4 = routers[i]->GetObject<Ipv4>();
         if (!rIpv4) { continue; }
@@ -886,7 +886,7 @@ void NetSim::ConfigureNetworkLayer(){
         }
         if (csIf < 0) return;
         Ptr<Ipv4StaticRouting> sStatic = staticRouting.GetStaticRouting(sIpv4);
-        for (uint32_t i = 0; i < wifiAPNum; ++i)
+        for (uint32_t i = 0; i < APnum; ++i)
         {
             if (wifiDevices[i].GetN() == 0) { continue; } // AP0はWiFi無し
             if (routerCsmaIps[i] == Ipv4Address("0.0.0.0")) { continue; }
@@ -963,7 +963,7 @@ void NetSim::ConfigureNetworkLayer(){
     }
 
     // 主要ノードのIF/経路をダンプ（AP1/2, Router1/2, Monitor1/2, Server）
-    if (wifiAPNum >= 3)
+    if (APnum >= 3)
     {
         // AP1/2 は index 1,2
         DumpIpv4Info("AP1", wifiAPs[1]);
@@ -992,7 +992,7 @@ void NetSim::ConfigureNetworkLayer(){
 void NetSim::ConfigureNrForAp0()
 {
     // AP0 だけ 5G NR に置換。WiFi 構成は他APで維持。
-    if (wifiAPNum == 0 || wifiNodes.empty())
+    if (APnum == 0 || wifiNodes.empty())
     {
         return;
     }
