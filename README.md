@@ -8,7 +8,7 @@
 - シナリオ: AP0=NR、AP1，2=Wi‑Fi、CSMA バックボーンに各ルータとサーバ群
 - 出力: 端末満足度の調和平均（アルゴリズム別
 
-```
+```mermaid
 flowchart LR
   %% --- Groups ---
   subgraph G5G[5G]
