@@ -1,6 +1,7 @@
 set(master_sources
     main.cc
     NetSim.cc
+    RttForwarderApp.cc
 )
 
 build_exec(

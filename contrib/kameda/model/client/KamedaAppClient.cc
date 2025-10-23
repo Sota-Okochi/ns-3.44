@@ -21,7 +21,7 @@ KamedaAppClient::KamedaAppClient(Ipv4Address server_ping, Ipv4Address server_rtt
     m_serverPing = server_ping;
     m_serverRtt = server_rtt;
     m_countRtt = Create<CountRtt>();
-    Address address = InetSocketAddress (Ipv4Address(m_serverRtt), 8080);
+    Address address = InetSocketAddress (Ipv4Address(m_serverRtt), 9000);
     m_connectManager = Create<ConnectManager>(address, this);
 }
 

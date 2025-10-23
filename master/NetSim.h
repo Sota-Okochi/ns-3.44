@@ -1,6 +1,5 @@
 #include "ns3/core-module.h"
 #include "ns3/point-to-point-module.h"
-#include "ns3/csma-module.h"
 #include "ns3/network-module.h"
 #include "ns3/applications-module.h"
 #include "ns3/wifi-module.h"
@@ -19,6 +18,7 @@
 #include "ns3/APMonitorTerminal.h"
 #include "ns3/wifi-helper.h"
 #include "ns3/nr-module.h"
+#include "RttForwarderApp.h"
 
 #include <sstream>
 #include <iomanip>
@@ -89,6 +89,7 @@ private:
     void CreateTerminalNodes();
     void CreateRouterNodes();
     void CreateServerNodes();
+    void CreateCerNode();
     void ConfigureApMobility();
     void ConfigureTermMobility();
     Vector GetMonitorPosition(uint32_t apId) const;
@@ -96,16 +97,16 @@ private:
     void ConfigureWifiDevices();
     void ConfigureMonitorPlacement();
     void ConfigureP2PDevices();
-    void ConfigureCsmaDevices();
+    void ConfigureRouterCerLinks();
+    void ConfigureServerCerLinks();
+    void ConfigurePgwCerLink();
 
     int m_nth;
     int m_mob;
 
-    NodeContainer csmaNodes;
     std::vector<NodeContainer> p2pNodes;
     std::vector<NodeContainer> wifiNodes;
 
-    NetDeviceContainer csmaDevices;
     std::vector<NetDeviceContainer> p2pDevices;
     std::vector<NetDeviceContainer> wifiDevices;
     // NR devices (AP0専用)
@@ -122,12 +123,23 @@ private:
     Ptr<Node> server_udpVoice;
     Ptr<Node> server_udpVideo;
     Ptr<Node> server_rtt;
+    Ptr<Node> server_streaming;
+    Ptr<Node> server_browser;
+    Ptr<Node> remote_host;
+    Ptr<Node> cerNode;
     
     // 監視端末用
     std::vector<Ptr<Node> > monitorTerminals;
 
     std::vector<TermData> m_termData;
     ApSelectionInput m_apSelectionInput;
+    std::vector<NodeContainer> m_routerCerNodes;
+    std::vector<NetDeviceContainer> m_routerCerDevices;
+    std::vector<NodeContainer> m_serverCerNodes;
+    std::vector<NetDeviceContainer> m_serverCerDevices;
+    NodeContainer m_pgwCerNodes;
+    NetDeviceContainer m_pgwCerDevices;
+    Ipv4Address m_remoteHostAddress;
 
     std::vector<std::string> split(const std::string& input, char delimiter)
 {

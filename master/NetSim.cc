@@ -122,9 +122,6 @@ bool LoadBaselineSetting(const std::string& path, BaselineSetting& setting)
 namespace ns3 {
 
 // --- Readability helpers (no behavior change) ---
-static const Ipv4Address CSMA_NET("10.100.0.0");
-static const Ipv4Mask    CSMA_MASK("255.255.255.0");
-static const Ipv4Address SERVER_IP("10.100.0.1");
 static const Ipv4Address UE_NET("7.0.0.0");
 static const Ipv4Mask    UE_MASK("255.0.0.0");
 
@@ -134,6 +131,31 @@ static inline void EnableIpForwardIfPresent(Ptr<Ipv4> ipv4)
     {
         ipv4->SetAttribute("IpForward", BooleanValue(true));
     }
+}
+
+static Ipv4Address GetPrimaryIpv4(Ptr<Node> node)
+{
+    if (!node)
+    {
+        return Ipv4Address("0.0.0.0");
+    }
+    Ptr<Ipv4> ipv4 = node->GetObject<Ipv4>();
+    if (!ipv4)
+    {
+        return Ipv4Address("0.0.0.0");
+    }
+    for (uint32_t ifIndex = 0; ifIndex < ipv4->GetNInterfaces(); ++ifIndex)
+    {
+        for (uint32_t addrIndex = 0; addrIndex < ipv4->GetNAddresses(ifIndex); ++addrIndex)
+        {
+            Ipv4InterfaceAddress ifaddr = ipv4->GetAddress(ifIndex, addrIndex);
+            if (ifaddr.GetLocal() != Ipv4Address("127.0.0.1"))
+            {
+                return ifaddr.GetLocal();
+            }
+        }
+    }
+    return Ipv4Address("0.0.0.0");
 }
 
 int G_nth = 0;
@@ -205,11 +227,20 @@ static void DumpIpv4Info(const std::string& title, Ptr<Node> node)
     }
 }
 
-NetSim::NetSim(){
+NetSim::NetSim()
+{
     termNum = 1;
     APnum = 1;
     m_nth = 0;
     m_mob = 1;
+    server_udpVoice = nullptr;
+    server_udpVideo = nullptr;
+    server_rtt = nullptr;
+    server_streaming = nullptr;
+    server_browser = nullptr;
+    remote_host = nullptr;
+    cerNode = nullptr;
+    m_remoteHostAddress = Ipv4Address::GetZero();
 }
 
 NetSim::~NetSim(){
@@ -310,6 +341,7 @@ void NetSim::CreateNetworkTopology(){
     NS_LOG_FUNCTION(this);
 
     InitializeNodeContainers(); // p2pNodes, wifiNodes, p2pDevices, wifiDevicesの初期化
+    CreateCerNode(); // 共通エッジルータ
     CreateWifiApNodes(); // wifiAPsの初期化
     CreateMonitorNodes(); // monitorの初期化とアタッチ
     CreateTerminalNodes(); // termsの初期化とアタッチ
@@ -323,6 +355,13 @@ void NetSim::InitializeNodeContainers()
     wifiNodes.resize(APnum);
     p2pDevices.resize(APnum);
     wifiDevices.resize(APnum);
+    m_routerCerNodes.resize(APnum);
+    m_routerCerDevices.resize(APnum);
+}
+
+void NetSim::CreateCerNode()
+{
+    cerNode = CreateObject<Node>();
 }
 
 void NetSim::CreateWifiApNodes()
@@ -377,6 +416,11 @@ void NetSim::CreateRouterNodes()
         p2pNodes[i].Add(wifiAPs[i]);
         p2pNodes[i].Add(router);
         routers.push_back(router);
+        if (cerNode != nullptr)
+        {
+            NodeContainer link(router, cerNode);
+            m_routerCerNodes[i] = link;
+        }
     }
 }
 
@@ -385,14 +429,21 @@ void NetSim::CreateServerNodes()
     server_udpVoice = CreateObject<Node>();
     server_udpVideo = CreateObject<Node>();
     server_rtt = CreateObject<Node>();
+    server_streaming = CreateObject<Node>();
+    server_browser = CreateObject<Node>();
+    remote_host = CreateObject<Node>();
 
-    csmaNodes.Add(server_rtt);
-    csmaNodes.Add(server_udpVideo);
-    csmaNodes.Add(server_udpVoice);
+    m_serverCerNodes.clear();
+    m_serverCerDevices.clear();
 
-    for (const auto& router : routers)
+    if (cerNode != nullptr)
     {
-        csmaNodes.Add(router);
+        m_serverCerNodes.push_back(NodeContainer(server_rtt, cerNode));
+        m_serverCerNodes.push_back(NodeContainer(server_udpVideo, cerNode));
+        m_serverCerNodes.push_back(NodeContainer(server_udpVoice, cerNode));
+        m_serverCerNodes.push_back(NodeContainer(server_streaming, cerNode));
+        m_serverCerNodes.push_back(NodeContainer(server_browser, cerNode));
+        m_serverCerNodes.push_back(NodeContainer(remote_host, cerNode));
     }
 }
 
@@ -420,7 +471,9 @@ void NetSim::ConfigureDataLinkLayer(){
     ConfigureMonitorPlacement();
     ConfigureNrForAp0();
     ConfigureP2PDevices();
-    ConfigureCsmaDevices();
+    ConfigureRouterCerLinks();
+    ConfigureServerCerLinks();
+    ConfigurePgwCerLink();
 }
 
 void NetSim::ConfigureWifiDevices()
@@ -466,15 +519,54 @@ void NetSim::ConfigureP2PDevices()
     }
 }
 
-void NetSim::ConfigureCsmaDevices()
+void NetSim::ConfigureRouterCerLinks()
 {
-    NS_LOG_LOGIC("set csma device");
-    CsmaHelper csma;
-    csma.SetChannelAttribute("DataRate", StringValue("1Gbps"));
-    csma.SetChannelAttribute("Delay", StringValue("0.5ms"));
-    csmaDevices = csma.Install(csmaNodes);
-    const std::string csmast = std::string(OUTPUT_DIR) + "csma";
-    csma.EnablePcapAll(csmast);
+    NS_LOG_LOGIC("set router<->cer links");
+    PointToPointHelper pointToPoint;
+    pointToPoint.SetDeviceAttribute("DataRate", StringValue("1Gbps"));
+    pointToPoint.SetChannelAttribute("Delay", StringValue("0.5ms"));
+    pointToPoint.SetQueue("ns3::DropTailQueue<Packet>", "MaxSize", StringValue("10000p"));
+
+    for (uint32_t i = 0; i < m_routerCerNodes.size(); ++i)
+    {
+        if (m_routerCerNodes[i].GetN() != 2)
+        {
+            continue;
+        }
+        m_routerCerDevices[i] = pointToPoint.Install(m_routerCerNodes[i]);
+    }
+}
+
+void NetSim::ConfigureServerCerLinks()
+{
+    NS_LOG_LOGIC("set server<->cer links");
+    PointToPointHelper pointToPoint;
+    pointToPoint.SetDeviceAttribute("DataRate", StringValue("1Gbps"));
+    pointToPoint.SetChannelAttribute("Delay", StringValue("0.5ms"));
+    pointToPoint.SetQueue("ns3::DropTailQueue<Packet>", "MaxSize", StringValue("10000p"));
+
+    m_serverCerDevices.resize(m_serverCerNodes.size());
+    for (uint32_t i = 0; i < m_serverCerNodes.size(); ++i)
+    {
+        if (m_serverCerNodes[i].GetN() != 2)
+        {
+            continue;
+        }
+        m_serverCerDevices[i] = pointToPoint.Install(m_serverCerNodes[i]);
+    }
+}
+
+void NetSim::ConfigurePgwCerLink()
+{
+    if (m_pgwCerNodes.GetN() != 2)
+    {
+        return;
+    }
+    PointToPointHelper pointToPoint;
+    pointToPoint.SetDeviceAttribute("DataRate", StringValue("1Gbps"));
+    pointToPoint.SetChannelAttribute("Delay", StringValue("1ms"));
+    pointToPoint.SetQueue("ns3::DropTailQueue<Packet>", "MaxSize", StringValue("10000p"));
+    m_pgwCerDevices = pointToPoint.Install(m_pgwCerNodes);
 }
 
 void NetSim::ConfigureWifi(uint32_t count){ //count is wifiAP number
@@ -688,14 +780,15 @@ void NetSim::AttachMonitorApplication(uint32_t apId, Ptr<Node> monitor)
         return;
     }
 
-    Ptr<Ipv4> serverIpv4 = server_rtt->GetObject<Ipv4>();
-    if (serverIpv4 == nullptr)
+    Ipv4Address rttServerAddress = GetPrimaryIpv4(server_rtt);
+    Ipv4Address remoteAddress = m_remoteHostAddress;
+    if (rttServerAddress == Ipv4Address("0.0.0.0") || remoteAddress == Ipv4Address("0.0.0.0"))
     {
+        NS_LOG_WARN("Monitor cannot determine server addresses");
         return;
     }
 
-    Ipv4Address serverAddress = serverIpv4->GetAddress(1, 0).GetLocal();
-    Ptr<APMonitorTerminal> monitorApp = CreateObject<APMonitorTerminal>(apId, serverAddress, serverAddress);
+    Ptr<APMonitorTerminal> monitorApp = CreateObject<APMonitorTerminal>(apId, rttServerAddress, remoteAddress);
     monitor->AddApplication(monitorApp);
     monitorApp->SetStartTime(Seconds(1.0));
     monitorApp->SetStopTime(Seconds(6.0));
@@ -721,75 +814,193 @@ void NetSim::ConfigureNetworkLayer(){
     NS_LOG_FUNCTION(this);
 
     NS_LOG_LOGIC("Install internet stack");
-    // 既定値の強制設定は環境により失敗することがあるため削除（個別ノードで設定済み）
     InternetStackHelper stack;
-	stack.InstallAll();
+    stack.InstallAll();
 
-    NS_LOG_LOGIC("Install ipv4 addresses");
-	Ipv4AddressHelper address;
+    Ipv4AddressHelper address;
+    Ipv4StaticRoutingHelper staticRouting;
 
-	address.SetBase ("10.100.0.0", "255.255.255.0");
-	Ipv4InterfaceContainer csmaInterfaces;
-	csmaInterfaces = address.Assign (csmaDevices);
+    std::vector<Ipv4Address> routerCerIps(APnum, Ipv4Address("0.0.0.0"));
+    std::vector<Ipv4Address> cerRouterIps(APnum, Ipv4Address("0.0.0.0"));
+    std::vector<uint32_t> routerCerIfIndex(APnum, 0);
+    std::vector<uint32_t> cerRouterIfIndex(APnum, 0);
 
-    // NR/UEへのIP付与とデフォルトルートは、IPスタックとCSMA割当完了後に実施
-    ConfigureNrIpAfterNetwork();
+    Ptr<Ipv4> cerIpv4 = cerNode ? cerNode->GetObject<Ipv4>() : nullptr;
+    Ptr<Ipv4StaticRouting> cerStatic = cerIpv4 ? staticRouting.GetStaticRouting(cerIpv4) : nullptr;
+    if (cerIpv4)
+    {
+        EnableIpForwardIfPresent(cerIpv4);
+    }
 
-    // AP-ルータ間(2ノードCSMA)のIP確保を先に行い、静的ルーティング情報に使う
+    for (uint32_t i = 0; i < APnum; ++i)
+    {
+        if (i >= m_routerCerDevices.size() || m_routerCerDevices[i].GetN() == 0)
+        {
+            continue;
+        }
+        std::stringstream base;
+        base << "10.200." << (i + 1) << ".0";
+        address.SetBase(Ipv4Address(base.str().c_str()), "255.255.255.252");
+        Ipv4InterfaceContainer ifaces = address.Assign(m_routerCerDevices[i]);
+        routerCerIps[i] = ifaces.GetAddress(0);
+        cerRouterIps[i] = ifaces.GetAddress(1);
+
+        Ptr<Ipv4> routerIpv4 = routers[i]->GetObject<Ipv4>();
+        if (routerIpv4)
+        {
+            EnableIpForwardIfPresent(routerIpv4);
+            int32_t routerIf = routerIpv4->GetInterfaceForDevice(m_routerCerDevices[i].Get(0));
+            if (routerIf < 0)
+            {
+                routerIf = routerIpv4->GetInterfaceForAddress(routerCerIps[i]);
+            }
+            if (routerIf >= 0)
+            {
+                routerCerIfIndex[i] = static_cast<uint32_t>(routerIf);
+                Ptr<Ipv4StaticRouting> rStatic = staticRouting.GetStaticRouting(routerIpv4);
+                rStatic->SetDefaultRoute(cerRouterIps[i], routerCerIfIndex[i]);
+            }
+        }
+
+        if (cerIpv4)
+        {
+            int32_t cerIf = cerIpv4->GetInterfaceForDevice(m_routerCerDevices[i].Get(1));
+            if (cerIf < 0)
+            {
+                cerIf = cerIpv4->GetInterfaceForAddress(cerRouterIps[i]);
+            }
+            if (cerIf >= 0)
+            {
+                cerRouterIfIndex[i] = static_cast<uint32_t>(cerIf);
+            }
+        }
+    }
+
+    std::vector<Ptr<Node>> serverNodes = {server_rtt, server_udpVideo, server_udpVoice, server_streaming, server_browser, remote_host};
+    m_remoteHostAddress = Ipv4Address::GetZero();
+    for (size_t i = 0; i < serverNodes.size(); ++i)
+    {
+        if (i >= m_serverCerDevices.size() || m_serverCerDevices[i].GetN() == 0)
+        {
+            continue;
+        }
+        std::stringstream base;
+        base << "10.201." << (i + 1) << ".0";
+        address.SetBase(Ipv4Address(base.str().c_str()), "255.255.255.252");
+        Ipv4InterfaceContainer ifaces = address.Assign(m_serverCerDevices[i]);
+        Ipv4Address serverAddr = ifaces.GetAddress(0);
+        Ipv4Address cerAddr = ifaces.GetAddress(1);
+
+        Ptr<Node> serverNode = serverNodes[i];
+        Ptr<Ipv4> srvIpv4 = serverNode ? serverNode->GetObject<Ipv4>() : nullptr;
+        if (srvIpv4)
+        {
+            int32_t srvIf = srvIpv4->GetInterfaceForDevice(m_serverCerDevices[i].Get(0));
+            if (srvIf < 0)
+            {
+                srvIf = srvIpv4->GetInterfaceForAddress(serverAddr);
+            }
+            if (srvIf >= 0)
+            {
+                Ptr<Ipv4StaticRouting> sStatic = staticRouting.GetStaticRouting(srvIpv4);
+                sStatic->SetDefaultRoute(cerAddr, static_cast<uint32_t>(srvIf));
+            }
+        }
+
+        if (serverNode == remote_host)
+        {
+            m_remoteHostAddress = serverAddr;
+        }
+    }
+
+    Ipv4Address pgwAddr("0.0.0.0");
+    uint32_t cerPgwIfIndex = 0;
+    bool pgwLinkActive = false;
+    if (m_pgwCerDevices.GetN() == 2)
+    {
+        address.SetBase("10.202.0.0", "255.255.255.252");
+        Ipv4InterfaceContainer ifaces = address.Assign(m_pgwCerDevices);
+        pgwAddr = ifaces.GetAddress(0);
+        Ipv4Address cerSideAddr = ifaces.GetAddress(1);
+
+        Ptr<Node> pgwNode = m_nrEpcHelper ? m_nrEpcHelper->GetPgwNode() : nullptr;
+        Ptr<Ipv4> pgwIpv4 = pgwNode ? pgwNode->GetObject<Ipv4>() : nullptr;
+        if (pgwIpv4)
+        {
+            EnableIpForwardIfPresent(pgwIpv4);
+            int32_t pgwIf = pgwIpv4->GetInterfaceForDevice(m_pgwCerDevices.Get(0));
+            if (pgwIf < 0)
+            {
+                pgwIf = pgwIpv4->GetInterfaceForAddress(pgwAddr);
+            }
+            if (pgwIf >= 0)
+            {
+                Ptr<Ipv4StaticRouting> pgwStatic = staticRouting.GetStaticRouting(pgwIpv4);
+                pgwStatic->SetDefaultRoute(cerSideAddr, static_cast<uint32_t>(pgwIf));
+                pgwStatic->AddNetworkRouteTo(Ipv4Address("10.201.0.0"), Ipv4Mask("255.255.240.0"), cerSideAddr, static_cast<uint32_t>(pgwIf));
+            }
+        }
+
+        if (cerIpv4)
+        {
+            int32_t cerIf = cerIpv4->GetInterfaceForDevice(m_pgwCerDevices.Get(1));
+            if (cerIf < 0)
+            {
+                cerIf = cerIpv4->GetInterfaceForAddress(cerSideAddr);
+            }
+            if (cerIf >= 0)
+            {
+                cerPgwIfIndex = static_cast<uint32_t>(cerIf);
+                pgwLinkActive = true;
+            }
+        }
+    }
+
     std::vector<Ipv4Address> apP2PIps(APnum, Ipv4Address("0.0.0.0"));
     std::vector<Ipv4Address> routerP2PIps(APnum, Ipv4Address("0.0.0.0"));
     std::vector<uint32_t> routerP2PIfIndex(APnum, 0);
+    std::vector<Ipv4Address> wifiNetworkBases(APnum, Ipv4Address("0.0.0.0"));
 
-    for(uint32_t i=0; i<APnum; i++){
-        std::stringstream ss;
-        ss << "10.0." << i+1 << ".0";
-        address.SetBase(Ipv4Address(ss.str().c_str()), "255.255.255.0");
-        Ipv4InterfaceContainer p2pInterfaces;
-        p2pInterfaces = address.Assign(p2pDevices[i]);
+    for (uint32_t i = 0; i < APnum; ++i)
+    {
+        std::stringstream p2pBase;
+        p2pBase << "10.0." << (i + 1) << ".0";
+        address.SetBase(Ipv4Address(p2pBase.str().c_str()), "255.255.255.0");
+        Ipv4InterfaceContainer p2pInterfaces = address.Assign(p2pDevices[i]);
         apP2PIps[i] = p2pInterfaces.GetAddress(0);
         routerP2PIps[i] = p2pInterfaces.GetAddress(1);
+
         Ptr<Ipv4> routerIpv4 = routers[i]->GetObject<Ipv4>();
-        int32_t outIf = routerIpv4->GetInterfaceForAddress(p2pInterfaces.GetAddress(1));
-        if (outIf < 0)
+        if (routerIpv4)
         {
-            outIf = routerIpv4->GetInterfaceForDevice(p2pDevices[i].Get(1));
+            int32_t outIf = routerIpv4->GetInterfaceForDevice(p2pDevices[i].Get(1));
+            if (outIf < 0)
+            {
+                outIf = routerIpv4->GetInterfaceForAddress(routerP2PIps[i]);
+            }
+            if (outIf >= 0)
+            {
+                routerP2PIfIndex[i] = static_cast<uint32_t>(outIf);
+            }
         }
-        routerP2PIfIndex[i] = (outIf < 0) ? 0u : static_cast<uint32_t>(outIf);
-    }
 
-    Ipv4StaticRoutingHelper staticRouting;
-    Ptr<Ipv4StaticRouting> routerStatic;
-    //routerStatic = staticRouting.GetStaticRouting(router->GetObject<Ipv4>());
-
-    for(uint32_t i=0; i<APnum; i++){
-        std::stringstream ss1;
-        ss1 << "10.1." << i << ".0";
-        Ipv4Address baseip = Ipv4Address(ss1.str().c_str());
-        std::stringstream ss2;
-        ss2 << "10.1." << i << ".1";
-        // Ipv4Address gateway = Ipv4Address(ss2.str().c_str()); // 未使用変数をコメントアウト
         if (wifiDevices[i].GetN() == 0)
         {
-            // AP0はNR化のためWiFiなし
             continue;
         }
+
+        std::stringstream wifiBase;
+        wifiBase << "10.1." << i << ".0";
+        Ipv4Address baseip(wifiBase.str().c_str());
+        wifiNetworkBases[i] = baseip;
+
         address.SetBase(baseip, "255.255.255.0");
-        Ipv4InterfaceContainer wifiInterfaces;
-        wifiInterfaces = address.Assign(wifiDevices[i]);
-        // ルータ/APのIPフォワーディングを有効化
+        Ipv4InterfaceContainer wifiInterfaces = address.Assign(wifiDevices[i]);
+
         Ptr<Ipv4> apIpv4 = wifiAPs[i]->GetObject<Ipv4>();
-        EnableIpForwardIfPresent(apIpv4);
-        Ptr<Ipv4> rIpv4 = routers[i]->GetObject<Ipv4>();
-        EnableIpForwardIfPresent(rIpv4);
-        // ルータにWiFiサブネットへの経路を追加（次ホップはAPのP2P側IP）
-        Ptr<Ipv4StaticRouting> rStatic = staticRouting.GetStaticRouting(rIpv4);
-        if (apP2PIps[i] != Ipv4Address("0.0.0.0"))
+        if (apIpv4)
         {
-            rStatic->AddNetworkRouteTo(baseip, Ipv4Mask("255.255.255.0"), apP2PIps[i], routerP2PIfIndex[i]);
-        }
-        // AP側に中央CSMA(10.100.0.0/24)への経路を追加（次ホップ: ルータのP2P側IP）
-        if (apIpv4 && routerP2PIps[i] != Ipv4Address("0.0.0.0"))
-        {
+            EnableIpForwardIfPresent(apIpv4);
             int32_t apIf = apIpv4->GetInterfaceForDevice(p2pDevices[i].Get(0));
             if (apIf < 0)
             {
@@ -798,20 +1009,29 @@ void NetSim::ConfigureNetworkLayer(){
             if (apIf >= 0)
             {
                 Ptr<Ipv4StaticRouting> apStatic = staticRouting.GetStaticRouting(apIpv4);
-                // デフォルトはP2Pのルータへ
                 apStatic->SetDefaultRoute(routerP2PIps[i], static_cast<uint32_t>(apIf));
-                apStatic->AddNetworkRouteTo(CSMA_NET, CSMA_MASK, routerP2PIps[i], static_cast<uint32_t>(apIf));
-                // 念のためサーバへのホストルートも追加
-                apStatic->AddHostRouteTo(SERVER_IP, routerP2PIps[i], static_cast<uint32_t>(apIf));
             }
         }
-        // 各STAにデフォルトGW（APのWiFi側IP）を設定（正しいIF番号を自動検出）
+
+        Ptr<Ipv4> rIpv4 = routers[i]->GetObject<Ipv4>();
+        if (rIpv4)
+        {
+            Ptr<Ipv4StaticRouting> rStatic = staticRouting.GetStaticRouting(rIpv4);
+            if (apP2PIps[i] != Ipv4Address("0.0.0.0"))
+            {
+                rStatic->AddNetworkRouteTo(baseip, Ipv4Mask("255.255.255.0"), apP2PIps[i], routerP2PIfIndex[i]);
+            }
+        }
+
         Ipv4Address apWifiIp = wifiInterfaces.GetAddress(0);
-        for(uint32_t termID=1; termID<wifiNodes[i].GetN(); termID++){
+        for (uint32_t termID = 1; termID < wifiNodes[i].GetN(); ++termID)
+        {
             Ptr<Node> termNode = wifiNodes[i].Get(termID);
-            Ptr<Ipv4> tIpv4 = termNode->GetObject<Ipv4>();
-            if (!tIpv4) { continue; }
-            // 端末のWiFi IFを動的検出（10.1.i.0/24 上のIF）
+            Ptr<Ipv4> tIpv4 = termNode ? termNode->GetObject<Ipv4>() : nullptr;
+            if (!tIpv4)
+            {
+                continue;
+            }
             int32_t wifiIf = -1;
             for (uint32_t ifIndex = 0; ifIndex < tIpv4->GetNInterfaces(); ++ifIndex)
             {
@@ -825,168 +1045,51 @@ void NetSim::ConfigureNetworkLayer(){
                     }
                 }
             }
-            // みつからない場合のフォールバック: 1
             uint32_t outIf = wifiIf >= 0 ? static_cast<uint32_t>(wifiIf) : 1u;
             Ptr<Ipv4StaticRouting> termStatic = staticRouting.GetStaticRouting(tIpv4);
             termStatic->SetDefaultRoute(apWifiIp, outIf);
-            // サーバへのホストルートも追加（経路解決の安定化）
-            termStatic->AddHostRouteTo(SERVER_IP, apWifiIp, outIf);
-            // 中央CSMAへのネットワークルートも明示（冗長だが安定性向上）
-            termStatic->AddNetworkRouteTo(CSMA_NET, CSMA_MASK, apWifiIp, outIf);
         }
-/*
-        NS_LOG_LOGIC("set static routing");
-        routerStatic->AddNetworkRouteTo(baseip, Ipv4Mask("255.255.255.0"), gateway, 1);
-
-        NS_LOG_LOGIC("set default gateway");
-        Ptr<Ipv4StaticRouting> termStatic;
-        for(uint32_t termID=1; termID<wifiNodes[i].GetN(); termID++){
-            termStatic = staticRouting.GetStaticRouting(wifiNodes[i].Get(termID)->GetObject<Ipv4>());
-            termStatic->SetDefaultRoute(gateway, 1);
-        }*/
     }
 
-    // サーバ(中央CSMA上)から各WiFiサブネット(10.1.i.0/24)への戻り経路を追加
-    // それぞれ対応するルータのCSMAアドレスを次ホップに使用
-    std::vector<Ipv4Address> routerCsmaIps(APnum, Ipv4Address("0.0.0.0"));
-    for (uint32_t i = 0; i < APnum; ++i)
+    ConfigureNrIpAfterNetwork();
+
+    if (cerStatic)
     {
-        Ptr<Ipv4> rIpv4 = routers[i]->GetObject<Ipv4>();
-        if (!rIpv4) { continue; }
-        for (uint32_t ifIndex = 0; ifIndex < rIpv4->GetNInterfaces(); ++ifIndex)
-        {
-            uint32_t nAddresses = rIpv4->GetNAddresses(ifIndex);
-            for (uint32_t a = 0; a < nAddresses; ++a)
-            {
-                Ipv4InterfaceAddress ifaddr = rIpv4->GetAddress(ifIndex, a);
-                if (ifaddr.GetLocal().CombineMask(CSMA_MASK) == CSMA_NET)
-                {
-                    routerCsmaIps[i] = ifaddr.GetLocal();
-                }
-            }
-        }
-    }
-
-    auto addRoutesOnServer = [&](Ptr<Node> server){
-        if (!server) return;
-        Ptr<Ipv4> sIpv4 = server->GetObject<Ipv4>();
-        if (!sIpv4) return;
-        // サーバのCSMA出力IFを特定
-        int32_t csIf = -1;
-        for (uint32_t ifIndex = 0; ifIndex < sIpv4->GetNInterfaces(); ++ifIndex)
-        {
-            for (uint32_t a = 0; a < sIpv4->GetNAddresses(ifIndex); ++a)
-            {
-                Ipv4InterfaceAddress ifaddr = sIpv4->GetAddress(ifIndex, a);
-                if (ifaddr.GetLocal().CombineMask(CSMA_MASK) == CSMA_NET)
-                {
-                    csIf = static_cast<int32_t>(ifIndex);
-                }
-            }
-        }
-        if (csIf < 0) return;
-        Ptr<Ipv4StaticRouting> sStatic = staticRouting.GetStaticRouting(sIpv4);
         for (uint32_t i = 0; i < APnum; ++i)
         {
-            if (wifiDevices[i].GetN() == 0) { continue; } // AP0はWiFi無し
-            if (routerCsmaIps[i] == Ipv4Address("0.0.0.0")) { continue; }
-            std::stringstream ssnet; ssnet << "10.1." << i << ".0";
-            sStatic->AddNetworkRouteTo(Ipv4Address(ssnet.str().c_str()), Ipv4Mask("255.255.255.0"), routerCsmaIps[i], static_cast<uint32_t>(csIf));
-        }
-    };
-
-    addRoutesOnServer(server_rtt);
-    addRoutesOnServer(server_udpVideo);
-    addRoutesOnServer(server_udpVoice);
-
-    // NR(EPC) 連携: PGW を CSMA に参加させた場合、7.0.0.0/8 を PGW 経由に静的経路設定
-    if (m_nrEpcHelper)
-    {
-        Ptr<Node> pgw = m_nrEpcHelper->GetPgwNode();
-        Ptr<Ipv4> pgwIpv4 = pgw ? pgw->GetObject<Ipv4>() : nullptr;
-        Ipv4Address pgwCsmaAddr("0.0.0.0");
-        uint32_t pgwCsmaIf = 0;
-        if (pgwIpv4)
-        {
-            for (uint32_t ifIndex = 0; ifIndex < pgwIpv4->GetNInterfaces(); ++ifIndex)
+            if (wifiNetworkBases[i] == Ipv4Address("0.0.0.0"))
             {
-                uint32_t nAddresses = pgwIpv4->GetNAddresses(ifIndex);
-                for (uint32_t a = 0; a < nAddresses; ++a)
-                {
-                    Ipv4InterfaceAddress ifaddr = pgwIpv4->GetAddress(ifIndex, a);
-                    if (ifaddr.GetLocal().CombineMask(Ipv4Mask("255.255.255.0")) == Ipv4Address("10.100.0.0"))
-                    {
-                        pgwCsmaAddr = ifaddr.GetLocal();
-                        pgwCsmaIf = ifIndex;
-                    }
-                }
+                continue;
             }
-        }
-        if (pgwCsmaAddr != Ipv4Address("0.0.0.0"))
-        {
-            Ipv4StaticRoutingHelper rh;
-            const Ipv4Address ueNet = UE_NET;
-            const Ipv4Mask    ueMask = UE_MASK;
-            for (uint32_t k = 0; k < csmaNodes.GetN(); ++k)
+            if (routerCerIps[i] == Ipv4Address("0.0.0.0"))
             {
-                Ptr<Node> n = csmaNodes.Get(k);
-                if (n == pgw)
-                {
-                    continue; // PGW 自身は不要
-                }
-                Ptr<Ipv4> ipv4 = n->GetObject<Ipv4>();
-                if (!ipv4)
-                {
-                    continue;
-                }
-                // このノードのCSMA出力IFを探索（10.0.0.0/24）
-                int32_t outIf = -1;
-                for (uint32_t ifIndex = 0; ifIndex < ipv4->GetNInterfaces(); ++ifIndex)
-                {
-                    uint32_t nAddresses = ipv4->GetNAddresses(ifIndex);
-                    for (uint32_t a = 0; a < nAddresses; ++a)
-                    {
-                        Ipv4InterfaceAddress ifaddr = ipv4->GetAddress(ifIndex, a);
-                        if (ifaddr.GetLocal().CombineMask(CSMA_MASK) == CSMA_NET)
-                        {
-                            outIf = static_cast<int32_t>(ifIndex);
-                        }
-                    }
-                }
-                if (outIf >= 0)
-                {
-                    Ptr<Ipv4StaticRouting> rt = rh.GetStaticRouting(ipv4);
-                    rt->AddNetworkRouteTo(ueNet, ueMask, pgwCsmaAddr, static_cast<uint32_t>(outIf));
-                }
+                continue;
             }
+            cerStatic->AddNetworkRouteTo(wifiNetworkBases[i], Ipv4Mask("255.255.255.0"), routerCerIps[i], cerRouterIfIndex[i]);
+        }
+
+        if (pgwLinkActive)
+        {
+            cerStatic->AddNetworkRouteTo(UE_NET, UE_MASK, pgwAddr, cerPgwIfIndex);
         }
     }
 
-    // 主要ノードのIF/経路をダンプ（AP1/2, Router1/2, Monitor1/2, Server）
     if (APnum >= 3)
     {
-        // AP1/2 は index 1,2
-        DumpIpv4Info("AP1", wifiAPs[1]);
-        DumpIpv4Info("AP2", wifiAPs[2]);
-        DumpIpv4Info("ROUTER1", routers[0]);
-        DumpIpv4Info("ROUTER2", routers[1]);
-        if (routers.size() >= 3)
-        {
-            DumpIpv4Info("ROUTER3", routers[2]);
-        }
-        // Monitor は index 1,2 を期待
-        if (monitorTerminals.size() >= 3)
-        {
-            DumpIpv4Info("MONITOR1", monitorTerminals[1]);
-            DumpIpv4Info("MONITOR2", monitorTerminals[2]);
-        }
+        if (wifiAPs.size() > 1) { DumpIpv4Info("AP1", wifiAPs[1]); }
+        if (wifiAPs.size() > 2) { DumpIpv4Info("AP2", wifiAPs[2]); }
+        if (routers.size() > 0) { DumpIpv4Info("ROUTER1", routers[0]); }
+        if (routers.size() > 1) { DumpIpv4Info("ROUTER2", routers[1]); }
+        if (!monitorTerminals.empty() && monitorTerminals[0]) { DumpIpv4Info("MONITOR0", monitorTerminals[0]); }
+        if (monitorTerminals.size() > 1 && monitorTerminals[1]) { DumpIpv4Info("MONITOR1", monitorTerminals[1]); }
+        if (monitorTerminals.size() > 2 && monitorTerminals[2]) { DumpIpv4Info("MONITOR2", monitorTerminals[2]); }
+        DumpIpv4Info("REMOTE_HOST", remote_host);
         DumpIpv4Info("SERVER_RTT", server_rtt);
+        DumpIpv4Info("CER", cerNode);
+        if (m_nrEpcHelper) {
+            DumpIpv4Info("PGW", m_nrEpcHelper->GetPgwNode());
+        }
     }
-
-    // グローバルルーティングはVirtualNetDeviceで落ちるため使わず、上記の静的経路で運用
-    //NS_LOG_LOGIC("set ipv4 routing table");
-    //Ipv4GlobalRoutingHelper::PopulateRoutingTables ();
-
 }
 
 void NetSim::ConfigureNrForAp0()
@@ -1044,11 +1147,11 @@ void NetSim::ConfigureNrForAp0()
 
     // アタッチはIPスタック導入後(ConfigureNrIpAfterNetwork)に実施
 
-    // PGW を CSMA バックボーンに参加させる（アドレス付与は ConfigureNetworkLayer で一括）
+    // PGW- CER 間のポイントツーポイントリンクを準備（アドレス付与は ConfigureNetworkLayer で実施）
     Ptr<Node> pgw = m_nrEpcHelper->GetPgwNode();
-    if (pgw)
+    if (pgw && cerNode != nullptr)
     {
-        csmaNodes.Add(pgw);
+        m_pgwCerNodes = NodeContainer(pgw, cerNode);
     }
 }
 
@@ -1109,12 +1212,35 @@ void NetSim::SetKamedaModule(void){
 
     NS_LOG_INFO("Kameda module load");
 
-    // サーバのインストール
-    NS_LOG_LOGIC("install server app");
+    if (remote_host == nullptr || server_rtt == nullptr)
+    {
+        NS_LOG_WARN("Remote host or RTT server node is not available");
+        return;
+    }
+
+    if (m_remoteHostAddress == Ipv4Address("0.0.0.0"))
+    {
+        NS_LOG_WARN("Remote host address is not configured");
+    }
+
+    // AP選択サーバのインストール（RemoteHost上）
+    NS_LOG_LOGIC("install remote host Kameda server");
     Ptr<KamedaAppServer> appServer = CreateObject<KamedaAppServer>(m_apSelectionInput);
-    server_rtt->AddApplication(appServer);
+    remote_host->AddApplication(appServer);
     appServer->SetStartTime(Seconds(1.0));
-    appServer->SetStopTime(Seconds(5.0));
+    appServer->SetStopTime(Seconds(7.0));
+
+    // RTTフォワーダ（UDP受信→TCP送信）を server_rtt に配置
+    NS_LOG_LOGIC("install RTT forwarder on server_rtt");
+    Ptr<RttForwarderApp> forwarder = CreateObject<RttForwarderApp>();
+    if (m_remoteHostAddress != Ipv4Address("0.0.0.0"))
+    {
+        forwarder->SetRemote(m_remoteHostAddress, 8080);
+    }
+    forwarder->SetListeningPort(9000);
+    server_rtt->AddApplication(forwarder);
+    forwarder->SetStartTime(Seconds(0.9));
+    forwarder->SetStopTime(Seconds(7.0));
 
     // 監視端末ノードのアプリ設定（CreateNetworkTopologyで生成済みを利用）
     if (monitorTerminals.size() < 3) {
@@ -1131,6 +1257,13 @@ void NetSim::SetVoiceApp(void){
 
     NS_LOG_LOGIC("install voice apps");
 
+    Ipv4Address voiceServerAddress = GetPrimaryIpv4(server_udpVoice);
+    if (voiceServerAddress == Ipv4Address("0.0.0.0"))
+    {
+        NS_LOG_WARN("Voice server address unavailable");
+        return;
+    }
+
     uint16_t port = 1000;
     const int phoneINTERVAL = 20;
     const int phoneMAXPACKETS = 1000000;
@@ -1142,7 +1275,7 @@ void NetSim::SetVoiceApp(void){
         PacketSinkHelper packetsh("ns3::UdpSocketFactory", InetSocketAddress(Ipv4Address::GetAny(), port));
         ApplicationContainer serverApps;
         serverApps.Add(packetsh.Install(server_udpVoice));
-        UdpEchoClientHelper udpClient(server_udpVoice->GetObject<Ipv4>()->GetAddress(1,0).GetLocal(), port);
+        UdpEchoClientHelper udpClient(voiceServerAddress, port);
         udpClient.SetAttribute("Interval", TimeValue(MilliSeconds(phoneINTERVAL)));
         udpClient.SetAttribute("MaxPackets", UintegerValue(phoneMAXPACKETS));
         udpClient.SetAttribute("PacketSize", UintegerValue(phonePACKETSIZE));
@@ -1160,6 +1293,13 @@ void NetSim::SetVideoApp(void){
 
     NS_LOG_LOGIC("install video apps");
 
+    Ipv4Address videoServerAddress = GetPrimaryIpv4(server_udpVideo);
+    if (videoServerAddress == Ipv4Address("0.0.0.0"))
+    {
+        NS_LOG_WARN("Video server address unavailable");
+        return;
+    }
+
     uint16_t multicast_port = 10000; // ポート番号をさらに別の値に変更
     for(uint32_t i=0; i<terms.size(); i++){
         if(m_termData[i].use_appli != 2){        //動画ストリーミング場合以外
@@ -1171,7 +1311,7 @@ void NetSim::SetVideoApp(void){
         serverApps = udpServer.Install(server_udpVideo);
 
         std::string traceFile = std::string(INPUT_DIR) + "Verbose_Jurassic.dat";
-        UdpTraceClientHelper udpClient(server_udpVideo->GetObject<Ipv4>()->GetAddress(1,0).GetLocal(), multicast_port, traceFile);
+        UdpTraceClientHelper udpClient(videoServerAddress, multicast_port, traceFile);
 
         ApplicationContainer videoClientApps;
         videoClientApps.Add(udpClient.Install(terms[i]));

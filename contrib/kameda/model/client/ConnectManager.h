@@ -28,26 +28,15 @@ public:
     void GetRtt(uint16_t seq, Time rtt);
 
 private:
-    void CreateConnection();
-    void ConnectionSucceeded(Ptr<Socket> socket);
-    void ConnectionFailed(Ptr<Socket> socket);
-    int SendMessage();
-    //void HandleReadResponse(Ptr<Socket> socket);
+    bool SendMessage();
+    void EnsureSocket();
 
     Ptr<KamedaAppClient> m_client;
     Address m_serverAddress;
-    Ptr<Socket> m_socket;
-    Ptr<Packet> m_packet;
-    EventId m_nextAccess;
-    bool m_continue;
+    Ptr<Socket> m_udpSocket;
     std::string m_rttData;
 
     std::vector<std::string> m_rttDatas;
-    
-    // リトライ機能用メンバー変数
-    int m_retryCount;
-    int m_maxRetries;
-
 };
 
 }
