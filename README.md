@@ -10,40 +10,53 @@
 
 ```mermaid
 flowchart LR
-  %% --- Groups ---
-  subgraph G5G[5G]
-    UE[UE] --> gNB[gNB] --> EPC[EPC (UPF)]
-  end
+    %% --- Groups ---
+    subgraph G5G["5G"]
+        UE[UE]
+        gNB[gNB]
+        EPC["EPC (UPF)"]
+        UE --> gNB
+        gNB --> EPC
+    end
 
-  subgraph GWiFi1[Wi-Fi1]
-    STA1[STA1] --> AP1[AP1] --> L3R1[L3 Router1]
-  end
+    subgraph GWiFi1["Wi-Fi1"]
+        STA1[STA1]
+        AP1[AP1]
+        L3R1["L3 Router1"]
+        STA1 --> AP1
+        AP1 --> L3R1
+    end
 
-  subgraph GWiFi2[Wi-Fi2]
-    STA2[STA2] --> AP2[AP2] --> L3R2[L3 Router2]
-  end
+    subgraph GWiFi2["Wi-Fi2"]
+        STA2[STA2]
+        AP2[AP2]
+        L3R2["L3 Router2"]
+        STA2 --> AP2
+        AP2 --> L3R2
+    end
 
-  subgraph Servers[Servers]
-    RH[RemoteHost]
-    RTT[RTT Server]
-    VID[Video Server]
-    VOI[Voice Server]
-    STR[Streaming Server]
-    BRW[Browser Server]
-  end
+    subgraph Servers["Servers"]
+        RH[RemoteHost]
+        RTT["RTT Server"]
+        VID["Video Server"]
+        VOI["Voice Server"]
+        STR["Streaming Server"]
+        BRW["Browser Server"]
+    end
 
-  %% --- Core Edge ---
-  EPC --> CER[Common Internet<br/>Edge Router]
-  L3R1 --> CER
-  L3R2 --> CER
+    %% --- Core Edge ---
+    CER["Common Internet<br/>Edge Router"]
+    EPC --> CER
+    L3R1 --> CER
+    L3R2 --> CER
 
-  %% --- Fan-out to servers ---
-  CER --> RH
-  CER --> RTT
-  CER --> VID
-  CER --> VOI
-  CER --> STR
-  CER --> BRW
+    %% --- Fan-out to servers ---
+    CER --> RH
+    CER --> RTT
+    CER --> VID
+    CER --> VOI
+    CER --> STR
+    CER --> BRW
 ```
 
 ## インストール
