@@ -9,23 +9,41 @@
 - 出力: 端末満足度の調和平均（アルゴリズム別
 
 ```mermaid
-graph LR
-  subgraph Access
-    gNB0[AP0: 5G NR gNB]
-    AP1[AP1: Wi‑Fi 11ax]
-    AP2[AP2: Wi‑Fi 11ax]
+flowchart LR
+  %% --- Groups ---
+  subgraph G5G[5G]
+    UE[UE] --> gNB[gNB] --> EPC[EPC (UPF)]
   end
-  gNB0 -->|P2P| R0[Router0]
-  AP1  -->|P2P| R1[Router1]
-  AP2  -->|P2P| R2[Router2]
-  R0 --> B[CSMA Backbone]
-  R1 --> B
-  R2 --> B
-  B --> S_rtt[Server RTT]
-  B --> S_vid[Server Video]
-  B --> S_voice[Server Voice]
-  MT1((Monitor #1)) --> S_rtt
-  MT2((Monitor #2)) --> S_rtt
+
+  subgraph GWiFi1[Wi-Fi1]
+    STA1[STA1] --> AP1[AP1] --> L3R1[L3 Router1]
+  end
+
+  subgraph GWiFi2[Wi-Fi2]
+    STA2[STA2] --> AP2[AP2] --> L3R2[L3 Router2]
+  end
+
+  subgraph Servers[Servers]
+    RH[RemoteHost]
+    RTT[RTT Server]
+    VID[Video Server]
+    VOI[Voice Server]
+    STR[Streaming Server]
+    BRW[Browser Server]
+  end
+
+  %% --- Core Edge ---
+  EPC --> CER[Common Internet<br/>Edge Router]
+  L3R1 --> CER
+  L3R2 --> CER
+
+  %% --- Fan-out to servers ---
+  CER --> RH
+  CER --> RTT
+  CER --> VID
+  CER --> VOI
+  CER --> STR
+  CER --> BRW
 ```
 
 ## インストール
