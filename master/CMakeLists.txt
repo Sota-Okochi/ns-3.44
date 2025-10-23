@@ -1,6 +1,8 @@
 set(master_sources
     main.cc
-    NetSim.cc
+    config.cc
+    topology.cc
+    applications.cc
     RttForwarderApp.cc
 )
 
