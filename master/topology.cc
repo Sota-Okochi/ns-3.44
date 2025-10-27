@@ -58,13 +58,13 @@ void NetSim::CreateNetworkTopology(){
     std::cout << "==== CreateNetworkTopology ====" << std::endl;
     NS_LOG_FUNCTION(this);
 
-    InitializeNodeContainers();
-    CreateCerNode();
-    CreateWifiApNodes();
-    CreateMonitorNodes();
-    CreateTerminalNodes();
-    CreateRouterNodes();
-    CreateServerNodes();
+    InitializeNodeContainers(); // ノードコンテナの初期化
+    CreateCerNode(); // CER
+    CreateWifiApNodes(); // AP
+    CreateMonitorNodes(); // 検査用端末
+    CreateTerminalNodes(); // 端末
+    CreateRouterNodes(); // ルータ
+    CreateServerNodes(); // サーバ
 }
 
 void NetSim::InitializeNodeContainers()
@@ -184,14 +184,14 @@ void NetSim::ConfigureDataLinkLayer(){
     std::cout << "==== ConfigureDataLinkLayer ====" << std::endl;
     NS_LOG_FUNCTION(this);
 
-    ConfigureWifiDevices();
-    ConfigureMobility();
-    ConfigureMonitorPlacement();
-    ConfigureNrForAp0();
-    ConfigureP2PDevices();
-    ConfigureRouterCerLinks();
-    ConfigureServerCerLinks();
-    ConfigurePgwCerLink();
+    ConfigureWifiDevices(); // Wi-Fiのデバイス設定
+    ConfigureMobility(); // モビリティ設定
+    ConfigureMonitorPlacement(); // 検査用端末の配置
+    ConfigureNrForAp0(); // AP0のNR設定
+    ConfigureP2PDevices(); // P2Pのデバイス設定
+    ConfigureRouterCerLinks(); // ルータとCERのリンク設定
+    ConfigureServerCerLinks(); // サーバとCERのリンク設定
+    ConfigurePgwCerLink(); // PgwとCERのリンク設定
 }
 
 void NetSim::ConfigureWifiDevices()
@@ -385,8 +385,8 @@ void NetSim::ConfigureMobility(){
     std::cout << "==== ConfigureMobility ====" << std::endl;
     NS_LOG_FUNCTION(this);
 
-    ConfigureApMobility();
-    ConfigureTermMobility();
+    ConfigureApMobility(); // APのモビリティ設定
+    ConfigureTermMobility(); // 端末のモビリティ設定
 }
 
 void NetSim::ConfigureApMobility()
@@ -514,6 +514,7 @@ void NetSim::ConfigureNetworkLayer(){
         EnableIpForwardIfPresent(cerIpv4);
     }
 
+    // APとCERのリンクIPの設定
     for (uint32_t i = 0; i < APnum; ++i)
     {
         if (i >= m_routerCerDevices.size() || m_routerCerDevices[i].GetN() == 0)
@@ -558,6 +559,7 @@ void NetSim::ConfigureNetworkLayer(){
         }
     }
 
+    // サーバ群とCERのリンクIPの設定
     std::vector<Ptr<Node>> serverNodes = {server_rtt, server_udpVideo, server_udpVoice, server_streaming, server_browser, remote_host};
     m_remoteHostAddress = Ipv4Address::GetZero();
     for (size_t i = 0; i < serverNodes.size(); ++i)
@@ -595,6 +597,7 @@ void NetSim::ConfigureNetworkLayer(){
         }
     }
 
+    // PGWとCERのリンクIPの設定
     Ipv4Address pgwAddr("0.0.0.0");
     uint32_t cerPgwIfIndex = 0;
     bool pgwLinkActive = false;
@@ -638,6 +641,7 @@ void NetSim::ConfigureNetworkLayer(){
         }
     }
 
+    // AP配下ネットワークのアドレス割り当てとルーティングの設定
     std::vector<Ipv4Address> apP2PIps(APnum, Ipv4Address("0.0.0.0"));
     std::vector<Ipv4Address> routerP2PIps(APnum, Ipv4Address("0.0.0.0"));
     std::vector<uint32_t> routerP2PIfIndex(APnum, 0);
@@ -733,6 +737,7 @@ void NetSim::ConfigureNetworkLayer(){
         }
     }
 
+    // NR UEのIP設定とCERへのルーティングの設定
     ConfigureNrIpAfterNetwork();
 
     if (cerStatic)
@@ -786,7 +791,7 @@ void NetSim::ConfigureNrForAp0()
     m_nrHelper->SetEpcHelper(m_nrEpcHelper);
 
     std::vector<CcBwpCreator::SimpleOperationBandConf> bandConfs = {
-        CcBwpCreator::SimpleOperationBandConf(3.5e9, 40e6, 1)
+        CcBwpCreator::SimpleOperationBandConf(3.5e9, 40e6, 1) // 3.5GHz, 40MHz, 1 RB
     };
     auto bwpsPair = m_nrHelper->CreateBandwidthParts(bandConfs, "UMa", "Default", "ThreeGpp");
     auto allBwps = bwpsPair.second;

@@ -250,7 +250,7 @@ void NetSim::RunSim(){
     NS_LOG_FUNCTION(this);
 
     Configure();
-    CreateNetworkTopology();
+    CreateNetworkTopology(); // ノードの生成
     ConfigureDataLinkLayer();
     ConfigureNetworkLayer();
     SetAppLayer(); // 各種アプリケーションの設定
