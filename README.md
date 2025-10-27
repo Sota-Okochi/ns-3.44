@@ -5,8 +5,8 @@
 このリポジトリは、ヘテロジニアスな無線アクセス環境での AP 選択アルゴリズム（Random / Greedy / Hungarian）の比較実験を ns-3 (3.44) 上で再現するためのプロジェクトです。AP0 を 5G NR gNB、AP1，2 を Wi‑Fi 802.11ax として構成して、端末群の接続戦略が遅延やトラフィックに与える影響を評価する想定しています。
 
 - 目的: AP 選択手法の比較（遅延/経路の安定性）
-- シナリオ: AP0=NR、AP1，2=Wi‑Fi、CSMA バックボーンに各ルータとサーバ群
-- 出力: 端末満足度の調和平均（アルゴリズム別
+- シナリオ: AP0=NR、AP1，2=Wi‑Fi、各ルータとサーバ群、p2pで接続
+- 出力: 端末満足度の調和平均（AP選択アルゴリズム別）
 
 ```mermaid
 flowchart LR
@@ -92,15 +92,16 @@ git clone https://github.com/Sota-Okochi/ns-3.44.git
 
 1) CMake 設定
 ```
+cd ~/ns-3.44
 ./ns3 configure --enable-examples
 ```
 
-2) ビルド
+2) ビルド  
 ```
 ./ns3 build
 ```
 
-3) 実行
+3) 実行  
 ```
 ./ns3 run master -- --nth=3
 ```
@@ -109,7 +110,11 @@ git clone https://github.com/Sota-Okochi/ns-3.44.git
 
 - master/: 実験用メインプログラム
   - main.cc: 引数処理と起動
-  - NetSim.cc/h: トポロジ構築・アプリ設定・ルーティング
+  - NetSim.h: NetSim クラス宣言とシミュレーション全体で共有する定数・構造体を定義
+  - config.cc: 設定 JSON や端末配置ファイルを読み込み、AP/端末数・初期 RTT・アプリ利用種別を NetSim に反映
+  - applications.cc: Kameda モジュールや監視端末、音声・映像アプリなどをノードへインストールしデータ収集を制御
+  - topology.cc: 各ノード生成から Wi-Fi/NR/P2P デバイス設定、モビリティ、ルーティング設定までネットワークを構築
+  - RttForwarderApp.cc/h: RTT 測定結果を UDP 受信→TCP 送信でリモートホストへ転送する専用 Application（再接続処理付き）
 - data/: 入力データ（上記ファイルを配置）
 - OUTPUT/: 実行時出力（RTT/PCAP など）
 - src/: ns-3 本体モジュール
