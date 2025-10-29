@@ -23,8 +23,10 @@ APMonitorTerminal::APMonitorTerminal(uint32_t apId, Ipv4Address targetAP, Ipv4Ad
       m_targetAP(targetAP),
       m_serverAddress(serverAddress),
       m_serverPort(8080),
-      m_measureInterval(0.5),        // 1秒間隔で測定
-      m_samplesPerReport(10),         // 3回測定後にレポート（高速）
+      m_measureInterval(0.2),        // 測定バースト間のインターバル
+      m_samplesPerReport(30),         // 1レポート当たりのサンプル数
+      m_pingInterval(0.02),           // Ping送信間隔（秒）
+      m_pingPayloadSize(1200),        // Pingペイロードサイズ（バイト）
       m_socket(nullptr),
       m_isMonitoring(false),
       m_totalPings(0),
@@ -136,11 +138,19 @@ void APMonitorTerminal::SendPeriodicPing()
 
     // V4PingHelperを使用してping送信
     PingHelper ping(dst);
-    ping.SetAttribute("Interval", TimeValue(Seconds(0.1)));
-    ping.SetAttribute("Size", UintegerValue(64));
+    double intervalSeconds = (m_pingInterval > 0.0) ? m_pingInterval : 0.02;
+    Time pingInterval = Seconds(intervalSeconds);
+    ping.SetAttribute("Interval", TimeValue(pingInterval));
+    ping.SetAttribute("Size", UintegerValue(m_pingPayloadSize));
     ping.SetAttribute("Count", UintegerValue(m_samplesPerReport));
-    ping.SetAttribute("Count", UintegerValue(m_samplesPerReport));
-    ping.SetAttribute("StopTime", TimeValue(Seconds(m_measureInterval)));
+
+    double durationSeconds = intervalSeconds * static_cast<double>(m_samplesPerReport);
+    if (durationSeconds <= 0.0)
+    {
+        durationSeconds = intervalSeconds;
+    }
+    Time measurementDuration = Seconds(durationSeconds);
+    ping.SetAttribute("StopTime", TimeValue(measurementDuration));
     
     m_currentPingApp = ping.Install(GetNode());
     
@@ -166,7 +176,8 @@ void APMonitorTerminal::SendPeriodicPing()
     
     // 次のping送信をスケジュール
     if (m_isMonitoring) {
-        m_pingEvent = Simulator::Schedule(Seconds(m_measureInterval), &APMonitorTerminal::SendPeriodicPing, this);
+        Time nextStart = measurementDuration + Seconds(m_measureInterval);
+        m_pingEvent = Simulator::Schedule(nextStart, &APMonitorTerminal::SendPeriodicPing, this);
     }
 }
 

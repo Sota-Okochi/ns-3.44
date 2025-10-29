@@ -83,6 +83,8 @@ private:
     
     double m_measureInterval;           // 測定間隔（秒）
     uint32_t m_samplesPerReport;        // レポート当たりのサンプル数
+    double m_pingInterval;              // Ping送信間隔（秒）
+    uint32_t m_pingPayloadSize;         // Pingペイロードサイズ（バイト）
     
     std::vector<double> m_rttSamples;   // RTTサンプル蓄積
     EventId m_pingEvent;                // ping送信イベント

@@ -31,8 +31,8 @@
 namespace ns3 {
 
 extern int G_nth;
-const std::string OUTPUT_DIR = std::string(PROJECT_SOURCE_PATH) + "/OUTPUT/";
 const std::string INPUT_DIR = std::string(PROJECT_SOURCE_PATH) + "/data/";
+const std::string OUTPUT_DIR = std::string(PROJECT_SOURCE_PATH) + "/OUTPUT/";
 
 enum APID{
     LTE = 0,
@@ -77,6 +77,8 @@ private:
     void SetVideoApp();
     void SetAutoLoadGeneration();  // ns-3標準機能による自動負荷生成
     void SetGreedy();
+    void SetBrowserApp();
+    void SetWebmeetingApp();
     
     bool LoadTermDataFromSqlite(const std::string& dbPath);
 
@@ -123,7 +125,7 @@ private:
     Ptr<Node> server_udpVoice;
     Ptr<Node> server_udpVideo;
     Ptr<Node> server_rtt;
-    Ptr<Node> server_streaming;
+    Ptr<Node> server_live;
     Ptr<Node> server_browser;
     Ptr<Node> remote_host;
     Ptr<Node> cerNode;
@@ -140,6 +142,10 @@ private:
     NodeContainer m_pgwCerNodes;
     NetDeviceContainer m_pgwCerDevices;
     Ipv4Address m_remoteHostAddress;
+    Time m_simulationDuration;
+    Time m_browserRequestInterval;
+    uint32_t m_browserRequestCount;
+    bool m_enableWebmeetingTracing;
 
     std::vector<std::string> split(const std::string& input, char delimiter)
 {

@@ -95,23 +95,23 @@ void APselection::tmain(){
         }
     }
     
-    cal_need_rt();
-    make_combi_ap_term();
+    // cal_need_rt();
+    // make_combi_ap_term();
     
-    // ハンガリアン法の実行時間測定
-    std::cout << "↓\n";
-    auto start_time = std::chrono::high_resolution_clock::now();
-    call_hungarian();
-    auto end_time = std::chrono::high_resolution_clock::now();
+    // // ハンガリアン法の実行時間測定
+    // std::cout << "↓\n";
+    // auto start_time = std::chrono::high_resolution_clock::now();
+    // call_hungarian();
+    // auto end_time = std::chrono::high_resolution_clock::now();
     
-    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
-    std::cout << "\n■ハンガリアン法計算時間: " << duration.count() << " ms\n";
+    // auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
+    // std::cout << "\n■ハンガリアン法計算時間: " << duration.count() << " ms\n";
     
-    // ランダム法との比較
-    combi_random();
+    // // ランダム法との比較
+    // combi_random();
 
-    // Greedy法との比較
-    combi_greedy();
+    // // Greedy法との比較
+    // combi_greedy();
 
     
     std::cout << "=== APselection::tmain() END ===" << std::endl;

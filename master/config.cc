@@ -148,11 +148,15 @@ NetSim::NetSim()
     server_udpVoice = nullptr;
     server_udpVideo = nullptr;
     server_rtt = nullptr;
-    server_streaming = nullptr;
+    server_live = nullptr;
     server_browser = nullptr;
     remote_host = nullptr;
     cerNode = nullptr;
     m_remoteHostAddress = Ipv4Address::GetZero();
+    m_simulationDuration = Seconds(7.0);
+    m_browserRequestInterval = Seconds(1.0);
+    m_browserRequestCount = 10;
+    m_enableWebmeetingTracing = true;
 }
 
 NetSim::~NetSim(){
@@ -262,4 +266,3 @@ void NetSim::RunSim(){
 }
 
 }   // namespace ns3
-
