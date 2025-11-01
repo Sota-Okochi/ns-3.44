@@ -66,22 +66,23 @@ void WebMeetingRttTrace(const Time& rtt)
     NS_LOG_INFO("Webmeeting RTT " << rtt.GetMilliSeconds() << " ms");
 }
 
-void ScheduleBrowserRequest(Ptr<Node> client,
-                            Ipv4Address serverAddress,
-                            uint16_t port,
-                            uint32_t requestIndex,
-                            uint32_t totalRequests,
-                            Time interval,
-                            Time duration,
-                            uint32_t maxBytes)
+void ScheduleBrowserDownload(Ptr<Node> server,
+                             Ipv4Address clientAddress,
+                             uint16_t port,
+                             uint32_t requestIndex,
+                             uint32_t totalRequests,
+                             Time interval,
+                             Time duration,
+                             uint32_t maxBytes)
 {
-    if (client == nullptr || requestIndex >= totalRequests)
+    if (server == nullptr || clientAddress == Ipv4Address("0.0.0.0") ||
+        requestIndex >= totalRequests)
     {
         return;
     }
-    BulkSendHelper bulk("ns3::TcpSocketFactory", InetSocketAddress(serverAddress, port));
+    BulkSendHelper bulk("ns3::TcpSocketFactory", InetSocketAddress(clientAddress, port));
     bulk.SetAttribute("MaxBytes", UintegerValue(maxBytes));
-    ApplicationContainer apps = bulk.Install(client);
+    ApplicationContainer apps = bulk.Install(server);
     Time now = Simulator::Now();
     apps.Start(now);
     apps.Stop(now + duration);
@@ -89,9 +90,9 @@ void ScheduleBrowserRequest(Ptr<Node> client,
     if (requestIndex + 1 < totalRequests)
     {
         Simulator::Schedule(interval,
-                            &ScheduleBrowserRequest,
-                            client,
-                            serverAddress,
+                            &ScheduleBrowserDownload,
+                            server,
+                            clientAddress,
                             port,
                             requestIndex + 1,
                             totalRequests,
@@ -158,74 +159,6 @@ void NetSim::SetGreedy(void){
 #endif
 }
 
-void NetSim::SetBrowserApp()
-{
-    NS_LOG_LOGIC("install browser apps");
-
-    if (server_browser == nullptr)
-    {
-        NS_LOG_WARN("Browser server node is not configured");
-        return;
-    }
-
-    Ipv4Address serverAddress = GetPrimaryIpv4(server_browser);
-    if (serverAddress == Ipv4Address("0.0.0.0"))
-    {
-        NS_LOG_WARN("Browser server address unavailable");
-        return;
-    }
-
-    const Time interval =
-        m_browserRequestInterval.IsZero() ? Seconds(1.0) : m_browserRequestInterval;
-    const uint32_t requestCount = std::max<uint32_t>(1, m_browserRequestCount);
-    const uint32_t requestBytes = 750u * 1024u;
-    const Time requestDuration = Seconds(0.5);
-    const Time firstRequest = Seconds(1.0);
-    const Time sinkStop = firstRequest + interval * requestCount + requestDuration;
-    const uint16_t basePort = 15000;
-    bool installedAny = false;
-
-    for (uint32_t i = 0; i < terms.size(); ++i)
-    {
-        if (i >= m_termData.size() || m_termData[i].use_appli != 1)
-        {
-            continue;
-        }
-
-        Ptr<Node> client = terms[i];
-        if (client == nullptr)
-        {
-            continue;
-        }
-
-        const uint16_t port = basePort + static_cast<uint16_t>(i);
-
-        PacketSinkHelper sinkHelper("ns3::TcpSocketFactory",
-                                    InetSocketAddress(Ipv4Address::GetAny(), port));
-        ApplicationContainer sinkApps = sinkHelper.Install(server_browser);
-        sinkApps.Start(Seconds(0.9));
-        sinkApps.Stop(sinkStop);
-
-        Simulator::Schedule(firstRequest,
-                            &ScheduleBrowserRequest,
-                            client,
-                            serverAddress,
-                            port,
-                            0,
-                            requestCount,
-                            interval,
-                            requestDuration,
-                            requestBytes);
-        installedAny = true;
-        NS_LOG_LOGIC("browser app configured for terminal " << i << " port " << port);
-    }
-
-    if (!installedAny)
-    {
-        NS_LOG_INFO("No browser terminals configured for appId=1");
-    }
-}
-
 void NetSim::SetKamedaModule(void){
 
     NS_LOG_INFO("Kameda module load");
@@ -268,9 +201,90 @@ void NetSim::SetKamedaModule(void){
     }
 }
 
+void NetSim::SetBrowserApp()
+{
+    NS_LOG_LOGIC("install browser apps");
+
+    if (server_browser == nullptr)
+    {
+        NS_LOG_WARN("Browser server node is not configured");
+        return;
+    }
+
+    Ipv4Address serverAddress = GetPrimaryIpv4(server_browser);
+    if (serverAddress == Ipv4Address("0.0.0.0"))
+    {
+        NS_LOG_WARN("Browser server address unavailable");
+        return;
+    }
+
+    const Time interval =
+        m_browserRequestInterval.IsZero() ? Seconds(1.0) : m_browserRequestInterval;
+    const uint32_t requestCount = std::max<uint32_t>(1, m_browserRequestCount);
+    const uint32_t requestBytes = 750u * 1024u;
+    const Time requestDuration = Seconds(0.5);
+    const Time firstRequest = Seconds(1.0);
+    const Time sinkStop = firstRequest + interval * requestCount + requestDuration;
+    const uint16_t basePort = 15000;
+    bool installedAny = false;
+
+    for (uint32_t i = 0; i < terms.size(); ++i)
+    {
+        if (i >= m_termData.size() || m_termData[i].use_appli != 1)
+        {
+            continue;
+        }
+
+        Ptr<Node> client = terms[i];
+        if (client == nullptr)
+        {
+            continue;
+        }
+        Ipv4Address clientAddress = GetPrimaryIpv4(client);
+        if (clientAddress == Ipv4Address("0.0.0.0"))
+        {
+            NS_LOG_WARN("Browser terminal " << i << " has no IPv4 address");
+            continue;
+        }
+
+        const uint16_t port = basePort + static_cast<uint16_t>(i);
+
+        PacketSinkHelper sinkHelper("ns3::TcpSocketFactory",
+                                    InetSocketAddress(Ipv4Address::GetAny(), port));
+        ApplicationContainer sinkApps = sinkHelper.Install(client);
+        sinkApps.Start(Seconds(0.9));
+        sinkApps.Stop(sinkStop);
+
+        Simulator::Schedule(firstRequest,
+                            &ScheduleBrowserDownload,
+                            server_browser,
+                            clientAddress,
+                            port,
+                            0,
+                            requestCount,
+                            interval,
+                            requestDuration,
+                            requestBytes);
+        installedAny = true;
+        NS_LOG_LOGIC("browser download configured for terminal " << i << " port " << port);
+    }
+
+    if (!installedAny)
+    {
+        NS_LOG_INFO("No browser terminals configured for appId=1");
+    }
+}
+
+
 void NetSim::SetVideoApp(void){
 
     NS_LOG_LOGIC("install video apps");
+
+    if (server_udpVideo == nullptr)
+    {
+        NS_LOG_WARN("Video server node is not configured");
+        return;
+    }
 
     Ipv4Address videoServerAddress = GetPrimaryIpv4(server_udpVideo);
     if (videoServerAddress == Ipv4Address("0.0.0.0"))
@@ -279,24 +293,44 @@ void NetSim::SetVideoApp(void){
         return;
     }
 
-    uint16_t multicast_port = 10000;
-    for(uint32_t i=0; i<terms.size(); i++){
-        if(m_termData[i].use_appli != 2){
+    uint16_t streamPort = 10000;
+    bool installedAny = false;
+    for (uint32_t i = 0; i < terms.size(); ++i)
+    {
+        if (i >= m_termData.size() || m_termData[i].use_appli != 2)
+        {
             continue;
         }
-        UdpServerHelper udpServer;
-        ApplicationContainer serverApps;
-        udpServer = UdpServerHelper(multicast_port);
-        serverApps = udpServer.Install(server_udpVideo);
+        Ptr<Node> client = terms[i];
+        if (client == nullptr)
+        {
+            continue;
+        }
+
+        Ipv4Address clientAddress = GetPrimaryIpv4(client);
+        if (clientAddress == Ipv4Address("0.0.0.0"))
+        {
+            NS_LOG_WARN("Video terminal " << i << " has no IPv4 address");
+            continue;
+        }
+
+        UdpServerHelper sinkHelper(streamPort);
+        ApplicationContainer sinkApps = sinkHelper.Install(client);
 
         std::string traceFile = std::string(INPUT_DIR) + "Verbose_Jurassic.dat";
-        UdpTraceClientHelper udpClient(videoServerAddress, multicast_port, traceFile);
+        UdpTraceClientHelper udpClient(clientAddress, streamPort, traceFile);
 
-        ApplicationContainer videoClientApps;
-        videoClientApps.Add(udpClient.Install(terms[i]));
+        ApplicationContainer serverApps = udpClient.Install(server_udpVideo);
+        sinkApps.Start(Seconds(0.9));
         serverApps.Start(Seconds(1.0));
-        videoClientApps.Start(Seconds(1.0));
-        multicast_port++;
+        installedAny = true;
+        NS_LOG_LOGIC("video download configured for terminal " << i << " port " << streamPort);
+        streamPort++;
+    }
+
+    if (!installedAny)
+    {
+        NS_LOG_INFO("No video terminals configured for appId=2");
     }
 }
 
