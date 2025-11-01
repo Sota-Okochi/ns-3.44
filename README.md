@@ -2,11 +2,13 @@
 
 ## はじめに
 
-このリポジトリは、ヘテロジニアスな無線アクセス環境での AP 選択アルゴリズム（Random / Greedy / Hungarian）の比較実験を ns-3 (3.44) 上で再現するためのプロジェクトです。AP0 を 5G NR gNB、AP1，2 を Wi‑Fi 802.11ax として構成して、端末群の接続戦略が遅延やトラフィックに与える影響を評価する想定しています。
+このリポジトリは、ヘテロジニアスな無線アクセス環境での AP 選択アルゴリズム（Random / Greedy / Hungarian）の比較実験を ns-3上で再現するためのプロジェクトです。AP0 を 5G NR gNB、AP1，2 を Wi‑Fi 802.11ax として構成して、端末群の接続戦略が遅延やトラフィックに与える影響を評価する想定しています。
 
 - 目的: AP 選択手法の比較（遅延/経路の安定性）
 - シナリオ: AP0=NR、AP1，2=Wi‑Fi、各ルータとサーバ群、p2pで接続
 - 出力: 端末満足度の調和平均（AP選択アルゴリズム別）
+
+## アーキテクチャ
 
 ```mermaid
 flowchart LR
@@ -58,6 +60,12 @@ flowchart LR
     CER --> STR
     CER --> BRW
 ```
+### 接続
+- UE→gNB, STA→AP: Wireless
+- gNB → EPC(UPF) → CER : PointToPoint
+- AP1 → L3R1[L3 Router1] → CER : PointToPoint 
+- AP2 → L3R2[L3 Router2] → CER : PointToPoint 
+- CER ↔ servers : PointToPoint
 
 ## インストール
 
