@@ -1,6 +1,6 @@
 {
   "baseStations": 3,
-  "terminals": 30,
+  "terminals": 60,
   "capacities": [
     100,
     100,
