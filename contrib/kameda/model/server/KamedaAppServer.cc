@@ -14,6 +14,7 @@
 #include "ns3/APselection.h"
 
 #include <fstream>
+#include <iomanip>
 #include <sys/stat.h>
 #include <sys/types.h>
 
@@ -445,6 +446,7 @@ void KamedaAppServer::FinalizeJSONFile(){
 
 // バイナリファイルからRTTデータを読み込んで統計を出力
 void KamedaAppServer::OutputRttStatisticsFromBinary(){
+    std::cout << std::fixed << std::setprecision(2);
     std::cout << "=== Reading RTT data from binary file ===" << std::endl;
     
     std::string filename("/home/sota/ns-3.44/OUTPUT/rtt_output.bin");

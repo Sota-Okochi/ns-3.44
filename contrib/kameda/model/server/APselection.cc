@@ -69,8 +69,9 @@ void APselection::tmain(){
 
             init_tp[i] = APConstants::INITIAL_TP_MULTIPLIER[0] / ave_rtt;
 
-            std::cout << "AP:" << i << "\tMONITOR AVE_RTT:" << ave_rtt << "ms"
-                    << "\tTP:" << init_tp[i] << "KB/s" << std::endl;
+    std::cout << std::fixed << std::setprecision(2);
+    std::cout << "AP:" << i << "\tMONITOR AVE_RTT:" << ave_rtt << "ms"
+            << "\tTP:" << init_tp[i] << "KB/s" << std::endl;
         } else {
             // データがない場合は設定ファイルの値を使用
             double default_rtt = 50.0; // デフォルト値

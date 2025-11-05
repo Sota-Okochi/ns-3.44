@@ -74,6 +74,7 @@ private:
      * \brief フォールバック：RTT測定失敗時にダミーデータを送信
      */
     void SendFallbackData();
+    void FinalizeTransmission();
 
     // メンバー変数
     uint32_t m_apId;                    // 監視対象AP ID
@@ -89,6 +90,7 @@ private:
     std::vector<double> m_rttSamples;   // RTTサンプル蓄積
     EventId m_pingEvent;                // ping送信イベント
     EventId m_reportEvent;              // レポート送信イベント
+    EventId m_closeEvent;               // TCPクローズ用イベント
     ApplicationContainer m_currentPingApp; // 現在のpingアプリケーション
     
     Ptr<Socket> m_socket;               // TCP通信用ソケット

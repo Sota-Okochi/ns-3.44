@@ -19,7 +19,6 @@ inline void EnableIpForwardIfPresent(Ptr<Ipv4> ipv4)
 void DumpIpv4Info(const std::string& title, Ptr<Node> node)
 {
     if (!node) return;
-    std::cout << "[ROUTE] === " << title << " (Node " << node->GetId() << ") ===" << std::endl;
     Ptr<Ipv4> ipv4 = node->GetObject<Ipv4>();
     if (!ipv4)
     {
@@ -31,11 +30,6 @@ void DumpIpv4Info(const std::string& title, Ptr<Node> node)
         for (uint32_t a = 0; a < ipv4->GetNAddresses(ifIndex); ++a)
         {
             Ipv4InterfaceAddress ifaddr = ipv4->GetAddress(ifIndex, a);
-            std::cout << "[ROUTE] IF=" << ifIndex
-                      << " addr=" << ifaddr.GetLocal()
-                      << "/" << ifaddr.GetMask()
-                      << " bcast=" << ifaddr.GetBroadcast()
-                      << std::endl;
         }
     }
     Ipv4StaticRoutingHelper rh;
@@ -44,11 +38,6 @@ void DumpIpv4Info(const std::string& title, Ptr<Node> node)
     for (uint32_t r = 0; r < nRoutes; ++r)
     {
         Ipv4RoutingTableEntry e = rt->GetRoute(r);
-        std::cout << "[ROUTE] route#" << r
-                  << " dst=" << e.GetDest() << "/" << e.GetDestNetworkMask()
-                  << " gw=" << e.GetGateway()
-                  << " if=" << e.GetInterface()
-                  << std::endl;
     }
 }
 
@@ -220,7 +209,6 @@ void NetSim::ConfigureMonitorPlacement()
         if (monitor)
         {
             mobility.Install(monitor);
-            std::cout << "[DBG]   installed monitor#" << apId << std::endl;
         }
     }
 }
@@ -398,7 +386,6 @@ void NetSim::ConfigureApMobility()
     uint32_t apCount = std::min<uint32_t>(APnum, static_cast<uint32_t>(wifiAPs.size()));
     for (uint32_t i = 0; i < apCount; ++i)
     {
-        std::cout << "[DBG]  AP#" << i << " nodePtr=" << (wifiAPs[i] ? 1 : 0) << std::endl;
         MobilityHelper mobility;
         mobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
         Ptr<ListPositionAllocator> posList = CreateObject<ListPositionAllocator>();
@@ -472,7 +459,6 @@ void NetSim::ConfigureTermMobility()
         if (term != nullptr)
         {
             mobility.Install(term);
-            std::cout << "[DBG]   installed term#" << idx << std::endl;
         }
     }
 }
@@ -795,7 +781,6 @@ void NetSim::ConfigureNrForAp0()
     };
     auto bwpsPair = m_nrHelper->CreateBandwidthParts(bandConfs, "UMa", "Default", "ThreeGpp");
     auto allBwps = bwpsPair.second;
-    std::cout << "[DBG][NR] BWP count=" << allBwps.size() << std::endl;
 
     NodeContainer gnb;
     if (wifiAPs.size() > 0 && wifiAPs[0] != nullptr)
@@ -807,7 +792,6 @@ void NetSim::ConfigureNrForAp0()
         return;
     }
     m_nrGnbDevs = m_nrHelper->InstallGnbDevice(gnb, allBwps);
-    std::cout << "[DBG][NR] gNB devices=" << m_nrGnbDevs.GetN() << std::endl;
 
     NodeContainer ue;
     for (uint32_t i = 1; i < wifiNodes[0].GetN(); ++i)
@@ -823,7 +807,6 @@ void NetSim::ConfigureNrForAp0()
         return;
     }
     m_nrUeDevs = m_nrHelper->InstallUeDevice(ue, allBwps);
-    std::cout << "[DBG][NR] UE devices=" << m_nrUeDevs.GetN() << std::endl;
 
     Ptr<Node> pgw = m_nrEpcHelper->GetPgwNode();
     if (pgw && cerNode != nullptr)

@@ -23,9 +23,9 @@ APMonitorTerminal::APMonitorTerminal(uint32_t apId, Ipv4Address targetAP, Ipv4Ad
       m_targetAP(targetAP),
       m_serverAddress(serverAddress),
       m_serverPort(8080),
-      m_measureInterval(0.2),        // 測定バースト間のインターバル
-      m_samplesPerReport(30),         // 1レポート当たりのサンプル数
-      m_pingInterval(0.02),           // Ping送信間隔（秒）
+      m_measureInterval(0.0),
+      m_samplesPerReport(10),
+      m_pingInterval(0.2),
       m_pingPayloadSize(1200),        // Pingペイロードサイズ（バイト）
       m_socket(nullptr),
       m_isMonitoring(false),
@@ -49,8 +49,7 @@ void APMonitorTerminal::StartApplication()
     NS_LOG_FUNCTION(this);
     std::cout << "=== APMonitorTerminal::StartApplication() - AP" << m_apId << " ===" << std::endl;
     
-    // 少し遅延してから監視開始（システム初期化待ち）
-    Simulator::Schedule(Seconds(1.0), &APMonitorTerminal::StartContinuousMonitoring, this);
+    Simulator::Schedule(Seconds(0.0), &APMonitorTerminal::StartContinuousMonitoring, this);
 }
 
 void APMonitorTerminal::StopApplication()
@@ -67,6 +66,11 @@ void APMonitorTerminal::StartContinuousMonitoring()
         return; // 既に監視中
     }
     
+    if (m_closeEvent.IsPending())
+    {
+        Simulator::Cancel(m_closeEvent);
+    }
+
     m_isMonitoring = true;
     std::cout << "=== Starting continuous monitoring for AP" << m_apId << " ===" << std::endl;
     
@@ -77,17 +81,19 @@ void APMonitorTerminal::StartContinuousMonitoring()
     m_minRtt = std::numeric_limits<double>::max();
     m_maxRtt = 0.0;
     
-    // 最初のping送信をスケジュール
-    m_pingEvent = Simulator::Schedule(Seconds(0.1), &APMonitorTerminal::SendPeriodicPing, this);
-    
-    // フォールバック：一定時間後にダミーデータを送信
-    Simulator::Schedule(Seconds(5.0), &APMonitorTerminal::SendFallbackData, this);
+    // 単回測定を即時開始
+    SendPeriodicPing();
 }
 
 void APMonitorTerminal::StopMonitoring()
 {
     NS_LOG_FUNCTION(this);
     
+    if (!m_isMonitoring)
+    {
+        return;
+    }
+
     m_isMonitoring = false;
     
     // イベントをキャンセル
@@ -97,19 +103,12 @@ void APMonitorTerminal::StopMonitoring()
     if (m_reportEvent.IsPending()) {
         Simulator::Cancel(m_reportEvent);
     }
-    
-    // 現在のpingアプリを停止
-    if (m_currentPingApp.GetN() > 0) {
-        m_currentPingApp.Stop(Seconds(Simulator::Now().GetSeconds()));
+    if (!m_closeEvent.IsPending())
+    {
+        m_closeEvent = Simulator::Schedule(Seconds(0.1),
+                                           &APMonitorTerminal::FinalizeTransmission,
+                                           this);
     }
-    
-    // ソケットを閉じる
-    if (m_socket) {
-        m_socket->Close();
-        m_socket = nullptr;
-    }
-    
-    std::cout << "=== Monitoring stopped for AP" << m_apId << " ===" << std::endl;
 }
 
 void APMonitorTerminal::SendPeriodicPing()
@@ -166,10 +165,6 @@ void APMonitorTerminal::SendPeriodicPing()
               << " at time " << Simulator::Now().GetSeconds() << "s (Total: " << m_totalPings << ")" << std::endl;
     
     // 次のping送信をスケジュール
-    if (m_isMonitoring) {
-        Time nextStart = measurementDuration + Seconds(m_measureInterval);
-        m_pingEvent = Simulator::Schedule(nextStart, &APMonitorTerminal::SendPeriodicPing, this);
-    }
 }
 
 void APMonitorTerminal::HandlePingRtt(uint16_t /*seq*/, Time rtt)
@@ -217,11 +212,26 @@ void APMonitorTerminal::ReportRTTToServer()
     
     // 平均RTTを計算
     double sum = std::accumulate(m_rttSamples.begin(), m_rttSamples.end(), 0.0);
-    m_averageRtt = sum / m_rttSamples.size();
+    double baseAverage = sum / m_rttSamples.size();
+
+    const uint32_t windowSize = 5;
+    double movingAverage = baseAverage;
+    if (m_rttSamples.size() >= windowSize)
+    {
+        double windowSum = 0.0;
+        for (size_t i = m_rttSamples.size() - windowSize; i < m_rttSamples.size(); ++i)
+        {
+            windowSum += m_rttSamples[i];
+        }
+        movingAverage = windowSum / static_cast<double>(windowSize);
+    }
+    m_averageRtt = movingAverage;
     
     std::cout << "=== AP" << m_apId << " Reporting to Server ===" << std::endl;
-    std::cout << "Samples: " << m_rttSamples.size() 
-              << ", Average RTT: " << m_averageRtt << "ms" << std::endl;
+    std::cout << "Samples: " << m_rttSamples.size()
+              << ", Average RTT (base): " << baseAverage
+              << "ms, Moving Average (last " << windowSize << "): "
+              << m_averageRtt << "ms" << std::endl;
     
     // TCP接続を作成してサーバーに送信
     m_socket = CreateTcpSocket();
@@ -250,14 +260,19 @@ void APMonitorTerminal::OnConnectionSucceeded(Ptr<Socket> socket)
     
     std::string msg = message.str();
     socket->Send(reinterpret_cast<const uint8_t*>(msg.c_str()), msg.length(), 0);
+    socket->ShutdownSend();
     
     std::cout << "=== Monitor data sent to server: " << msg << " ===" << std::endl;
     
     // サンプルをクリア
     m_rttSamples.clear();
     
-    // ソケットを閉じる
-    socket->Close();
+    if (!m_closeEvent.IsPending())
+    {
+        m_closeEvent = Simulator::Schedule(Seconds(0.1),
+                                           &APMonitorTerminal::FinalizeTransmission,
+                                           this);
+    }
 }
 
 void APMonitorTerminal::OnConnectionFailed(Ptr<Socket> socket)
@@ -275,34 +290,38 @@ void APMonitorTerminal::SendFallbackData()
 {
     NS_LOG_FUNCTION(this);
     
-    if (!m_isMonitoring) {
-        return;
+    // 単回測定に合わせたフォールバックは無効化
+}
+
+void APMonitorTerminal::FinalizeTransmission()
+{
+    NS_LOG_FUNCTION(this);
+
+    m_closeEvent = EventId();
+
+    if (m_socket)
+    {
+        m_socket = nullptr;
     }
-    
-    // RTTデータが取得できていない場合、シミュレートされたRTT値を送信
-    if (m_rttSamples.empty()) {
-        std::cout << "=== AP" << m_apId << " Fallback: No RTT data, sending simulated values ===" << std::endl;
-        
-        // APごとに異なるシミュレートされたRTT値
-        double simulatedRtt = 0.0;
-        switch (m_apId) {
-            case 0: simulatedRtt = 15.5; break; // LTE AP
-            case 1: simulatedRtt = 25.3; break; // WiFi AP1
-            case 2: simulatedRtt = 28.7; break; // WiFi AP2
-            default: simulatedRtt = 20.0; break;
-        }
-        
-        // シミュレートされたRTT値をサンプルに追加
-        for (uint32_t i = 0; i < m_samplesPerReport; i++) {
-            m_rttSamples.push_back(simulatedRtt + (i * 0.1)); // 少しずつ変化
-        }
-        
-        m_successfulPings = m_samplesPerReport;
-        std::cout << "AP" << m_apId << " Fallback RTT: " << simulatedRtt << "ms" << std::endl;
-        
-        // サーバーに報告
-        ReportRTTToServer();
+
+    m_isMonitoring = false;
+
+    // cancel events, ping app stop
+    if (m_pingEvent.IsPending())
+    {
+        Simulator::Cancel(m_pingEvent);
     }
+    if (m_reportEvent.IsPending())
+    {
+        Simulator::Cancel(m_reportEvent);
+    }
+
+    if (m_currentPingApp.GetN() > 0)
+    {
+        m_currentPingApp.Stop(Seconds(Simulator::Now().GetSeconds()));
+    }
+
+    std::cout << "=== Monitoring stopped for AP" << m_apId << " ===" << std::endl;
 }
 
 } // namespace ns3
