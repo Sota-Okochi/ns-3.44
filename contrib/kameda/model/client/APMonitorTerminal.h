@@ -8,6 +8,7 @@
 #include "ns3/internet-apps-module.h"
 #include "ns3/internet-module.h"
 #include "ns3/ping.h"
+#include "ns3/packet.h"
 
 namespace ns3 {
 
@@ -39,6 +40,34 @@ public:
      */
     void OnRttMeasured(Time rtt);
     void HandlePingRtt(uint16_t seq, Time rtt);
+
+    /**
+     * \brief 動画トラフィックの受信通知
+     *
+     * 監視端末にインストールされた PacketSink から呼び出され、
+     * Goodput 計測用の統計値を更新する。
+     */
+    void NotifyVideoRx(uint32_t rxBytes, Time rxTime);
+    void HandleVideoSinkRx(Ptr<const Packet> packet, const Address& from);
+
+    /// 直近で算出した Goodput（bit/s）
+    double GetLastGoodputBps() const;
+    /// Goodput が算出済みかの確認
+    bool HasGoodput() const;
+    /// 計測開始時刻（Seconds(1.0) 以降の最初の受信時刻）
+    Time GetMeasurementStartTime() const;
+    /// 最後に受信したパケット時刻
+    Time GetLastRxTime() const;
+    /// 受信済み合計バイト数
+    uint64_t GetTotalRxBytes() const;
+    /// 監視端末用 Application の開始時刻
+    Time GetApplicationStartTime() const;
+    /// Goodput を更新
+    void SetLastGoodputBps(double goodputBps);
+    /// 受信トラフィックの有無
+    bool HasVideoTraffic() const;
+    /// RTT データがなくても強制的にレポート送信
+    void ForceReportToServer();
 
 protected:
     virtual void StartApplication() override;
@@ -75,6 +104,7 @@ private:
      */
     void SendFallbackData();
     void FinalizeTransmission();
+    void ResetGoodputStats();
 
     // メンバー変数
     uint32_t m_apId;                    // 監視対象AP ID
@@ -95,6 +125,7 @@ private:
     
     Ptr<Socket> m_socket;               // TCP通信用ソケット
     bool m_isMonitoring;                // 監視状態フラグ
+    Time m_appStartTime;                // アプリケーション開始時刻
     
     // 統計情報
     uint32_t m_totalPings;              // 総ping送信数
@@ -102,6 +133,14 @@ private:
     double m_averageRtt;                // 平均RTT
     double m_minRtt;                    // 最小RTT
     double m_maxRtt;                    // 最大RTT
+
+    // Goodput 計測用
+    uint64_t m_totalRxBytes;
+    Time m_measurementStartTime;
+    Time m_lastRxTime;
+    bool m_hasVideoTraffic;
+    double m_lastGoodputBps;
+    bool m_hasGoodput;
 };
 
 } // namespace ns3

@@ -157,6 +157,7 @@ NetSim::NetSim()
     m_browserRequestInterval = Seconds(1.0);
     m_browserRequestCount = 10;
     m_enableWebmeetingTracing = true;
+    m_goodputReportScheduled = false;
 }
 
 NetSim::~NetSim(){
@@ -257,12 +258,67 @@ void NetSim::RunSim(){
     CreateNetworkTopology(); // ノードの生成
     ConfigureDataLinkLayer();
     ConfigureNetworkLayer();
+
+    FlowMonitorHelper flowmonHelper;
+    flowmonHelper.SetMonitorAttribute("MaxPerHopDelay", TimeValue(MicroSeconds(200)));
+    Ptr<FlowMonitor> flowMonitor;
+    NodeContainer monitorNodes;
+    for (const auto& monitor : monitorTerminals)
+    {
+        if (monitor != nullptr)
+        {
+            monitorNodes.Add(monitor);
+        }
+    }
+    if (monitorNodes.GetN() > 0)
+    {
+        flowMonitor = flowmonHelper.Install(monitorNodes);
+    }
+    else
+    {
+        flowMonitor = flowmonHelper.InstallAll();
+    }
+
     SetAppLayer(); // 各種アプリケーションの設定
+
+    Time checkStop = m_simulationDuration.IsZero() ? Seconds(7.0) : m_simulationDuration;
+    if (flowMonitor && checkStop.IsPositive())
+    {
+        Time checkTime = checkStop - MilliSeconds(1);
+        if (checkTime.IsNegative())
+        {
+            checkTime = checkStop;
+        }
+        Simulator::Schedule(checkTime, &NetSim::CheckFlowMonitor, this, flowMonitor);
+    }
 
     std::cout << "=====Simulator::Start()=====" << std::endl;
     Simulator::Run();
     Simulator::Destroy();
     std::cout << "=====Simulator::End()=====" << std::endl;
+}
+
+void NetSim::CheckFlowMonitor(Ptr<FlowMonitor> monitor)
+{
+    NS_LOG_FUNCTION(this);
+
+    if (monitor == nullptr)
+    {
+        NS_LOG_WARN("FlowMonitor instance is null");
+        return;
+    }
+
+    monitor->CheckForLostPackets();
+
+    std::ostringstream filename;
+    filename << OUTPUT_DIR << "monitor-flow";
+    if (G_nth > 0)
+    {
+        filename << "_G" << G_nth;
+    }
+    filename << ".xml";
+
+    monitor->SerializeToXmlFile(filename.str(), true, true);
 }
 
 }   // namespace ns3

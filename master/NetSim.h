@@ -18,6 +18,7 @@
 #include "ns3/APMonitorTerminal.h"
 #include "ns3/wifi-helper.h"
 #include "ns3/nr-module.h"
+#include "ns3/flow-monitor-module.h"
 #include "RttForwarderApp.h"
 
 #include <sstream>
@@ -79,6 +80,8 @@ private:
     void SetGreedy();
     void SetBrowserApp();
     void SetWebmeetingApp();
+    void ReportMonitorGoodput();
+    void CheckFlowMonitor(Ptr<FlowMonitor> monitor);
     
     bool LoadTermDataFromSqlite(const std::string& dbPath);
 
@@ -132,6 +135,7 @@ private:
     
     // 監視端末用
     std::vector<Ptr<Node> > monitorTerminals;
+    std::vector<Ptr<APMonitorTerminal> > m_monitorApps;
 
     std::vector<TermData> m_termData;
     ApSelectionInput m_apSelectionInput;
@@ -144,8 +148,9 @@ private:
     Ipv4Address m_remoteHostAddress;
     Time m_simulationDuration;
     Time m_browserRequestInterval;
-    uint32_t m_browserRequestCount;
+   uint32_t m_browserRequestCount;
     bool m_enableWebmeetingTracing;
+    bool m_goodputReportScheduled;
 
     std::vector<std::string> split(const std::string& input, char delimiter)
 {

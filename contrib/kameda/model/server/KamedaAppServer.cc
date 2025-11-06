@@ -180,7 +180,7 @@ void KamedaAppServer::ProcessMonitorData(std::string senderIpAddress, std::strin
         std::cout << "Part[" << i << "]: '" << parts[i] << "'" << std::endl;
     }
     
-    if (parts.size() != 2) {
+    if (parts.size() < 2 || parts.size() > 3) {
         std::cout << "Invalid monitor message format" << std::endl;
         return;
     }
@@ -204,8 +204,27 @@ void KamedaAppServer::ProcessMonitorData(std::string senderIpAddress, std::strin
     
     // RTT値を抽出
     double rttValue = std::stod(parts[1]);
+    double goodputBps = 0.0;
+    bool hasGoodput = false;
+    if (parts.size() >= 3)
+    {
+        try
+        {
+            goodputBps = std::stod(parts[2]);
+            hasGoodput = true;
+        }
+        catch (const std::exception& ex)
+        {
+            std::cout << "Failed to parse goodput: " << ex.what() << std::endl;
+        }
+    }
     
-    std::cout << "Processed Monitor Data: AP=" << apNo << ", RTT=" << rttValue << "ms" << std::endl;
+    std::cout << "Processed Monitor Data: AP=" << apNo << ", RTT=" << rttValue << "ms";
+    if (hasGoodput)
+    {
+        std::cout << ", Goodput=" << goodputBps << "bps";
+    }
+    std::cout << std::endl;
     
     // APselectionに監視端末データを送信
     if(apselect) {
@@ -216,6 +235,10 @@ void KamedaAppServer::ProcessMonitorData(std::string senderIpAddress, std::strin
         
         std::stringstream monitorMsg;
         monitorMsg << "MONITOR_" << apNo << "," << rttValue;
+        if (hasGoodput)
+        {
+            monitorMsg << "," << goodputBps;
+        }
         apselect->setData(apIpAddress.str(), monitorMsg.str());
         
         // Monitor data forwarded silently to reduce output

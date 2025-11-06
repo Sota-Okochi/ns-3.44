@@ -29,11 +29,18 @@ APMonitorTerminal::APMonitorTerminal(uint32_t apId, Ipv4Address targetAP, Ipv4Ad
       m_pingPayloadSize(1200),        // Pingペイロードサイズ（バイト）
       m_socket(nullptr),
       m_isMonitoring(false),
+      m_appStartTime(Seconds(0.0)),
       m_totalPings(0),
       m_successfulPings(0),
       m_averageRtt(0.0),
       m_minRtt(std::numeric_limits<double>::max()),
-      m_maxRtt(0.0)
+      m_maxRtt(0.0),
+      m_totalRxBytes(0),
+      m_measurementStartTime(Seconds(0.0)),
+      m_lastRxTime(Seconds(0.0)),
+      m_hasVideoTraffic(false),
+      m_lastGoodputBps(0.0),
+      m_hasGoodput(false)
 {
     NS_LOG_FUNCTION(this);
     std::cout << "=== APMonitorTerminal created for AP" << m_apId << " ===" << std::endl;
@@ -48,6 +55,8 @@ void APMonitorTerminal::StartApplication()
 {
     NS_LOG_FUNCTION(this);
     std::cout << "=== APMonitorTerminal::StartApplication() - AP" << m_apId << " ===" << std::endl;
+    m_appStartTime = Simulator::Now();
+    ResetGoodputStats();
     
     Simulator::Schedule(Seconds(0.0), &APMonitorTerminal::StartContinuousMonitoring, this);
 }
@@ -172,6 +181,32 @@ void APMonitorTerminal::HandlePingRtt(uint16_t /*seq*/, Time rtt)
     OnRttMeasured(rtt);
 }
 
+void APMonitorTerminal::NotifyVideoRx(uint32_t rxBytes, Time rxTime)
+{
+    if (rxTime < Seconds(1.0))
+    {
+        return;
+    }
+
+    if (!m_hasVideoTraffic)
+    {
+        m_hasVideoTraffic = true;
+        m_measurementStartTime = rxTime;
+    }
+
+    m_totalRxBytes += rxBytes;
+    m_lastRxTime = rxTime;
+}
+
+void APMonitorTerminal::HandleVideoSinkRx(Ptr<const Packet> packet, const Address& /*from*/)
+{
+    if (packet == nullptr)
+    {
+        return;
+    }
+    NotifyVideoRx(packet->GetSize(), Simulator::Now());
+}
+
 void APMonitorTerminal::OnRttMeasured(Time rtt)
 {
     NS_LOG_FUNCTION(this);
@@ -256,7 +291,7 @@ void APMonitorTerminal::OnConnectionSucceeded(Ptr<Socket> socket)
     
     // メッセージを作成（監視端末専用フォーマット）
     std::stringstream message;
-    message << "MONITOR_AP" << m_apId << "," << m_averageRtt;
+    message << "MONITOR_AP" << m_apId << "," << m_averageRtt << "," << m_lastGoodputBps;
     
     std::string msg = message.str();
     socket->Send(reinterpret_cast<const uint8_t*>(msg.c_str()), msg.length(), 0);
@@ -322,6 +357,73 @@ void APMonitorTerminal::FinalizeTransmission()
     }
 
     std::cout << "=== Monitoring stopped for AP" << m_apId << " ===" << std::endl;
+}
+
+void APMonitorTerminal::ResetGoodputStats()
+{
+    m_totalRxBytes = 0;
+    m_measurementStartTime = Seconds(0.0);
+    m_lastRxTime = Seconds(0.0);
+    m_hasVideoTraffic = false;
+    m_lastGoodputBps = 0.0;
+    m_hasGoodput = false;
+}
+
+double APMonitorTerminal::GetLastGoodputBps() const
+{
+    return m_lastGoodputBps;
+}
+
+bool APMonitorTerminal::HasGoodput() const
+{
+    return m_hasGoodput;
+}
+
+Time APMonitorTerminal::GetMeasurementStartTime() const
+{
+    return m_measurementStartTime;
+}
+
+Time APMonitorTerminal::GetLastRxTime() const
+{
+    return m_lastRxTime;
+}
+
+uint64_t APMonitorTerminal::GetTotalRxBytes() const
+{
+    return m_totalRxBytes;
+}
+
+Time APMonitorTerminal::GetApplicationStartTime() const
+{
+    return m_appStartTime;
+}
+
+void APMonitorTerminal::SetLastGoodputBps(double goodputBps)
+{
+    m_lastGoodputBps = goodputBps;
+    m_hasGoodput = true;
+}
+
+bool APMonitorTerminal::HasVideoTraffic() const
+{
+    return m_hasVideoTraffic;
+}
+
+void APMonitorTerminal::ForceReportToServer()
+{
+    if (m_rttSamples.empty())
+    {
+        if (m_averageRtt > 0.0)
+        {
+            m_rttSamples.push_back(m_averageRtt);
+        }
+        else
+        {
+            m_rttSamples.push_back(0.0);
+        }
+    }
+    ReportRTTToServer();
 }
 
 } // namespace ns3

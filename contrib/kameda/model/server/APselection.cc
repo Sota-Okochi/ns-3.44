@@ -66,12 +66,21 @@ void APselection::tmain(){
             double ave_rtt = m_monitor_rtt[i];
             m_link_rtt[i] = ave_rtt;
             init_rtt[i] = ave_rtt;
-
-            init_tp[i] = APConstants::INITIAL_TP_MULTIPLIER[0] / ave_rtt;
+            double tpValue = APConstants::INITIAL_TP_MULTIPLIER[0] / ave_rtt;
+            if (m_has_tp[i])
+            {
+                tpValue = m_monitor_tp[i] / 1024.0;
+            }
+            init_tp[i] = tpValue;
 
     std::cout << std::fixed << std::setprecision(2);
     std::cout << "AP:" << i << "\tMONITOR AVE_RTT:" << ave_rtt << "ms"
-            << "\tTP:" << init_tp[i] << "KB/s" << std::endl;
+            << "\tTP:" << tpValue << "KB/s";
+    if (m_has_tp[i])
+    {
+        std::cout << " (measured)";
+    }
+    std::cout << std::endl;
         } else {
             // データがない場合は設定ファイルの値を使用
             double default_rtt = 50.0; // デフォルト値
@@ -89,10 +98,20 @@ void APselection::tmain(){
             
             m_link_rtt[i] = default_rtt;
             init_rtt[i] = default_rtt;
-            init_tp[i] = APConstants::INITIAL_TP_MULTIPLIER[0] / default_rtt;
+            double tpValue = APConstants::INITIAL_TP_MULTIPLIER[0] / default_rtt;
+            if (m_has_tp[i])
+            {
+                tpValue = m_monitor_tp[i] / 1024.0;
+            }
+            init_tp[i] = tpValue;
             
             std::cout << "AP:" << i << "\tNo data - using config RTT: " << default_rtt << "ms"
-                    << "\tTP:" << init_tp[i] << "KB/s" << std::endl;
+                    << "\tTP:" << tpValue << "KB/s";
+            if (m_has_tp[i])
+            {
+                std::cout << " (measured)";
+            }
+            std::cout << std::endl;
         }
     }
     
@@ -134,7 +153,7 @@ void APselection::setData(std::string senderIpAddress, std::string recvMessage){
     int apNo; ss >> apNo;
 
     std::vector<std::string> ret2 = splitString(recvMessage, ",");
-    if( ret2.size() != 2 ) {
+    if( ret2.size() < 2 || ret2.size() > 3 ) {
         std::cout << "Invalid message format" << std::endl;
         return;
     }
@@ -149,6 +168,16 @@ void APselection::setData(std::string senderIpAddress, std::string recvMessage){
     m_rtt_count[apNo] += 1;
     m_monitor_rtt[apNo] = m_rtt_sum[apNo] / static_cast<double>(m_rtt_count[apNo]);
     m_has_rtt[apNo] = true;
+
+    if (ret2.size() >= 3)
+    {
+        std::stringstream ssTp(ret2[2]);
+        double tpBps = 0.0;
+        ssTp >> tpBps;
+        m_monitor_tp[apNo] = tpBps;
+        m_has_tp[apNo] = true;
+        std::cout << "Monitor TP stored: AP=" << apNo << ", Goodput=" << tpBps << "bps" << std::endl;
+    }
 
     std::cout << "Monitor data stored: AP=" << apNo << ", RTT=" << d
               << "ms, AVG=" << m_monitor_rtt[apNo] << "ms" << std::endl;
@@ -195,6 +224,8 @@ void APselection::init(const ApSelectionInput& input){
     m_rtt_sum.assign(aps, 0.0);
     m_rtt_count.assign(aps, 0);
     m_has_rtt.assign(aps, false);
+    m_monitor_tp.assign(aps, 0.0);
+    m_has_tp.assign(aps, false);
 
     std::cout << "=== 初期設定値 ===" << std::endl;
     for(int i = 0; i < aps; i++){

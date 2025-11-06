@@ -1,4 +1,5 @@
 #include "NetSim.h"
+#include "ns3/packet-sink.h"
 
 NS_LOG_COMPONENT_DEFINE("NetSimApplications");
 
@@ -106,8 +107,14 @@ void ScheduleBrowserDownload(Ptr<Node> server,
 
 void NetSim::AttachMonitorApplication(uint32_t apId, Ptr<Node> monitor)
 {
+    if (apId >= m_monitorApps.size())
+    {
+        m_monitorApps.resize(apId + 1);
+    }
+
     if (monitor == nullptr || apId >= wifiAPs.size())
     {
+        m_monitorApps[apId] = nullptr;
         return;
     }
 
@@ -123,6 +130,7 @@ void NetSim::AttachMonitorApplication(uint32_t apId, Ptr<Node> monitor)
     monitor->AddApplication(monitorApp);
     monitorApp->SetStartTime(Seconds(1.5));
     monitorApp->SetStopTime(Seconds(3.6));
+    m_monitorApps[apId] = monitorApp;
 }
 
 void NetSim::SetAppLayer(){
@@ -295,6 +303,10 @@ void NetSim::SetVideoApp(void){
 
     uint16_t streamPort = 10000;
     bool installedAny = false;
+    const Time sinkStop = m_simulationDuration.IsZero() ? Seconds(7.0) : m_simulationDuration;
+    const Time sinkStart = Seconds(0.9);
+    const Time serverStart = Seconds(1.0);
+
     for (uint32_t i = 0; i < terms.size(); ++i)
     {
         if (i >= m_termData.size() || m_termData[i].use_appli != 2)
@@ -321,8 +333,10 @@ void NetSim::SetVideoApp(void){
         UdpTraceClientHelper udpClient(clientAddress, streamPort, traceFile);
 
         ApplicationContainer serverApps = udpClient.Install(server_udpVideo);
-        sinkApps.Start(Seconds(0.9));
-        serverApps.Start(Seconds(1.0));
+        sinkApps.Start(sinkStart);
+        sinkApps.Stop(sinkStop);
+        serverApps.Start(serverStart);
+        serverApps.Stop(sinkStop);
         installedAny = true;
         NS_LOG_LOGIC("video download configured for terminal " << i << " port " << streamPort);
         streamPort++;
@@ -331,6 +345,79 @@ void NetSim::SetVideoApp(void){
     if (!installedAny)
     {
         NS_LOG_INFO("No video terminals configured for appId=2");
+    }
+
+    // Install monitoring sinks for AP monitor terminals
+    uint16_t monitorPort = 15000;
+    bool monitorInstalled = false;
+    for (uint32_t apId = 0; apId < monitorTerminals.size(); ++apId)
+    {
+        Ptr<Node> monitor = monitorTerminals[apId];
+        if (monitor == nullptr)
+        {
+            continue;
+        }
+        Ptr<APMonitorTerminal> monitorApp =
+            (apId < m_monitorApps.size()) ? m_monitorApps[apId] : nullptr;
+        if (monitorApp == nullptr)
+        {
+            continue;
+        }
+
+        Ipv4Address monitorAddress = GetPrimaryIpv4(monitor);
+        if (monitorAddress == Ipv4Address("0.0.0.0"))
+        {
+            continue;
+        }
+
+        std::string traceFile = std::string(INPUT_DIR) + "Verbose_Jurassic.dat";
+
+        PacketSinkHelper sinkHelper("ns3::UdpSocketFactory",
+                                    InetSocketAddress(Ipv4Address::GetAny(), monitorPort));
+        ApplicationContainer sinkApps = sinkHelper.Install(monitor);
+        sinkApps.Start(sinkStart);
+        sinkApps.Stop(sinkStop);
+
+        if (sinkApps.GetN() > 0)
+        {
+            Ptr<Application> app = sinkApps.Get(0);
+            Ptr<PacketSink> packetSink = DynamicCast<PacketSink>(app);
+            if (packetSink)
+            {
+                packetSink->TraceConnectWithoutContext(
+                    "Rx",
+                    MakeCallback(&APMonitorTerminal::HandleVideoSinkRx, monitorApp));
+            }
+        }
+
+        UdpTraceClientHelper udpClient(monitorAddress, monitorPort, traceFile);
+        ApplicationContainer serverApps = udpClient.Install(server_udpVideo);
+        serverApps.Start(serverStart);
+        serverApps.Stop(sinkStop);
+
+        NS_LOG_LOGIC("video monitor configured for AP " << apId << " port " << monitorPort);
+        monitorPort++;
+        monitorInstalled = true;
+    }
+
+    if (!monitorInstalled)
+    {
+        NS_LOG_INFO("No monitor terminals configured for video goodput measurement");
+    }
+
+    if (!m_goodputReportScheduled)
+    {
+        Time stopTime = m_simulationDuration.IsZero() ? Seconds(7.0) : m_simulationDuration;
+        if (stopTime.IsPositive())
+        {
+            Time reportTime = stopTime - MilliSeconds(1);
+            if (reportTime.IsNegative())
+            {
+                reportTime = stopTime;
+            }
+            Simulator::Schedule(reportTime, &NetSim::ReportMonitorGoodput, this);
+            m_goodputReportScheduled = true;
+        }
     }
 }
 
@@ -510,6 +597,71 @@ void NetSim::SetWebmeetingApp()
     }
 }
 
+void NetSim::ReportMonitorGoodput()
+{
+    NS_LOG_FUNCTION(this);
+
+    const std::string filePath = std::string(OUTPUT_DIR) + "monitor-goodput.csv";
+    bool writeHeader = false;
+    {
+        std::ifstream check(filePath);
+        if (!check.good() || check.peek() == std::ifstream::traits_type::eof())
+        {
+            writeHeader = true;
+        }
+    }
+
+    std::ofstream ofs(filePath, std::ios::app);
+    if (ofs.good() && writeHeader)
+    {
+        ofs << "time_s,ap_id,goodput_bps\n";
+    }
+
+    for (uint32_t apId = 0; apId < m_monitorApps.size(); ++apId)
+    {
+        Ptr<APMonitorTerminal> monitorApp = m_monitorApps[apId];
+        if (monitorApp == nullptr)
+        {
+            continue;
+        }
+
+        if (!monitorApp->HasVideoTraffic())
+        {
+            continue;
+        }
+
+        Time startTime = monitorApp->GetMeasurementStartTime();
+        Time lastTime = monitorApp->GetLastRxTime();
+        if (lastTime <= startTime)
+        {
+            continue;
+        }
+
+        double duration = (lastTime - startTime).GetSeconds();
+        if (duration <= 0.0)
+        {
+            continue;
+        }
+
+        uint64_t totalBytes = monitorApp->GetTotalRxBytes();
+        if (totalBytes == 0)
+        {
+            continue;
+        }
+
+        double goodputBps = static_cast<double>(totalBytes) * 8.0 / duration;
+        monitorApp->SetLastGoodputBps(goodputBps);
+
+        NS_LOG_INFO("MONITOR_AP" << apId << " goodput = " << (goodputBps / 1e6) << " Mbps");
+
+        if (ofs.good())
+        {
+            ofs << Simulator::Now().GetSeconds() << "," << apId << "," << goodputBps << "\n";
+        }
+
+        monitorApp->ForceReportToServer();
+    }
+}
 
 
 
