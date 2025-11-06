@@ -1514,11 +1514,17 @@ TcpSocketBase::DoForwardUp(Ptr<Packet> packet, const Address& fromAddress, const
 
     if (m_rWnd.Get() != 0 && m_persistEvent.IsPending())
     { // persist probes end, the other end has increased the window
-        NS_ASSERT(m_connected);
         NS_LOG_LOGIC(this << " Leaving zerowindow persist state");
         m_persistEvent.Cancel();
 
-        SendPendingData(m_connected);
+        if (m_connected)
+        {
+            SendPendingData(m_connected);
+        }
+        else
+        {
+            NS_LOG_LOGIC(this << " Connection not established yet; defer pending data send");
+        }
     }
 }
 
