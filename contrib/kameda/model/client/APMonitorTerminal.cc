@@ -23,7 +23,7 @@ APMonitorTerminal::APMonitorTerminal(uint32_t apId, Ipv4Address targetAP, Ipv4Ad
       m_targetAP(targetAP),
       m_serverAddress(serverAddress),
       m_serverPort(8080),
-      m_measureInterval(0.0),
+      m_measureInterval(0.5),
       m_samplesPerReport(10),
       m_pingInterval(0.2),
       m_pingPayloadSize(1200),        // Pingペイロードサイズ（バイト）
@@ -91,7 +91,7 @@ void APMonitorTerminal::StartContinuousMonitoring()
     m_maxRtt = 0.0;
     
     // 単回測定を即時開始
-    SendPeriodicPing();
+    ScheduleNextMeasurement(Seconds(0.0));
 }
 
 void APMonitorTerminal::StopMonitoring()
@@ -112,6 +112,9 @@ void APMonitorTerminal::StopMonitoring()
     if (m_reportEvent.IsPending()) {
         Simulator::Cancel(m_reportEvent);
     }
+    if (m_measurementTimeoutEvent.IsPending()) {
+        Simulator::Cancel(m_measurementTimeoutEvent);
+    }
     if (!m_closeEvent.IsPending())
     {
         m_closeEvent = Simulator::Schedule(Seconds(0.1),
@@ -127,6 +130,7 @@ void APMonitorTerminal::SendPeriodicPing()
     if (!m_isMonitoring) {
         return;
     }
+    m_pingEvent = EventId();
     
     // 前のpingアプリがあれば停止
     if (m_currentPingApp.GetN() > 0) {
@@ -172,8 +176,14 @@ void APMonitorTerminal::SendPeriodicPing()
     
     std::cout << "MONITOR_AP" << m_apId << " ping sent to " << dst 
               << " at time " << Simulator::Now().GetSeconds() << "s (Total: " << m_totalPings << ")" << std::endl;
-    
-    // 次のping送信をスケジュール
+
+    if (m_measurementTimeoutEvent.IsPending())
+    {
+        Simulator::Cancel(m_measurementTimeoutEvent);
+    }
+    m_measurementTimeoutEvent = Simulator::Schedule(measurementDuration + MilliSeconds(50),
+                                                   &APMonitorTerminal::HandleMeasurementTimeout,
+                                                   this);
 }
 
 void APMonitorTerminal::HandlePingRtt(uint16_t /*seq*/, Time rtt)
@@ -240,7 +250,12 @@ void APMonitorTerminal::OnRttMeasured(Time rtt)
 void APMonitorTerminal::ReportRTTToServer()
 {
     NS_LOG_FUNCTION(this);
-    
+    if (m_measurementTimeoutEvent.IsPending())
+    {
+        Simulator::Cancel(m_measurementTimeoutEvent);
+    }
+    m_measurementTimeoutEvent = EventId();
+
     if (m_rttSamples.empty()) {
         return;
     }
@@ -249,7 +264,7 @@ void APMonitorTerminal::ReportRTTToServer()
     double sum = std::accumulate(m_rttSamples.begin(), m_rttSamples.end(), 0.0);
     double baseAverage = sum / m_rttSamples.size();
 
-    const uint32_t windowSize = 5;
+    const uint32_t windowSize = 6;
     double movingAverage = baseAverage;
     if (m_rttSamples.size() >= windowSize)
     {
@@ -278,6 +293,41 @@ void APMonitorTerminal::ReportRTTToServer()
             MakeCallback(&APMonitorTerminal::OnConnectionSucceeded, this),
             MakeCallback(&APMonitorTerminal::OnConnectionFailed, this));
     }
+
+    Time nextDelay = Seconds(m_measureInterval > 0.0 ? m_measureInterval : 0.5);
+    ScheduleNextMeasurement(nextDelay);
+}
+
+void APMonitorTerminal::ScheduleNextMeasurement(Time delay)
+{
+    if (!m_isMonitoring)
+    {
+        return;
+    }
+    if (m_pingEvent.IsPending())
+    {
+        Simulator::Cancel(m_pingEvent);
+    }
+    m_pingEvent = Simulator::Schedule(delay, &APMonitorTerminal::SendPeriodicPing, this);
+}
+
+void APMonitorTerminal::HandleMeasurementTimeout()
+{
+    m_measurementTimeoutEvent = EventId();
+    if (!m_isMonitoring)
+    {
+        return;
+    }
+
+    if (!m_rttSamples.empty())
+    {
+        ReportRTTToServer();
+        return;
+    }
+
+    std::cout << "AP" << m_apId << " measurement window expired with no RTT samples - retrying" << std::endl;
+    Time retryDelay = Seconds(m_measureInterval > 0.0 ? m_measureInterval : 0.5);
+    ScheduleNextMeasurement(retryDelay);
 }
 
 Ptr<Socket> APMonitorTerminal::CreateTcpSocket()
@@ -296,18 +346,13 @@ void APMonitorTerminal::OnConnectionSucceeded(Ptr<Socket> socket)
     std::string msg = message.str();
     socket->Send(reinterpret_cast<const uint8_t*>(msg.c_str()), msg.length(), 0);
     socket->ShutdownSend();
+    socket->Close();
+    m_socket = nullptr;
     
     std::cout << "=== Monitor data sent to server: " << msg << " ===" << std::endl;
     
     // サンプルをクリア
     m_rttSamples.clear();
-    
-    if (!m_closeEvent.IsPending())
-    {
-        m_closeEvent = Simulator::Schedule(Seconds(0.1),
-                                           &APMonitorTerminal::FinalizeTransmission,
-                                           this);
-    }
 }
 
 void APMonitorTerminal::OnConnectionFailed(Ptr<Socket> socket)
@@ -338,8 +383,6 @@ void APMonitorTerminal::FinalizeTransmission()
     {
         m_socket = nullptr;
     }
-
-    m_isMonitoring = false;
 
     // cancel events, ping app stop
     if (m_pingEvent.IsPending())

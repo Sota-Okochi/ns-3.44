@@ -105,6 +105,8 @@ private:
     void SendFallbackData();
     void FinalizeTransmission();
     void ResetGoodputStats();
+    void ScheduleNextMeasurement(Time delay);
+    void HandleMeasurementTimeout();
 
     // メンバー変数
     uint32_t m_apId;                    // 監視対象AP ID
@@ -121,6 +123,7 @@ private:
     EventId m_pingEvent;                // ping送信イベント
     EventId m_reportEvent;              // レポート送信イベント
     EventId m_closeEvent;               // TCPクローズ用イベント
+    EventId m_measurementTimeoutEvent;  // サンプル収集タイムアウト監視
     ApplicationContainer m_currentPingApp; // 現在のpingアプリケーション
     
     Ptr<Socket> m_socket;               // TCP通信用ソケット

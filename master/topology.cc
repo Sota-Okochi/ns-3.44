@@ -772,13 +772,33 @@ void NetSim::ConfigureNrForAp0()
         return;
     }
 
+    const double nrCenterFreqHz = 3.5e9;   // 3.5 GHz mid-band
+    const double nrChannelBwHz = 80e6;
+    const uint8_t nrNumComponentCarriers = 1;
+
     m_nrHelper = CreateObject<NrHelper>();
     m_nrEpcHelper = CreateObject<NrPointToPointEpcHelper>();
     m_nrHelper->SetEpcHelper(m_nrEpcHelper);
 
-    std::vector<CcBwpCreator::SimpleOperationBandConf> bandConfs = {
-        CcBwpCreator::SimpleOperationBandConf(3.5e9, 40e6, 1) // 3.5GHz, 40MHz, 1 RB
-    };
+    // Use a higher-capacity OFDMA scheduler and larger scheduling granularity
+    m_nrHelper->SetSchedulerTypeId(TypeId::LookupByName("ns3::NrMacSchedulerOfdmaPF"));
+    m_nrHelper->SetSchedulerAttribute("EnableSrsInUlSlots", BooleanValue(false));
+    m_nrHelper->SetSchedulerAttribute("EnableSrsInFSlots", BooleanValue(false));
+    m_nrHelper->SetSchedulerAttribute("DlCtrlSymbols", UintegerValue(1));
+    m_nrHelper->SetGnbMacAttribute("NumRbPerRbg", UintegerValue(4));
+
+    // Align PHY capabilities with the wider resource budget
+    m_nrHelper->SetGnbPhyAttribute("TxPower", DoubleValue(37.0));
+    m_nrHelper->SetUePhyAttribute("TxPower", DoubleValue(23.0));
+    m_nrHelper->SetGnbAntennaAttribute("NumRows", UintegerValue(4));
+    m_nrHelper->SetGnbAntennaAttribute("NumColumns", UintegerValue(2));
+    m_nrHelper->SetUeAntennaAttribute("NumRows", UintegerValue(1));
+    m_nrHelper->SetUeAntennaAttribute("NumColumns", UintegerValue(1));
+
+    CcBwpCreator::SimpleOperationBandConf wideBand(nrCenterFreqHz,
+                                                   nrChannelBwHz,
+                                                   nrNumComponentCarriers);
+    std::vector<CcBwpCreator::SimpleOperationBandConf> bandConfs = {wideBand};
     auto bwpsPair = m_nrHelper->CreateBandwidthParts(bandConfs, "UMa", "Default", "ThreeGpp");
     auto allBwps = bwpsPair.second;
 

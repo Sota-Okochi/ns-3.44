@@ -74,13 +74,8 @@ void APselection::tmain(){
             init_tp[i] = tpValue;
 
     std::cout << std::fixed << std::setprecision(2);
-    std::cout << "AP:" << i << "\tMONITOR AVE_RTT:" << ave_rtt << "ms"
-            << "\tTP:" << tpValue << "KB/s";
-    if (m_has_tp[i])
-    {
-        std::cout << " (measured)";
-    }
-    std::cout << std::endl;
+    std::cout << "AP:" << i << "\tRTT:" << ave_rtt << "ms"
+            << "\tTP:" << tpValue << "KB/s" << std::endl;
         } else {
             // データがない場合は設定ファイルの値を使用
             double default_rtt = 50.0; // デフォルト値
