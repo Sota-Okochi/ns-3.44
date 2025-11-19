@@ -487,6 +487,8 @@ void NetSim::ConfigureNetworkLayer(){
 
     Ipv4AddressHelper address;
     Ipv4StaticRoutingHelper staticRouting;
+    m_wifiApAddresses.clear();
+    m_wifiStationAddresses.clear();
 
     std::vector<Ipv4Address> routerCerIps(APnum, Ipv4Address("0.0.0.0"));
     std::vector<Ipv4Address> cerRouterIps(APnum, Ipv4Address("0.0.0.0"));
@@ -668,6 +670,13 @@ void NetSim::ConfigureNetworkLayer(){
 
         address.SetBase(baseip, "255.255.255.0");
         Ipv4InterfaceContainer wifiInterfaces = address.Assign(wifiDevices[i]);
+        Ipv4Address apWifiIp = wifiInterfaces.GetAddress(0);
+        m_wifiApAddresses.insert(apWifiIp.Get());
+        for (uint32_t addrIndex = 1; addrIndex < wifiInterfaces.GetN(); ++addrIndex)
+        {
+            Ipv4Address staAddr = wifiInterfaces.GetAddress(addrIndex);
+            m_wifiStationAddresses.insert(staAddr.Get());
+        }
 
         Ptr<Ipv4> apIpv4 = wifiAPs[i]->GetObject<Ipv4>();
         if (apIpv4)
@@ -695,7 +704,6 @@ void NetSim::ConfigureNetworkLayer(){
             }
         }
 
-        Ipv4Address apWifiIp = wifiInterfaces.GetAddress(0);
         for (uint32_t termID = 1; termID < wifiNodes[i].GetN(); ++termID)
         {
             Ptr<Node> termNode = wifiNodes[i].Get(termID);

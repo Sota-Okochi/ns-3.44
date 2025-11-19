@@ -419,6 +419,8 @@ void NetSim::SetVideoApp(void){
             m_goodputReportScheduled = true;
         }
     }
+
+    InstallMonitorCompetitionTraffic();
 }
 
 void NetSim::SetVoiceApp(void){
@@ -594,6 +596,82 @@ void NetSim::SetWebmeetingApp()
     else
     {
         NS_LOG_INFO("No webmeeting terminals configured for appId=4");
+    }
+}
+
+void NetSim::InstallMonitorCompetitionTraffic()
+{
+    if (server_udpVideo == nullptr)
+    {
+        return;
+    }
+
+    const Time loadStart = Seconds(1.4);
+    const Time loadStop = Seconds(3.6);
+    const uint16_t basePort = 20000;
+    const uint32_t maxFlowsPerAp = 3;
+
+    for (uint32_t apIndex = 0; apIndex < APnum; ++apIndex)
+    {
+        uint32_t apNo = apIndex + 1;
+        std::vector<uint32_t> candidates;
+        for (uint32_t i = 0; i < m_termData.size(); ++i)
+        {
+            if (m_termData[i].apNo == static_cast<int>(apNo) &&
+                m_termData[i].use_appli == 2)
+            {
+                candidates.push_back(i);
+            }
+        }
+
+        if (candidates.empty())
+        {
+            continue;
+        }
+
+        uint32_t flows = 0;
+        for (uint32_t idx : candidates)
+        {
+            if (idx >= terms.size())
+            {
+                continue;
+            }
+            Ptr<Node> client = terms[idx];
+            if (client == nullptr)
+            {
+                continue;
+            }
+            Ipv4Address clientAddress = GetPrimaryIpv4(client);
+            if (clientAddress == Ipv4Address("0.0.0.0"))
+            {
+                continue;
+            }
+
+            uint16_t port = basePort + static_cast<uint16_t>(apIndex * 100 + flows);
+            PacketSinkHelper sinkHelper("ns3::UdpSocketFactory",
+                                        InetSocketAddress(Ipv4Address::GetAny(), port));
+            ApplicationContainer sinkApps = sinkHelper.Install(client);
+            sinkApps.Start(loadStart);
+            sinkApps.Stop(loadStop);
+
+            OnOffHelper onoff("ns3::UdpSocketFactory",
+                              InetSocketAddress(clientAddress, port));
+            onoff.SetAttribute("PacketSize", UintegerValue(1200));
+            onoff.SetAttribute("DataRate", DataRateValue(DataRate("30Mbps")));
+            onoff.SetAttribute("OnTime",
+                               StringValue("ns3::ConstantRandomVariable[Constant=1.0]"));
+            onoff.SetAttribute("OffTime",
+                               StringValue("ns3::ConstantRandomVariable[Constant=0.0]"));
+            ApplicationContainer srcApps = onoff.Install(server_udpVideo);
+            srcApps.Start(loadStart);
+            srcApps.Stop(loadStop);
+
+            ++flows;
+            if (flows >= maxFlowsPerAp)
+            {
+                break;
+            }
+        }
     }
 }
 

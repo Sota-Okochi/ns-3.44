@@ -24,6 +24,7 @@
 #include <sstream>
 #include <iomanip>
 #include <vector>
+#include <unordered_set>
 #include <fstream>
 #include <random>
 #include <algorithm>
@@ -81,7 +82,7 @@ private:
     void SetBrowserApp();
     void SetWebmeetingApp();
     void ReportMonitorGoodput();
-    void CheckFlowMonitor(Ptr<FlowMonitor> monitor);
+    void CheckFlowMonitor(Ptr<FlowMonitor> monitor, Ptr<Ipv4FlowClassifier> classifier);
     
     bool LoadTermDataFromSqlite(const std::string& dbPath);
 
@@ -105,6 +106,8 @@ private:
     void ConfigureRouterCerLinks();
     void ConfigureServerCerLinks();
     void ConfigurePgwCerLink();
+    void EnsureMonitorVideoTerminals(uint32_t minVideoPerAp);
+    void InstallMonitorCompetitionTraffic();
 
     int m_nth;
     int m_mob;
@@ -151,6 +154,8 @@ private:
    uint32_t m_browserRequestCount;
     bool m_enableWebmeetingTracing;
     bool m_goodputReportScheduled;
+    std::unordered_set<uint32_t> m_wifiApAddresses;
+    std::unordered_set<uint32_t> m_wifiStationAddresses;
 
     std::vector<std::string> split(const std::string& input, char delimiter)
 {

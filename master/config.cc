@@ -225,6 +225,94 @@ void NetSim::Init(int argc, char *argv[]){
         m_termData.push_back(data);
         m_apSelectionInput.useAppli.push_back(data.use_appli);
     }
+
+    // 監視端末と同じAPで確実に通信が発生するよう、各APに最低限の動画端末を割り当てる
+    EnsureMonitorVideoTerminals(3);
+}
+
+void NetSim::EnsureMonitorVideoTerminals(uint32_t minVideoPerAp)
+{
+    if (minVideoPerAp == 0 || APnum == 0)
+    {
+        return;
+    }
+
+    bool modified = false;
+    for (uint32_t apIndex = 0; apIndex < APnum; ++apIndex)
+    {
+        uint32_t apNo = apIndex + 1;
+        uint32_t current = 0;
+        for (const auto& data : m_termData)
+        {
+            if (data.apNo == static_cast<int>(apNo) && data.use_appli == 2)
+            {
+                ++current;
+            }
+        }
+        if (current >= minVideoPerAp)
+        {
+            continue;
+        }
+
+        for (auto& data : m_termData)
+        {
+            if (data.apNo == static_cast<int>(apNo) && data.use_appli != 2)
+            {
+                data.use_appli = 2;
+                ++current;
+                modified = true;
+                if (current >= minVideoPerAp)
+                {
+                    break;
+                }
+            }
+        }
+        if (current >= minVideoPerAp)
+        {
+            continue;
+        }
+
+        for (auto& data : m_termData)
+        {
+            if (data.apNo != static_cast<int>(apNo) && data.use_appli == 2)
+            {
+                data.apNo = static_cast<int>(apNo);
+                ++current;
+                modified = true;
+                if (current >= minVideoPerAp)
+                {
+                    break;
+                }
+            }
+        }
+        if (current >= minVideoPerAp)
+        {
+            continue;
+        }
+
+        while (current < minVideoPerAp)
+        {
+            TermData extra;
+            extra.use_appli = 2;
+            extra.apNo = static_cast<int>(apNo);
+            extra.x = 0.0;
+            extra.y = 0.0;
+            m_termData.push_back(extra);
+            ++current;
+            modified = true;
+        }
+    }
+
+    if (modified)
+    {
+        termNum = static_cast<uint32_t>(m_termData.size());
+        m_apSelectionInput.terminals = static_cast<int>(termNum);
+        m_apSelectionInput.useAppli.clear();
+        for (const auto& data : m_termData)
+        {
+            m_apSelectionInput.useAppli.push_back(data.use_appli);
+        }
+    }
 }
 
 void NetSim::Configure(){
@@ -261,23 +349,8 @@ void NetSim::RunSim(){
 
     FlowMonitorHelper flowmonHelper;
     flowmonHelper.SetMonitorAttribute("MaxPerHopDelay", TimeValue(MicroSeconds(200)));
-    Ptr<FlowMonitor> flowMonitor;
-    NodeContainer monitorNodes;
-    for (const auto& monitor : monitorTerminals)
-    {
-        if (monitor != nullptr)
-        {
-            monitorNodes.Add(monitor);
-        }
-    }
-    if (monitorNodes.GetN() > 0)
-    {
-        flowMonitor = flowmonHelper.Install(monitorNodes);
-    }
-    else
-    {
-        flowMonitor = flowmonHelper.InstallAll();
-    }
+    Ptr<FlowMonitor> flowMonitor = flowmonHelper.InstallAll();
+    Ptr<Ipv4FlowClassifier> flowClassifier = DynamicCast<Ipv4FlowClassifier>(flowmonHelper.GetClassifier());
 
     SetAppLayer(); // 各種アプリケーションの設定
 
@@ -289,7 +362,7 @@ void NetSim::RunSim(){
         {
             checkTime = checkStop;
         }
-        Simulator::Schedule(checkTime, &NetSim::CheckFlowMonitor, this, flowMonitor);
+        Simulator::Schedule(checkTime, &NetSim::CheckFlowMonitor, this, flowMonitor, flowClassifier);
     }
 
     std::cout << "=====Simulator::Start()=====" << std::endl;
@@ -298,7 +371,7 @@ void NetSim::RunSim(){
     std::cout << "=====Simulator::End()=====" << std::endl;
 }
 
-void NetSim::CheckFlowMonitor(Ptr<FlowMonitor> monitor)
+void NetSim::CheckFlowMonitor(Ptr<FlowMonitor> monitor, Ptr<Ipv4FlowClassifier> classifier)
 {
     NS_LOG_FUNCTION(this);
 
@@ -309,6 +382,79 @@ void NetSim::CheckFlowMonitor(Ptr<FlowMonitor> monitor)
     }
 
     monitor->CheckForLostPackets();
+
+    const std::string throughputFile = std::string(OUTPUT_DIR) + "monitor-flow-throughput.csv";
+    bool writeHeader = false;
+    {
+        std::ifstream check(throughputFile);
+        if (!check.good() || check.peek() == std::ifstream::traits_type::eof())
+        {
+            writeHeader = true;
+        }
+    }
+    std::ofstream throughputStream(throughputFile, std::ios::app);
+    if (throughputStream.good())
+    {
+        if (writeHeader)
+        {
+            throughputStream << "time_s,flow_id,src,dst,protocol,src_port,dst_port,rx_bytes,tx_packets,rx_packets,throughput_bps\n";
+        }
+
+        if (classifier)
+        {
+            const auto stats = monitor->GetFlowStats();
+            auto isApWifiAddress = [this](const Ipv4Address& addr) {
+                return m_wifiApAddresses.find(addr.Get()) != m_wifiApAddresses.end();
+            };
+            auto isStationWifiAddress = [this](const Ipv4Address& addr) {
+                return m_wifiStationAddresses.find(addr.Get()) != m_wifiStationAddresses.end();
+            };
+            for (const auto& entry : stats)
+            {
+                FlowId flowId = entry.first;
+                const FlowMonitor::FlowStats& stat = entry.second;
+                if (stat.rxPackets == 0 || stat.timeLastRxPacket <= stat.timeFirstTxPacket)
+                {
+                    continue;
+                }
+
+                double duration = (stat.timeLastRxPacket - stat.timeFirstTxPacket).GetSeconds();
+                if (duration <= 0.0)
+                {
+                    continue;
+                }
+
+                double throughputBps = static_cast<double>(stat.rxBytes) * 8.0 / duration;
+                Ipv4FlowClassifier::FiveTuple tuple = classifier->FindFlow(flowId);
+                bool srcIsSta = isStationWifiAddress(tuple.sourceAddress);
+                bool dstIsSta = isStationWifiAddress(tuple.destinationAddress);
+                if (!(srcIsSta || dstIsSta))
+                {
+                    continue;
+                }
+
+                throughputStream << Simulator::Now().GetSeconds() << ","
+                                 << flowId << ","
+                                 << tuple.sourceAddress << ","
+                                 << tuple.destinationAddress << ","
+                                 << static_cast<uint32_t>(tuple.protocol) << ","
+                                 << tuple.sourcePort << ","
+                                 << tuple.destinationPort << ","
+                                 << stat.rxBytes << ","
+                                 << stat.txPackets << ","
+                                 << stat.rxPackets << ","
+                                 << throughputBps << "\n";
+            }
+        }
+        else
+        {
+            NS_LOG_WARN("Flow classifier is null; throughput CSV not written.");
+        }
+    }
+    else
+    {
+        NS_LOG_WARN("Failed to open throughput file: " << throughputFile);
+    }
 
     std::ostringstream filename;
     filename << OUTPUT_DIR << "monitor-flow";

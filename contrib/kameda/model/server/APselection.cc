@@ -53,6 +53,9 @@ void APselection::tmain(){
     std::cout << "=== APselection::tmain() START ===" << std::endl;
     std::cout << "m_APNum: " << m_APNum << std::endl;
     std::cout << "m_monitor_rtt size: " << m_monitor_rtt.size() << std::endl;
+
+    constexpr double KBPS_TO_MBPS = (1024.0 * 8.0) / 1e6;
+    constexpr double BPS_TO_MBPS = 1e-6;
     
     // 実測RTTデータから各APの平均RTTとTP値を計算
     m_link_rtt.resize(m_APNum);
@@ -67,15 +70,17 @@ void APselection::tmain(){
             m_link_rtt[i] = ave_rtt;
             init_rtt[i] = ave_rtt;
             double tpValue = APConstants::INITIAL_TP_MULTIPLIER[0] / ave_rtt;
+            double tpDisplayMbps = tpValue * KBPS_TO_MBPS;
             if (m_has_tp[i])
             {
                 tpValue = m_monitor_tp[i] / 1024.0;
+                tpDisplayMbps = m_monitor_tp[i] * BPS_TO_MBPS;
             }
             init_tp[i] = tpValue;
 
     std::cout << std::fixed << std::setprecision(2);
     std::cout << "AP:" << i << "\tRTT:" << ave_rtt << "ms"
-            << "\tTP:" << tpValue << "KB/s" << std::endl;
+            << "\tTP:" << tpDisplayMbps << "Mbps" << std::endl;
         } else {
             // データがない場合は設定ファイルの値を使用
             double default_rtt = 50.0; // デフォルト値
@@ -94,14 +99,16 @@ void APselection::tmain(){
             m_link_rtt[i] = default_rtt;
             init_rtt[i] = default_rtt;
             double tpValue = APConstants::INITIAL_TP_MULTIPLIER[0] / default_rtt;
+            double tpDisplayMbps = tpValue * KBPS_TO_MBPS;
             if (m_has_tp[i])
             {
                 tpValue = m_monitor_tp[i] / 1024.0;
+                tpDisplayMbps = m_monitor_tp[i] * BPS_TO_MBPS;
             }
             init_tp[i] = tpValue;
             
             std::cout << "AP:" << i << "\tNo data - using config RTT: " << default_rtt << "ms"
-                    << "\tTP:" << tpValue << "KB/s";
+                    << "\tTP:" << tpDisplayMbps << "Mbps";
             if (m_has_tp[i])
             {
                 std::cout << " (measured)";
@@ -223,8 +230,11 @@ void APselection::init(const ApSelectionInput& input){
     m_has_tp.assign(aps, false);
 
     std::cout << "=== 初期設定値 ===" << std::endl;
+    constexpr double KBPS_TO_MBPS = (1024.0 * 8.0) / 1e6;
     for(int i = 0; i < aps; i++){
-        std::cout << "AP:" << i << "\tRTT:" << m_initialRtt[i] << "ms\tTP:" << (APConstants::INITIAL_TP_MULTIPLIER[0] / m_initialRtt[i]) << "KB/s" << std::endl;
+        double tpKiloBytesPerSec = APConstants::INITIAL_TP_MULTIPLIER[0] / m_initialRtt[i];
+        double tpMbps = tpKiloBytesPerSec * KBPS_TO_MBPS;
+        std::cout << "AP:" << i << "\tRTT:" << m_initialRtt[i] << "ms\tTP:" << tpMbps << "Mbps" << std::endl;
     }
 
     std::cout << "=== APselection::init() completed ===" << std::endl;
