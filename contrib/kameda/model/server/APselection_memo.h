@@ -43,8 +43,8 @@ namespace APConstants {
     constexpr double MIN_TP_THRESHOLD = 0.01; //TPの最小値
     
     // アプリケーション要求性能
-    constexpr double BROWSER_REQUIRED_TP = 5.0;      // Mbps（ブラウザ）
-    constexpr double VIDEO_REQUIRED_TP = 10.0;       // Mbps（動画ストリーミング）
+    constexpr double BROWSER_REQUIRED_TP = 5.0;      // KB/s（ブラウザ）
+    constexpr double VIDEO_REQUIRED_TP = 10.0;       // KB/s（動画ストリーミング）
     constexpr double VOICE_CALL_REQUIRED_RTT = 200.0; // ms（通話アプリケーション）
     constexpr double LIVE_STREAM_REQUIRED_RTT = 50.0; // ms（ライブ配信）
     
@@ -85,7 +85,6 @@ public:
     
 private:
     void cal_need_rt();
-    void cal_harmonic_mean();
     void make_combi_ap_term();
     void call_hungarian();
     HungarianResult hungarian(std::vector<std::vector<double> > &a, std::vector<int> &combi_ap_term);
@@ -103,7 +102,9 @@ private:
     void display_final_results(const HungarianResult& final_result, int best_index);
 
     // 共通計算ロジック
-    double calculate_satisfaction(int terminal_idx, int ap_idx);
+    double calculate_satisfaction(int terminal_idx, int ap_idx, 
+                                const std::vector<double>& ap_rtt, 
+                                const std::vector<double>& ap_tp);
     double calculate_harmonic_mean(const std::vector<int>& solution,
                                  const std::vector<double>& ap_rtt,
                                  const std::vector<double>& ap_tp);
@@ -118,8 +119,6 @@ private:
     
     std::vector<double> init_rtt;                   //初期のRTTデータ
     std::vector<double> init_tp;                    //初期のTPデータ
-
-
     
     int m_termNum;                      //端末数
     int m_APNum;                        //基地局数

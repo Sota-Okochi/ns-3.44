@@ -224,6 +224,7 @@ void NetSim::Init(int argc, char *argv[]){
         }
         m_termData.push_back(data);
         m_apSelectionInput.useAppli.push_back(data.use_appli);
+        m_apSelectionInput.initialAp.push_back(data.apNo);
     }
 
     // 監視端末と同じAPで確実に通信が発生するよう、各APに最低限の動画端末を割り当てる
@@ -308,9 +309,11 @@ void NetSim::EnsureMonitorVideoTerminals(uint32_t minVideoPerAp)
         termNum = static_cast<uint32_t>(m_termData.size());
         m_apSelectionInput.terminals = static_cast<int>(termNum);
         m_apSelectionInput.useAppli.clear();
+        m_apSelectionInput.initialAp.clear();
         for (const auto& data : m_termData)
         {
             m_apSelectionInput.useAppli.push_back(data.use_appli);
+            m_apSelectionInput.initialAp.push_back(data.apNo);
         }
     }
 }
