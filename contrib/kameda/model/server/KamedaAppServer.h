@@ -39,12 +39,9 @@ private:
     ApSelectionInput m_input;
     void Ending();
     
-    // RTTデータの高速出力関連の関数
-    void InitializeRttDataFile();
-    void WriteRttDataBinary(std::string senderIpAddress, std::string recvMessage);
+    // RTTデータ出力関連の関数
     void WriteRttDataJSON(std::string senderIpAddress, std::string recvMessage);
     void FinalizeJSONFile();
-    void OutputRttStatisticsFromBinary();
     std::vector<std::string> SplitString(const std::string &input, const std::string &delimiter);
     
     // 監視端末データ処理関数

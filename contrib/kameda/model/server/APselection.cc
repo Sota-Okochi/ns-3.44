@@ -40,8 +40,7 @@ std::vector<std::string> splitString(const std::string &input, const std::string
 }
 
 APselection::APselection(){
-    // ファイル出力は無効化（ターミナル出力のみ）
-	std::cout << "APselectionコンストラクタ発動" << std::endl;
+	std::cout << "APselectionコンストラクタ" << std::endl;
 }
 
 APselection::~APselection(){
@@ -50,6 +49,8 @@ APselection::~APselection(){
 
 void APselection::init(const ApSelectionInput& input){
     NS_LOG_FUNCTION(this);
+
+    std::cout << "=== APselection::init() START ===" << std::endl;
 
     m_input = input;
     m_isInitialized = true;
@@ -98,24 +99,17 @@ void APselection::init(const ApSelectionInput& input){
     m_monitor_tp.assign(aps, 0.0);
     m_has_tp.assign(aps, false);
 
-    std::cout << "=== 初期設定値 ===" << std::endl;
-    constexpr double KBPS_TO_MBPS = (1024.0 * 8.0) / 1e6;
-    for(int i = 0; i < aps; i++){
-        double tpKiloBytesPerSec = APConstants::INITIAL_TP_MULTIPLIER[0] / m_initialRtt[i];
-        double tpMbps = tpKiloBytesPerSec * KBPS_TO_MBPS;
-        std::cout << "AP:" << i << "\tRTT:" << m_initialRtt[i] << "ms\tTP:" << tpMbps << "Mbps" << std::endl;
-    }
-
-    if (!m_initialAp.empty() && !m_use_appli.empty())
-    {
-        std::cout << "=== 端末初期設定 ===" << std::endl;
-        for (int i = 0; i < m_termNum; ++i)
-        {
-            std::cout << "Term:" << i
-                      << "\tInitAP:" << m_initialAp[i] - 1
-                      << "\tApp:" << m_use_appli[i] << std::endl;
-        }
-    }
+    // 各端末の初期接続先と初期アプリ種別の表示
+    // if (!m_initialAp.empty() && !m_use_appli.empty())
+    // {
+    //     std::cout << "=== 端末初期設定 ===" << std::endl;
+    //     for (int i = 0; i < m_termNum; ++i)
+    //     {
+    //         std::cout << "Term:" << i
+    //                   << "\tInitAP:" << m_initialAp[i] - 1
+    //                   << "\tApp:" << m_use_appli[i] << std::endl;
+    //     }
+    // }
 
     std::cout << "=== APselection::init() completed ===" << std::endl;
     std::cout << "APs: " << m_APNum << ", Terms: " << m_termNum << std::endl;

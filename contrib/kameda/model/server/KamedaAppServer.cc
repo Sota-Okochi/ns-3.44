@@ -14,21 +14,10 @@
 #include "ns3/APselection.h"
 
 #include <fstream>
-#include <iomanip>
-#include <sys/stat.h>
-#include <sys/types.h>
 
 namespace ns3{
 
 NS_LOG_COMPONENT_DEFINE("KamedaAppServer");
-
-// RTTデータ構造体（C++/Python間で共有）
-struct RTTRecord {
-    double timestamp;
-    uint32_t terminal_id;
-    uint32_t ap_id;
-    double rtt_value;
-};
 
 KamedaAppServer::KamedaAppServer(const ApSelectionInput& input)
     : m_input(input)
@@ -87,9 +76,6 @@ void KamedaAppServer::StartApplication(){
         MakeCallback(&KamedaAppServer::HandleClose, this),
         MakeCallback(&KamedaAppServer::HandleError, this));
 
-    // RTTデータファイルを初期化（古いデータをクリア）
-    InitializeRttDataFile(); // ここで関数の呼び出し 
-    
     // バッチ処理対応：タイムアウト時間を最適化
     // 監視端末方式: 3台の監視端末からのデータ収集完了を待つ（6.5秒で確実に実行）
     std::cout << "=== Scheduling Ending() function at 6.5s ===" << std::endl;
@@ -147,12 +133,6 @@ void KamedaAppServer::HandleRead(Ptr<Socket> socket){
     std::stringstream ss2;
     ss2 << "RecvMessage is " << recvMessage;
     SERVER_LOG_INFO(ss2.str());
-
-    // RTTデータをバイナリファイルに出力
-    WriteRttDataBinary(senderIpAddress, recvMessage);
-    
-    // オプション: JSON形式でも出力
-    // WriteRttDataJSON(senderIpAddress, recvMessage);
     
     // 監視端末からのデータか通常端末からのデータかで処理を分岐
     if (recvMessage.find("MONITOR_AP") == 0) {
@@ -279,108 +259,6 @@ void KamedaAppServer::SERVER_LOG_INFO(std::string info){
     }
 }
 
-// RTTデータファイルを初期化（バイナリ形式）
-void KamedaAppServer::InitializeRttDataFile(){
-    // ディレクトリが存在しない場合は作成
-    std::string dir_path("/home/sota/ns-3.44/OUTPUT");
-    struct stat info;
-    if(stat(dir_path.c_str(), &info) != 0 || !(info.st_mode & S_IFDIR)) {
-        mkdir(dir_path.c_str(), 0755);
-        std::cout << "Created directory: " << dir_path << std::endl;
-    }
-    
-    // バイナリファイル初期化
-    std::string bin_filename("/home/sota/ns-3.44/OUTPUT/rtt_output.bin");
-    std::ofstream bin_ofs(bin_filename, std::ios::out | std::ios::binary | std::ios::trunc);        
-    
-    if(bin_ofs.is_open()) {
-        // ヘッダー情報をバイナリで書き込み
-        uint32_t header_magic = 0x52545444; // "RTTD"
-        uint32_t version = 1;
-        uint32_t record_size = sizeof(RTTRecord);
-        
-        bin_ofs.write(reinterpret_cast<const char*>(&header_magic), sizeof(header_magic));
-        bin_ofs.write(reinterpret_cast<const char*>(&version), sizeof(version));
-        bin_ofs.write(reinterpret_cast<const char*>(&record_size), sizeof(record_size));
-        bin_ofs.close();
-        std::cout << "RTT binary data file initialized: " << bin_filename << std::endl;
-    } else {
-        std::cout << "Failed to initialize RTT binary data file" << std::endl;
-    }
-    
-    /*
-    // JSON形式ファイル初期化
-    std::string json_filename("/home/sota/ns-3.30/master/data/rtt_output.json");
-    std::ofstream json_ofs(json_filename, std::ios::out | std::ios::trunc);
-    
-    if(json_ofs.is_open()) {
-        json_ofs << "{" << std::endl;
-        json_ofs << "  \"header\": {" << std::endl;
-        json_ofs << "    \"format\": \"RTT_Measurements\"," << std::endl;
-        json_ofs << "    \"version\": 1," << std::endl;
-        json_ofs << "    \"timestamp\": " << Simulator::Now().GetSeconds() << std::endl;
-        json_ofs << "  }," << std::endl;
-        json_ofs << "  \"data\": [" << std::endl;
-        json_ofs.close();
-        std::cout << "RTT JSON data file initialized: " << json_filename << std::endl;
-    }
-    */
-}
-
-// RTTデータをバイナリ形式で出力（高速）
-void KamedaAppServer::WriteRttDataBinary(std::string senderIpAddress, std::string recvMessage){
-    std::cout << "=== KamedaAppServer::WriteRttDataBinary() called ===" << std::endl;
-
-    // IPアドレスからAP番号を抽出
-    std::vector<std::string> ipParts = SplitString(senderIpAddress, ".");
-    if(ipParts.size() < 3) {
-        std::cout << "Invalid IP address format" << std::endl;
-        return;
-    }
-    
-    std::stringstream ss(ipParts[2]);
-    int apNo; ss >> apNo;
-
-    // RTT値を抽出
-    std::vector<std::string> msgParts = SplitString(recvMessage, ",");
-    if(msgParts.size() != 2) {
-        std::cout << "Invalid message format" << std::endl;
-        return;
-    }
-    
-    std::stringstream ss2(msgParts[1]);
-    double rttValue; ss2 >> rttValue;
-
-    // RTTレコード作成
-    RTTRecord record;
-    record.timestamp = Simulator::Now().GetSeconds();
-    
-    // 監視端末の場合は特別な処理
-    if (msgParts[0].find("MONITOR_AP") == 0) {
-        // 監視端末の場合、terminal_idはAP番号をベースにした特別なID
-        record.terminal_id = static_cast<uint32_t>(1000 + apNo); // 1000番台を監視端末用に使用
-    } else {
-        // 通常の端末の場合
-        record.terminal_id = static_cast<uint32_t>(std::stoi(msgParts[0]));
-    }
-    
-    record.ap_id = static_cast<uint32_t>(apNo);
-    record.rtt_value = rttValue;
-
-    // バイナリファイルに高速書き込み
-    std::string filename("/home/sota/ns-3.44/OUTPUT/rtt_output.bin");
-    std::ofstream ofs(filename, std::ios::out | std::ios::binary | std::ios::app);
-    
-    if(ofs.is_open()) {
-        ofs.write(reinterpret_cast<const char*>(&record), sizeof(RTTRecord));
-        ofs.close();
-        std::cout << "Binary RTT data written: Terminal=" << record.terminal_id 
-                  << ", AP=" << record.ap_id << ", RTT=" << record.rtt_value << "ms" << std::endl;
-    } else {
-        std::cout << "Failed to open RTT binary data file" << std::endl;
-    }
-}
-
 // RTTデータをJSON形式で出力（ソケット通信用）
 void KamedaAppServer::WriteRttDataJSON(std::string senderIpAddress, std::string recvMessage){
     // IPアドレスからAP番号を抽出
@@ -440,9 +318,6 @@ void KamedaAppServer::Ending(){
     // JSON形式を完成させる
     // FinalizeJSONFile();
     
-    // バイナリファイルから統計を出力
-    OutputRttStatisticsFromBinary();
-    
     // APselectionで最適化処理を実行
     if(apselect) {
         std::cout << "=== Starting AP selection optimization ===" << std::endl;
@@ -466,61 +341,5 @@ void KamedaAppServer::FinalizeJSONFile(){
         std::cout << "JSON file finalized" << std::endl;
     }
 }
-
-// バイナリファイルからRTTデータを読み込んで統計を出力
-void KamedaAppServer::OutputRttStatisticsFromBinary(){
-    std::cout << std::fixed << std::setprecision(2);
-    std::cout << "=== Reading RTT data from binary file ===" << std::endl;
-    
-    std::string filename("/home/sota/ns-3.44/OUTPUT/rtt_output.bin");
-    std::ifstream ifs(filename, std::ios::in | std::ios::binary);
-    
-    if(!ifs.is_open()) {
-        std::cout << "RTT binary data file not found" << std::endl;
-        return;
-    }
-    
-    // ヘッダー読み込み
-    uint32_t header_magic, version, record_size;
-    ifs.read(reinterpret_cast<char*>(&header_magic), sizeof(header_magic));
-    ifs.read(reinterpret_cast<char*>(&version), sizeof(version));
-    ifs.read(reinterpret_cast<char*>(&record_size), sizeof(record_size));
-    
-    if(header_magic != 0x52545444 || record_size != sizeof(RTTRecord)) {
-        std::cout << "Invalid binary file format" << std::endl;
-        ifs.close();
-        return;
-    }
-    
-    // AP毎のRTTデータを格納
-    std::vector<std::vector<double>> apRttData(3); // 3つのAPを想定
-    
-    RTTRecord record;
-    while(ifs.read(reinterpret_cast<char*>(&record), sizeof(RTTRecord))) {
-        if(record.ap_id < 3) {
-            apRttData[record.ap_id].push_back(record.rtt_value);
-        }
-    }
-    ifs.close();
-    
-    // 統計情報を出力
-    std::cout << "=== RTT Statistics from Binary File ===" << std::endl;
-    for(int i = 0; i < 3; i++) {
-        if(apRttData[i].size() > 0) {
-            double sum = 0.0;
-            for(double rtt : apRttData[i]) {
-                sum += rtt;
-            }
-            double average = sum / apRttData[i].size();
-            
-            std::cout << "AP:" << i << "\tSUM:" << sum
-                      << "\tSIZE:" << apRttData[i].size() << "\tAVE:" << average << std::endl;
-        } else {
-            std::cout << "AP:" << i << "\tNo data available" << std::endl;
-        }
-    }
-    std::cout << "=== End RTT Statistics ===" << std::endl;
-}
-
 
 }
