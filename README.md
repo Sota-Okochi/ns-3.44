@@ -137,5 +137,3 @@ cd ~/ns-3.44
 - Compiler: GCC 12.3.0
 - CMake: 3.22.1
 - ns-3: 3.44
-
-編集テスト for Windows
