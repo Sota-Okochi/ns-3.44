@@ -1,4 +1,5 @@
 #include "NetSim.h"
+#include "ns3/system-path.h"
 
 NS_LOG_COMPONENT_DEFINE("researchMain");
 
@@ -158,6 +159,9 @@ NetSim::NetSim()
     m_browserRequestCount = 10;
     m_enableWebmeetingTracing = true;
     m_goodputReportScheduled = false;
+
+    // Ensure OUTPUT directory exists before writing trace or log files
+    SystemPath::MakeDirectories(OUTPUT_DIR);
 }
 
 NetSim::~NetSim(){
