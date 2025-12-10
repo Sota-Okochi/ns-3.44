@@ -62,6 +62,7 @@ private:
     void cal_traffic_request(); // 必要TP, RTTの算出
     void cal_initial_harmonic_mean(); // 端末満足度の調和平均の計算
     double calculate_satisfaction(int terminal_idx, int ap_idx);
+    void random_assignment_test();
     
     std::vector<double> m_monitor_rtt;   // 各基地局ごとの平均RTT
     std::vector<double> m_rtt_sum;       // 平均算出用の合計値

@@ -158,7 +158,9 @@ void APselection::tmain(){
     // 割り当て前端末満足度の調和平均の計算
     cal_initial_harmonic_mean();
     
-    std::cout << "=== APselection::tmain() END ===" << std::endl;
+    random_assignment_test();
+    
+    // std::cout << "=== APselection::tmain() END ===" << std::endl;
 }
 
 
@@ -216,5 +218,34 @@ double APselection::calculate_satisfaction(int terminal_idx, int ap_idx) {
     }
 
     return satis;
+}
+
+// ランダムにAPを割り当てるダミー処理
+void APselection::random_assignment_test() {
+    std::cout << "=== APselection::random_assignment_test() ===" << std::endl;
+
+    // 割り当て結果用の一次元配列
+    std::vector<int> assignment;
+    assignment.reserve(terms);
+
+    // AP0〜2の範囲でランダム生成（AP数が3未満の場合は存在するAPの範囲に制限）
+    const int maxApIndex = std::min(aps - 1, 2);
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<> dist(0, maxApIndex);
+
+    for (int i = 0; i < terms; ++i) {
+        int apIndex = dist(gen);
+        assignment.push_back(apIndex);
+    }
+
+    std::cout << "割り当て結果（端末ID:AP番号）: ";
+    for (size_t i = 0; i < assignment.size(); ++i) {
+        std::cout << i + 1 << ":" << assignment[i];
+        if (i + 1 != assignment.size()) {
+            std::cout << " ";
+        }
+    }
+    std::cout << std::endl;
 }
 }
