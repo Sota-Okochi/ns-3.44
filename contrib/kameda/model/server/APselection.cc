@@ -68,9 +68,9 @@ void APselection::init(const ApSelectionInput& input){
     m_has_tp.assign(aps, false);
 
     // --------各端末の初期接続先と初期アプリ種別の表示-----------
-    /* if (!initial_AP.empty() && !initial_app.empty()){
+    /*if (!initial_AP.empty() && !initial_app.empty()){
             std::cout << "=== 端末初期設定 ===" << std::endl;
-            for (int i = 0; i < m_termNum; ++i)
+            for (int i = 0; i < terms; ++i)
             {
                 std::cout << "Term:" << i
                         << "\tInitAP:" << initial_AP[i] - 1
@@ -137,7 +137,7 @@ void APselection::tmain(){
     for(int i=0; i<aps; i++){
         if(m_has_rtt[i]){
             double ave_rtt = m_monitor_rtt[i];
-            double tpDisplayMbps;
+            double tpDisplayMbps = 0.0;
             if (m_has_tp[i])
             {
                 tpDisplayMbps = m_monitor_tp[i] * ns3::APConstants::BPS_TO_MBPS;
@@ -224,7 +224,7 @@ double APselection::calculate_satisfaction(int terminal_idx, int ap_idx) {
 void APselection::random_assignment_test() {
     std::cout << "=== APselection::random_assignment_test() ===" << std::endl;
 
-    // 割り当て結果用の一次元配列
+    // 割り当て結果用の一次元配列（initial_AP に合わせて 1 ベースで保持）
     std::vector<int> assignment;
     assignment.reserve(terms);
 
@@ -236,7 +236,7 @@ void APselection::random_assignment_test() {
 
     for (int i = 0; i < terms; ++i) {
         int apIndex = dist(gen);
-        assignment.push_back(apIndex);
+        assignment.push_back(apIndex + 1); // 1 ベースで格納
     }
 
     std::cout << "割り当て結果（端末ID:AP番号）: ";

@@ -315,8 +315,6 @@ std::vector<std::string> KamedaAppServer::SplitString(const std::string &input, 
 void KamedaAppServer::Ending(){
     std::cout << "=== KamedaAppServer::Ending() called at " << Simulator::Now().GetSeconds() << "s ===" << std::endl;
     
-    // JSON形式を完成させる
-    // FinalizeJSONFile();
     
     // APselectionで最適化処理を実行
     if(apselect) {
