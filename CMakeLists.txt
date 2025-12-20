@@ -10,7 +10,7 @@ project(NS3 CXX C)
 
 file(STRINGS VERSION NS3_VER)
 
-# minimum compiler versions
+# minimum compiler version
 set(AppleClang_MinVersion 13.1.6)
 set(Clang_MinVersion 11.0.0)
 set(GNU_MinVersion 10.1.0)

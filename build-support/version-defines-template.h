@@ -123,7 +123,7 @@
 #cmakedefine01 NS3_VERSION_DIRTY_FLAG
 
 /**
- * Indicates the build profile that was specified by the --build-profile option
+ * Indicates the build profile that specified by the --build-profile option
  * of "ns3 configure"
  *
  * Type: string literal

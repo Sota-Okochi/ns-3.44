@@ -1,4 +1,4 @@
-#! /usr/bin/env python3
+#! /usr/bin/env python
 
 import argparse
 import atexit
@@ -35,7 +35,8 @@ def exit_handler(dry_run):
         return
     if print_buffer == "":
         return
-    print_buffer = print_buffer.replace("\\", "/").replace("//", "/").replace("/", os.sep)
+    print_buffer = print_buffer.replace(
+        "\\", "/").replace("//", "/").replace("/", os.sep)
     if dry_run:
         print("The following commands would be executed:")
     elif run_verbose:
@@ -68,7 +69,8 @@ def on_off_condition(args, cmake_flag, option_name):
     disable_option = args.__getattribute__("disable_" + option_name)
     cmake_arg = None
     if enable_option is not None or disable_option is not None:
-        cmake_arg = "-DNS3_%s=%s" % (cmake_flag, on_off(enable_option and not disable_option))
+        cmake_arg = "-DNS3_%s=%s" % (cmake_flag,
+                                     on_off(enable_option and not disable_option))
     return cmake_arg
 
 
@@ -83,7 +85,8 @@ def add_argument_to_subparsers(
     # Instead of copying and pasting repeated arguments for each parser, we add them here
     for subparser in parsers:
         subparser_name = subparser.prog.replace("ns3", "").strip()
-        destination = ("%s_%s" % (subparser_name, dest)) if subparser_name else dest
+        destination = ("%s_%s" % (subparser_name, dest)
+                       ) if subparser_name else dest
         subparser.add_argument(
             *arguments, help=help_msg, action=action, default=default_value, dest=destination
         )
@@ -107,7 +110,8 @@ def parse_args(argv):
         default=None,
         dest="main_help",
     )
-    parser_help = sub_parser.add_parser("help", help="Print a summary of available commands")
+    parser_help = sub_parser.add_parser(
+        "help", help="Print a summary of available commands")
     parser_help.add_argument(
         "help", help="Print a summary of available commands", action="store_true", default=False
     )
@@ -142,7 +146,8 @@ def parse_args(argv):
     parser_configure = sub_parser.add_parser(
         "configure", help='Try "./ns3 configure --help" for more configuration options'
     )
-    parser_configure.add_argument("configure", action="store_true", default=False)
+    parser_configure.add_argument(
+        "configure", action="store_true", default=False)
     parser_configure.add_argument(
         "-d",
         "--build-profile",
@@ -200,11 +205,13 @@ def parse_args(argv):
         ("python-bindings", "python bindings"),
         ("tests", "the ns-3 tests"),
         ("sanitizers", "address, memory leaks and undefined behavior sanitizers"),
-        ("static", "Build a single static library with all ns-3", "Restore the shared libraries"),
+        ("static", "Build a single static library with all ns-3",
+         "Restore the shared libraries"),
         ("sudo", "use of sudo to setup suid bits on ns3 executables."),
         ("verbose", "printing of additional build system messages"),
         ("warnings", "compiler warnings"),
-        ("werror", "Treat compiler warnings as errors", "Treat compiler warnings as warnings"),
+        ("werror", "Treat compiler warnings as errors",
+         "Treat compiler warnings as warnings"),
     ]
     for on_off_option in on_off_options:
         parser_configure = on_off_argument(parser_configure, *on_off_option)
@@ -298,19 +305,23 @@ def parse_args(argv):
         dest="trace_cmake_perf",
     )
 
-    parser_clean = sub_parser.add_parser("clean", help="Removes files created by ns3")
+    parser_clean = sub_parser.add_parser(
+        "clean", help="Removes files created by ns3")
     parser_clean.add_argument("clean", action="store_true", default=False)
 
     parser_distclean = sub_parser.add_parser(
         "distclean", help="Removes files created by ns3, tests and documentation"
     )
-    parser_distclean.add_argument("distclean", action="store_true", default=False)
+    parser_distclean.add_argument(
+        "distclean", action="store_true", default=False)
 
     parser_install = sub_parser.add_parser("install", help="Install ns-3")
     parser_install.add_argument("install", action="store_true", default=False)
 
-    parser_uninstall = sub_parser.add_parser("uninstall", help="Uninstall ns-3")
-    parser_uninstall.add_argument("uninstall", action="store_true", default=False)
+    parser_uninstall = sub_parser.add_parser(
+        "uninstall", help="Uninstall ns-3")
+    parser_uninstall.add_argument(
+        "uninstall", action="store_true", default=False)
 
     parser_run = sub_parser.add_parser(
         "run",
@@ -505,7 +516,7 @@ def parse_args(argv):
     try:
         args_separator_index = argv.index("--")
         ns3_args = argv[:args_separator_index]
-        runnable_args = argv[args_separator_index + 1 :]
+        runnable_args = argv[args_separator_index + 1:]
     except ValueError:
         ns3_args = argv
         runnable_args = []
@@ -520,7 +531,8 @@ def parse_args(argv):
             if custom_exit in e.message:
                 error_message = f"Exiting due to {e.message[e.message.index(custom_exit):]}"
         # Format error message to better fit the terminal width
-        print("\n".join(textwrap.wrap(error_message, width=os.get_terminal_size().columns)))
+        print("\n".join(textwrap.wrap(error_message,
+              width=os.get_terminal_size().columns)))
         exit(1)
 
     # If run doesn't have a target, print the help message of the run parser
@@ -531,11 +543,13 @@ def parse_args(argv):
     # Merge attributes
     attributes_to_merge = ["dry_run", "help", "verbose", "quiet"]
     filtered_attributes = list(
-        filter(lambda x: x if ("disable" not in x and "enable" not in x) else None, args.__dir__())
+        filter(lambda x: x if ("disable" not in x and "enable" not in x)
+               else None, args.__dir__())
     )
     for attribute in attributes_to_merge:
         merging_attributes = list(
-            map(lambda x: args.__getattribute__(x) if attribute in x else None, filtered_attributes)
+            map(lambda x: args.__getattribute__(x)
+                if attribute in x else None, filtered_attributes)
         )
         setattr(args, attribute, merging_attributes.count(True) > 0)
 
@@ -553,23 +567,27 @@ def parse_args(argv):
         for subparsers_action in subparsers_actions:
             # get all subparsers and print help
             for choice, subparser in subparsers_action.choices.items():
-                subcommand = subparser.format_usage()[:-1].replace("usage: ", "   or: ")
+                subcommand = subparser.format_usage(
+                )[:-1].replace("usage: ", "   or: ")
                 if len(subcommand) > 1:
                     print(subcommand)
 
         print(
-            parser.format_help().replace(parser.description, "").replace(parser.format_usage(), "")
+            parser.format_help().replace(parser.description,
+                                         "").replace(parser.format_usage(), "")
         )
         exit(0)
 
     attributes_to_merge = ["jobs"]
     filtered_attributes = list(
-        filter(lambda x: x if ("disable" not in x and "enable" not in x) else 0, args.__dir__())
+        filter(lambda x: x if ("disable" not in x and "enable" not in x)
+               else 0, args.__dir__())
     )
     for attribute in attributes_to_merge:
         merging_attributes = list(
             map(
-                lambda x: int(args.__getattribute__(x)) if attribute in x else max_cpu_threads,
+                lambda x: int(args.__getattribute__(
+                    x)) if attribute in x else max_cpu_threads,
                 filtered_attributes,
             )
         )
@@ -674,7 +692,8 @@ def remove_dir(dir_to_remove, dry_run, directory_qualifier=""):
 def remove_file(file_to_remove, dry_run):
     file_to_remove = os.path.realpath(file_to_remove)
     if os.path.exists(file_to_remove):
-        print_and_buffer("rm -R %s" % os.path.relpath(file_to_remove, ns3_path))
+        print_and_buffer("rm -R %s" %
+                         os.path.relpath(file_to_remove, ns3_path))
         if not dry_run:
             os.remove(file_to_remove)
 
@@ -704,14 +723,17 @@ def clean_docs_and_tests_artifacts(dry_run=False):
         "introspected-doxygen.h",
         "ns3-object.txt",
     ]
-    docs_files = [os.path.join(docs_dir, filename) for filename in file_artifacts]
+    docs_files = [os.path.join(docs_dir, filename)
+                  for filename in file_artifacts]
 
     docs_and_tests_dirs = [
         os.path.join(docs_dir, "html"),
         os.path.join(docs_dir, "html-warn"),
     ]
-    docs_and_tests_dirs.extend(glob.glob(f"{docs_dir}/**/build", recursive=True))
-    docs_and_tests_dirs.extend(glob.glob(f"{docs_dir}/**/source-temp", recursive=True))
+    docs_and_tests_dirs.extend(
+        glob.glob(f"{docs_dir}/**/build", recursive=True))
+    docs_and_tests_dirs.extend(
+        glob.glob(f"{docs_dir}/**/source-temp", recursive=True))
 
     for directory in docs_and_tests_dirs:
         remove_dir(directory, dry_run)
@@ -761,9 +783,11 @@ def search_cmake_cache(build_profile):
                 if "build_profile:INTERNAL" in line:
                     if build_profile:
                         if build_profile == line.split("=")[-1]:
-                            current_cmake_cache_folder = os.path.dirname(cmake_cache_file)
+                            current_cmake_cache_folder = os.path.dirname(
+                                cmake_cache_file)
                     else:
-                        current_cmake_cache_folder = os.path.dirname(cmake_cache_file)
+                        current_cmake_cache_folder = os.path.dirname(
+                            cmake_cache_file)
 
                 # Check the generator
                 if "CMAKE_GENERATOR:" in line:
@@ -826,7 +850,8 @@ def configure_cmake(
         # Create a new cmake_cache folder if one does not exist
         current_cmake_cache_folder = os.sep.join([ns3_path, "cmake-cache"])
         if not os.path.exists(current_cmake_cache_folder):
-            print_and_buffer("mkdir %s" % os.path.relpath(current_cmake_cache_folder, ns3_path))
+            print_and_buffer("mkdir %s" % os.path.relpath(
+                current_cmake_cache_folder, ns3_path))
             if not dry_run:
                 os.makedirs(current_cmake_cache_folder, exist_ok=True)
 
@@ -843,8 +868,10 @@ def configure_cmake(
         if args.enable_python_bindings is True:
             import sysconfig
 
-            cmake_args.append(f"-DPython3_LIBRARY_DIRS={sysconfig.get_config_var('LIBDIR')}")
-            cmake_args.append(f"-DPython3_INCLUDE_DIRS={sysconfig.get_config_var('INCLUDEPY')}")
+            cmake_args.append(
+                f"-DPython3_LIBRARY_DIRS={sysconfig.get_config_var('LIBDIR')}")
+            cmake_args.append(
+                f"-DPython3_INCLUDE_DIRS={sysconfig.get_config_var('INCLUDEPY')}")
             cmake_args.append(f"-DPython3_EXECUTABLE={sys.executable}")
 
     cmake_args.extend(["-B", current_cmake_cache_folder])
@@ -883,7 +910,8 @@ def configure_cmake(
                     "-DCMAKE_BUILD_TYPE=minsizerel -DNS3_ASSERT=OFF -DNS3_LOG=OFF -DNS3_WARNINGS_AS_ERRORS=OFF".split()
                 )
             cmake_args.append(
-                "-DNS3_NATIVE_OPTIMIZATIONS=%s" % on_off((args.build_profile == "optimized"))
+                "-DNS3_NATIVE_OPTIMIZATIONS=%s" % on_off(
+                    (args.build_profile == "optimized"))
             )
 
     options = (
@@ -915,13 +943,15 @@ def configure_cmake(
         arg = on_off_condition(args, cmake_flag, option_name)
         if arg:
             is_on = "=ON" in arg
-            reverse = arg.replace("=ON" if is_on else "=OFF", "=OFF" if is_on else "=ON")
+            reverse = arg.replace("=ON" if is_on else "=OFF",
+                                  "=OFF" if is_on else "=ON")
             if reverse in cmake_args:
                 cmake_args.remove(reverse)
             cmake_args.append(arg)
 
     if args.lcov_zerocounters is not None:
-        cmake_args.append("-DNS3_COVERAGE_ZERO_COUNTERS=%s" % on_off(args.lcov_zerocounters))
+        cmake_args.append("-DNS3_COVERAGE_ZERO_COUNTERS=%s" %
+                          on_off(args.lcov_zerocounters))
 
     # Output, Brite, Click and Openflow dirs
     if args.output_directory is not None:
@@ -962,7 +992,8 @@ def configure_cmake(
             os.path.relpath(ns3_path, ns3_path), "cmake_performance_trace.log"
         )
         cmake_args.extend(
-            ["--profiling-format=google-trace", "--profiling-output=" + cmake_performance_trace]
+            ["--profiling-format=google-trace",
+                "--profiling-output=" + cmake_performance_trace]
         )
 
     # Enable warnings for uninitialized variable usage
@@ -986,14 +1017,16 @@ def configure_cmake(
 
 def update_scratches_list(current_cmake_cache_folder):
     # Store list of scratches to trigger a reconfiguration step if needed
-    current_scratch_sources = glob.glob(append_to_ns3_path("scratch", "**", "*.cc"), recursive=True)
+    current_scratch_sources = glob.glob(
+        append_to_ns3_path("scratch", "**", "*.cc"), recursive=True)
     with open(os.path.join(current_cmake_cache_folder, "ns3scratches"), "w") as f:
         f.write("\n".join(current_scratch_sources))
 
 
 def refresh_cmake(current_cmake_cache_folder, output):
     cmake, _ = cmake_check_version()
-    ret = subprocess.run([cmake, ".."], cwd=current_cmake_cache_folder, stdout=output)
+    ret = subprocess.run(
+        [cmake, ".."], cwd=current_cmake_cache_folder, stdout=output)
     if ret.returncode != 0:
         exit(ret.returncode)
     update_scratches_list(current_cmake_cache_folder)
@@ -1009,7 +1042,8 @@ def get_program_shortcuts(build_profile, ns3_version):
     longest_shortcut_map = {}
 
     if programs_dict["FETCH_NETANIM_VISUALIZER"]:
-        ns3_program_map["netanim"] = [programs_dict["out_dir"] + "/bin/netanim"]
+        ns3_program_map["netanim"] = [
+            programs_dict["out_dir"] + "/bin/netanim"]
 
     for program in programs_dict["ns3_runnable_programs"]:
         if "pch_exec" in program:
@@ -1022,7 +1056,8 @@ def get_program_shortcuts(build_profile, ns3_version):
 
         # Remove version prefix and build type suffix from shortcuts (or keep them too?)
         temp_path[-1] = (
-            temp_path[-1].replace("-" + build_profile, "").replace("ns" + ns3_version + "-", "")
+            temp_path[-1].replace("-" + build_profile,
+                                  "").replace("ns" + ns3_version + "-", "")
         )
 
         # Deal with scratch subdirs
@@ -1056,29 +1091,34 @@ def get_program_shortcuts(build_profile, ns3_version):
             if sys.platform == "win32":
                 ns3_program_map[shortcut_path.replace("\\", "/")] = [program]
                 ns3_program_map[shortcut_path + ".exe"] = [program]
-                ns3_program_map[shortcut_path.replace("\\", "/") + ".exe"] = [program]
+                ns3_program_map[shortcut_path.replace(
+                    "\\", "/") + ".exe"] = [program]
 
             if source_shortcut:
                 cc_shortcut_path = shortcut_path + ".cc"
                 ns3_program_map[cc_shortcut_path] = [program]
                 if sys.platform == "win32":
                     ns3_program_map[cc_shortcut_path] = [program]
-                    ns3_program_map[cc_shortcut_path.replace("\\", "/")] = [program]
+                    ns3_program_map[cc_shortcut_path.replace(
+                        "\\", "/")] = [program]
 
                 # Store longest shortcut path for collisions
                 if cc_shortcut_path not in longest_shortcut_map:
                     longest_shortcut_map[cc_shortcut_path] = [longest_shortcut]
                 else:
-                    longest_shortcut_map[cc_shortcut_path].append(longest_shortcut)
+                    longest_shortcut_map[cc_shortcut_path].append(
+                        longest_shortcut)
             temp_path.pop(0)
 
     # Filter collisions
-    collisions = list(filter(lambda x: x if len(x[1]) > 1 else None, longest_shortcut_map.items()))
+    collisions = list(filter(lambda x: x if len(
+        x[1]) > 1 else None, longest_shortcut_map.items()))
     for colliding_shortcut, longest_shortcuts in collisions:
         ns3_program_map[colliding_shortcut] = longest_shortcuts
 
     if programs_dict["ns3_runnable_scripts"]:
-        scratch_scripts = glob.glob(append_to_ns3_path("scratch", "*.py"), recursive=True)
+        scratch_scripts = glob.glob(append_to_ns3_path(
+            "scratch", "*.py"), recursive=True)
         programs_dict["ns3_runnable_scripts"].extend(scratch_scripts)
 
     for program in programs_dict["ns3_runnable_scripts"]:
@@ -1108,8 +1148,10 @@ def cmake_check_version():
             f"Error:  CMake not found; please install version {minimum_cmake_version} or greater, or modify {path_variable}"
         )
         exit(1)
-    cmake = cmake.replace(".EXE", "").replace(".exe", "")  # Trim cmake executable extension
-    cmake_output = subprocess.check_output([cmake, "--version"]).decode("utf-8")
+    cmake = cmake.replace(".EXE", "").replace(
+        ".exe", "")  # Trim cmake executable extension
+    cmake_output = subprocess.check_output(
+        [cmake, "--version"]).decode("utf-8")
     version = re.findall("version (.*)", cmake_output)[0]
     if parse_version(version) < parse_version(minimum_cmake_version):
         print(
@@ -1172,22 +1214,29 @@ def extract_cmakecache_settings(current_cmake_cache_folder):
             contents = f.read()
     except FileNotFoundError as e:
         raise e
-    current_settings = re.findall("(NS3_.*):.*=(.*)", contents)  # extract NS3 specific settings
+    # extract NS3 specific settings
+    current_settings = re.findall("(NS3_.*):.*=(.*)", contents)
     current_settings.extend(
         re.findall("(CMAKE_BUILD_TYPE):.*=(.*)", contents)
     )  # extract build type
-    current_settings.extend(re.findall("(CMAKE_GENERATOR):.*=(.*)", contents))  # extract generator
-    current_settings.extend(re.findall("(CMAKE_CXX_COMPILER):.*=(.*)", contents))  # C++ compiler
-    current_settings.extend(re.findall("(CMAKE_CXX_FLAGS):.*=(.*)", contents))  # C++ flags
-    current_settings.extend(re.findall("(CMAKE_C_COMPILER):.*=(.*)", contents))  # C compiler
-    current_settings.extend(re.findall("(CMAKE_C_FLAGS):.*=(.*)", contents))  # C flags
+    current_settings.extend(re.findall(
+        "(CMAKE_GENERATOR):.*=(.*)", contents))  # extract generator
+    current_settings.extend(re.findall(
+        "(CMAKE_CXX_COMPILER):.*=(.*)", contents))  # C++ compiler
+    current_settings.extend(re.findall(
+        "(CMAKE_CXX_FLAGS):.*=(.*)", contents))  # C++ flags
+    current_settings.extend(re.findall(
+        "(CMAKE_C_COMPILER):.*=(.*)", contents))  # C compiler
+    current_settings.extend(re.findall(
+        "(CMAKE_C_FLAGS):.*=(.*)", contents))  # C flags
     current_settings.extend(
         re.findall("(CMAKE_INSTALL_PREFIX):.*=(.*)", contents)
     )  # installation directory
 
     # Transform list into dictionary
     settings_dictionary = dict(current_settings)
-    del settings_dictionary["NS3_INT64X64-STRINGS"]  # remove cached options or CMake will warn you
+    # remove cached options or CMake will warn you
+    del settings_dictionary["NS3_INT64X64-STRINGS"]
 
     # Return dictionary with NS3-related CMake settings
     return settings_dictionary
@@ -1235,7 +1284,8 @@ def reconfigure_cmake_to_force_refresh(cmake, current_cmake_cache_folder, output
 
     # Call cmake
     if not dry_run:
-        ret = subprocess.run(cmake_args, cwd=current_cmake_cache_folder, stdout=output)
+        ret = subprocess.run(
+            cmake_args, cwd=current_cmake_cache_folder, stdout=output)
 
         # If it succeeds, delete backup, otherwise raise exception
         if ret.returncode == 0:
@@ -1253,7 +1303,8 @@ def get_target_to_build(program_path, ns3_version, build_profile):
     if ".py" in program_path:
         return None
 
-    build_profile_suffix = "" if build_profile in ["release"] else "-" + build_profile
+    build_profile_suffix = "" if build_profile in [
+        "release"] else "-" + build_profile
     program_name = ""
 
     special_run_to_build_targets = {
@@ -1292,7 +1343,8 @@ def configuration_step(
     # If --force-refresh, we load settings from the CMakeCache, delete it, then reconfigure CMake to
     #   force refresh cached packages/libraries that were installed/removed, without losing the current settings
     if args.force_refresh:
-        reconfigure_cmake_to_force_refresh(cmake, current_cmake_cache_folder, output, dry_run)
+        reconfigure_cmake_to_force_refresh(
+            cmake, current_cmake_cache_folder, output, dry_run)
         exit(0)
 
     # Call cmake to configure/reconfigure/refresh the project
@@ -1353,7 +1405,8 @@ def build_step(
             if target in ns3_modules:
                 pass
             elif target not in non_executable_targets:
-                target = get_target_to_build(target, ns3_version, build_profile)
+                target = get_target_to_build(
+                    target, ns3_version, build_profile)
             else:
                 # Sphinx target should have the sphinx prefix
                 if target in ["contributing", "installation", "manual", "models", "tutorial"]:
@@ -1382,7 +1435,8 @@ def build_step(
         cmake_build(
             current_cmake_cache_folder,
             jobs=args.jobs,
-            target=get_target_to_build(target_to_run, ns3_version, build_profile),
+            target=get_target_to_build(
+                target_to_run, ns3_version, build_profile),
             output=output,
             dry_run=args.dry_run,
             build_verbose=args.verbose,
@@ -1392,7 +1446,8 @@ def build_step(
 def check_program_installed(program_name: str) -> str:
     program_path = shutil.which(program_name)
     if program_path is None:
-        print("Executable '{program}' was not found".format(program=program_name.capitalize()))
+        print("Executable '{program}' was not found".format(
+            program=program_name.capitalize()))
         exit(-1)
     return program_path
 
@@ -1403,7 +1458,8 @@ def check_module_installed(module_name: str):
     try:
         importlib.import_module(module_name)
     except ImportError:
-        print("Python module '{module}' was not found".format(module=module_name))
+        print("Python module '{module}' was not found".format(
+            module=module_name))
         exit(-1)
 
 
@@ -1461,18 +1517,21 @@ def run_step(args, target_to_run, target_args):
         # running valgrind?
         if args.valgrind:
             debugging_software.extend(
-                [check_program_installed("valgrind"), "--leak-check=full", "--show-leak-kinds=all"]
+                [check_program_installed(
+                    "valgrind"), "--leak-check=full", "--show-leak-kinds=all"]
             )
             suppressions_file = os.path.join(ns3_path, ".ns3.supp")
             if os.path.exists(suppressions_file):
-                debugging_software.append(f"--suppressions={suppressions_file}")
+                debugging_software.append(
+                    f"--suppressions={suppressions_file}")
 
         # running gdb?
         if args.gdb:
             gdb_eval_command = []
             if os.getenv("gdb_eval"):
                 gdb_eval_command.append("--eval-command=quit")
-            debugging_software.extend([check_program_installed("gdb"), *gdb_eval_command, "--args"])
+            debugging_software.extend(
+                [check_program_installed("gdb"), *gdb_eval_command, "--args"])
 
         # running lldb?
         if args.lldb:
@@ -1493,7 +1552,8 @@ def run_step(args, target_to_run, target_args):
 
         # running with the visualizer?
         if args.visualize:
-            target_args.append("--SimulatorImplementationType=ns3::VisualSimulatorImpl")
+            target_args.append(
+                "--SimulatorImplementationType=ns3::VisualSimulatorImpl")
 
         # running with command template?
         if args.command_template:
@@ -1535,7 +1595,8 @@ def run_step(args, target_to_run, target_args):
             e.cmd = " ".join(e.cmd)
             # Replace full path to binary to relative path
             e.cmd = e.cmd.replace(
-                os.path.abspath(target_to_run), os.path.relpath(target_to_run, ns3_path)
+                os.path.abspath(target_to_run), os.path.relpath(
+                    target_to_run, ns3_path)
             )
             # Print error message and forward the return code
             print(e)
@@ -1574,7 +1635,8 @@ def print_targets_list(ns3_modules: list, ns3_programs: dict) -> None:
         dead_space = terminal_width % columnwidth
 
         # Filter the targets with names longer than the column width
-        large_items = list(filter(lambda x: len(x) >= columnwidth, targets_list))
+        large_items = list(
+            filter(lambda x: len(x) >= columnwidth, targets_list))
 
         # Then filter the targets with names shorter than the column width
         small_items = sorted(list(set(targets_list) - set(large_items)))
@@ -1604,7 +1666,8 @@ def print_targets_list(ns3_modules: list, ns3_programs: dict) -> None:
         """Buildable targets:{buildables}\n\nRunnable/Buildable targets:{runnables}
                   """.format(
             buildables=list_to_table(sorted(ns3_modules)),
-            runnables=list_to_table(non_ambiguous_program_target_list(ns3_programs)),
+            runnables=list_to_table(
+                non_ambiguous_program_target_list(ns3_programs)),
         )
     )
     return
@@ -1678,7 +1741,8 @@ def sudo_step(args, target_to_run, configure_post_build: set):
     # Check if sudo exists
     sudo = shutil.which("sudo")
     if not sudo:
-        raise Exception("Sudo is required by --enable-sudo, but it was not found")
+        raise Exception(
+            "Sudo is required by --enable-sudo, but it was not found")
 
     # We do this for specified targets if --enable-sudo was set in the run sub-parser
     # And to all executables if set in the 'configure' sub-parser
@@ -1784,7 +1848,8 @@ def main():
 
     # Docs subparser options become cmake targets
     if args.docs:
-        args.build = [args.docs] if args.docs != "all" else ["sphinx", "doxygen"]
+        args.build = [args.docs] if args.docs != "all" else [
+            "sphinx", "doxygen"]
         if "doxygen" in args.build and (
             not build_info["ENABLE_EXAMPLES"] or not build_info["ENABLE_TESTS"]
         ):
@@ -1840,7 +1905,8 @@ def main():
 
     if not run_only:
         # Get current CMake cache folder and CMake generator (used when reconfiguring)
-        current_cmake_cache_folder, current_cmake_generator = search_cmake_cache(build_profile)
+        current_cmake_cache_folder, current_cmake_generator = search_cmake_cache(
+            build_profile)
 
         if args.show == "config":
             check_config(current_cmake_cache_folder)
@@ -1852,7 +1918,8 @@ def main():
             current_scratch_sources = glob.glob(
                 append_to_ns3_path("scratch", "**", "*.cc"), recursive=True
             )
-            scratches_file = os.path.join(current_cmake_cache_folder, "ns3scratches")
+            scratches_file = os.path.join(
+                current_cmake_cache_folder, "ns3scratches")
             if os.path.exists(scratches_file):
                 with open(scratches_file, "r") as f:
                     previous_scratches_sources = f.read().split("\n")
@@ -1909,12 +1976,14 @@ def main():
     # If we have a target to run, replace shortcut with full path or raise exception
     if run_only or build_and_run:
         if target_to_run in ns3_programs:
-            target_to_run = check_ambiguous_target("Run", target_to_run, ns3_programs)
+            target_to_run = check_ambiguous_target(
+                "Run", target_to_run, ns3_programs)
         elif ".py" in target_to_run and os.path.exists(target_to_run):
             # We let python scripts pass to be able to run ./utils/python-unit-tests.py
             pass
         else:
-            raise Exception("Couldn't find the specified program: %s" % target_to_run)
+            raise Exception(
+                "Couldn't find the specified program: %s" % target_to_run)
 
     if "build" in args:
         complete_targets = []
@@ -1957,7 +2026,8 @@ def main():
         sudo_step(
             args,
             target_to_run,
-            set(map(lambda x: x[0], ns3_programs.values())) if enable_sudo else set(),
+            set(map(lambda x: x[0], ns3_programs.values())
+                ) if enable_sudo else set(),
         )
 
     # Finally, we try to run it
