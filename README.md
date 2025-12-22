@@ -1,14 +1,17 @@
-# 研究
+# 修士研究
 
 ## はじめに
 
-このリポジトリは、ヘテロジニアスな無線アクセス環境での AP 選択アルゴリズム（Random / Greedy / Hungarian）の比較実験を ns-3上で再現するためのプロジェクトです。AP0 を 5G NR gNB、AP1，2 を Wi‑Fi 802.11ax として構成して、端末群の接続戦略が遅延やトラフィックに与える影響を評価する想定しています。
+このリポジトリは，ns-3上でヘテロジニアス無線ネットワーク環境を再現し，動的割り当て手法の有効性を検証するプロジェクトです．
 
-- 目的: AP 選択手法の比較（遅延/経路の安定性）
-- シナリオ: AP0=NR、AP1，2=Wi‑Fi、各ルータとサーバ群、p2pで接続
-- 出力: 端末満足度の調和平均（AP選択アルゴリズム別）
+- 目的: 動的割り当て手法の検証
+- シナリオ: AP0が5G基地局，AP1,2は無線LAN基地局，端末数は100台以上
+- 出力: スループットとラウンドトリップタイムを元に定義された端末満足度の調和平均（全体最適化の客観的評価）
 
-## アーキテクチャ
+## 目次
+
+
+## ネットワークアーキテクチャ
 
 ```mermaid
 flowchart LR
@@ -67,43 +70,31 @@ flowchart LR
 - AP2 → L3R2[L3 Router2] → CER : PointToPoint 
 - CER ↔ servers : PointToPoint
 
-## インストール
-
-最短で動かすための前提（WSL2/Ubuntu を想定）：
-
-- コンパイラ: gcc/g++ 10 以上（C++17）
-- CMake: 3.13 以上
-- Python: 3.8 以上
-
-依存関係（最小セット）
-
-```bash
-sudo apt update
-sudo apt install -y build-essential cmake gcc g++ pkg-config python3 python3-pip \
-  libsqlite3-dev libeigen3-dev libgsl-dev libxml2-dev libgtk-3-dev
+## 環境設定
+- LinuxOS環境でプロジェクトを実行することができます．
+### システムのアップデート
 ```
-
-### contrib/nrモジュールの設定
-依存パッケージ
+sudo apt update && sudo apt upgrade -y
 ```
-sudo apt-get update
-sudo apt-get install -y libc6-dev sqlite sqlite3 libsqlite3-dev libeigen3-dev
+### 依存ライブラリ設定
 ```
+sudo apt install g++ python3 cmake ninja-build git gir1.2-goocanvas-2.0 python3-gi python3-gi-cairo python3-pygraphviz gir1.2-gtk-3.0 ipython3 tcpdump wireshark sqlite3 libsqlite3-dev qtbase5-dev qtchooser qt5-qmake qtbase5-dev-tools openmpi-bin openmpi-common openmpi-doc libopenmpi-dev doxygen graphviz imagemagick python3-sphinx dia imagemagick texlive dvipng latexmk texlive-extra-utils texlive-latex-extra texlive-font-utils libeigen3-dev gsl-bin libgsl-dev libgslcblas0 libxml2 libxml2-dev libgtk-3-dev lxc-utils lxc-templates vtun uml-utilities ebtables bridge-utils libxml2 libxml2-dev libboost-all-dev ccache python3-full python3-pip
+```
+- 参考URL：https://www.nsnam.com/2025/03/blog-post.html
 
 クローン
 ```
 git clone https://github.com/Sota-Okochi/ns-3.44.git
 ```
 
-
-### 実行
+## 実行
 
 1) CMake 設定
 ```
 cd ~/ns-3.44
 ./ns3 configure --enable-examples
 ```
-
+- `./ns3 configure`でも設定できますが，サンプルコードを実行することができません．
 2) ビルド  
 ```
 ./ns3 build
@@ -114,7 +105,7 @@ cd ~/ns-3.44
 ./ns3 run master -- --nth=3
 ```
 
-### ディレクトリ構造
+## ディレクトリ構造
 
 - master/: 実験用メインプログラム
   - main.cc: 引数処理と起動
@@ -129,8 +120,7 @@ cd ~/ns-3.44
 - contrib/: 外部モジュール
 
 
-### 実験環境
-
+## 実験環境
 - OS: Ubuntu 22.04 (WSL2)
 - CPU: Intel Core Ultra 7 265KF
 - GPU: NVIDIA Geforce RTX 5070
