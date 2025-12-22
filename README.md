@@ -130,17 +130,17 @@ cd ~/ns-3.44
 
 ## ディレクトリ構造
 
-- master/: 実験用メインプログラム
-  - main.cc: 引数処理と起動
-  - NetSim.h: NetSim クラス宣言とシミュレーション全体で共有する定数・構造体を定義
-  - config.cc: 設定 JSON や端末配置ファイルを読み込み、AP/端末数・初期 RTT・アプリ利用種別を NetSim に反映
-  - applications.cc: Kameda モジュールや監視端末、音声・映像アプリなどをノードへインストールしデータ収集を制御
-  - topology.cc: 各ノード生成から Wi-Fi/NR/P2P デバイス設定、モビリティ、ルーティング設定までネットワークを構築
-  - RttForwarderApp.cc/h: RTT 測定結果を UDP 受信→TCP 送信でリモートホストへ転送する専用 Application（再接続処理付き）
-- data/: 入力データ（上記ファイルを配置）
-- OUTPUT/: 実行時出力（RTT/PCAP など）
-- src/: ns-3 本体モジュール
-- contrib/: 外部モジュール
+- `master/`: 実験用メインプログラム
+  - `main.cc`: 引数処理と起動
+  - `NetSim.h`: NetSim クラス宣言とシミュレーション全体で共有する定数・構造体を定義
+  - `config.cc`: 設定 JSON や端末配置ファイルを読み込み、AP/端末数・初期 RTT・アプリ利用種別を NetSim に反映
+  - `applications.cc`: Kameda モジュールや監視端末、音声・映像アプリなどをノードへインストールしデータ収集を制御
+  - `topology.cc`: 各ノード生成から Wi-Fi/NR/P2P デバイス設定、モビリティ、ルーティング設定までネットワークを構築
+  - `RttForwarderApp.cc/h`: RTT 測定結果を UDP 受信→TCP 送信でリモートホストへ転送する専用 Application（再接続処理付き）
+- `data/`: 入力データ（上記ファイルを配置）
+- `OUTPUT/`: 実行時出力（RTT/PCAP など）
+- `src/`: ns-3 本体モジュール
+- `contrib/`: 外部モジュール
 
 ## 進捗状況
 
