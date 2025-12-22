@@ -5,7 +5,7 @@
 このリポジトリは，ns-3上でヘテロジニアス無線ネットワーク環境を再現し，動的割り当て手法の有効性を検証するプロジェクトです．
 
 - 目的: 動的割り当て手法の検証
-- シナリオ: AP0が5G基地局，AP1,2は無線LAN基地局，端末数は100台以上
+- シナリオ: AP0が5G基地局，AP1,2はWi-Fi基地局，端末数は100台以上
 - 出力: スループットとラウンドトリップタイムを元に定義された端末満足度の調和平均（全体最適化の客観的評価）
 
 ## 目次
@@ -67,7 +67,25 @@ flowchart LR
     CER --> STR
     CER --> BRW
 ```
-### 接続
+### 各ノードの概要
+| 種別 | 名称 | 役割 | 主な接続先 |
+|---|---|---|---|
+| 5G | UE | 端末 | gNB |
+| 5G | gNB | 5G基地局 | UE / EPC |
+| 5G | EPC (UPF) | 5Gコア | gNB / CER |
+| Wi‑Fi1 | STA1 | 端末 | AP1 |
+| Wi‑Fi1 | AP1 | Wi‑Fi AP | STA1 / L3 Router1 |
+| Wi‑Fi1 | L3 Router1 | ルータ | AP1 / CER |
+| Wi‑Fi2 | STA2 | 端末 | AP2 |
+| Wi‑Fi2 | AP2 | Wi‑Fi AP | STA2 / L3 Router2 |
+| Wi‑Fi2 | L3 Router2 | ルータ | AP2 / CER |
+| コア | CER | 共通エッジルータ | EPC / L3R1 / L3R2 / 各サーバ |
+| サーバ | RemoteHost | 動的割り当て手法の計算 | CER |
+| サーバ | RTT Server | RTT計測 | CER |
+| サーバ | Video/Voice/Streaming/Browser | 各アプリケーションの配信 | CER |
+
+
+### ノード間接続
 - UE→gNB, STA→AP: Wireless
 - gNB → EPC(UPF) → CER : PointToPoint
 - AP1 → L3R1[L3 Router1] → CER : PointToPoint 
