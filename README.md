@@ -105,37 +105,45 @@ sudo apt install g++ python3 cmake ninja-build git gir1.2-goocanvas-2.0 python3-
 ```
 - 参考URL：https://www.nsnam.com/2025/03/blog-post.html
 
-クローン
+### インストール
 ```
 git clone https://github.com/Sota-Okochi/ns-3.44.git
 ```
 
 ## 実行
 
-1) CMake 設定
+### Pythonバインディングのビルドを有効化
 ```
 cd ~/ns-3.44
 ./ns3 configure --enable-examples
 ```
-- `./ns3 configure`でも設定できますが，サンプルコードを実行することができません．
-2) ビルド  
+- `./ns3 configure`でも有効化できますが，サンプルコードを実行することができません．
+### ビルド  
 ```
 ./ns3 build
 ```
 
-3) 実行  
+### プロジェクトの実行  
 ```
 ./ns3 run master -- --nth=3
 ```
+
+### 予備コマンド
+#### クリーン
+```
+./ns3 clean
+```
+- このコマンドを実行すると，CMake設定とビルドによって生成された成果物が削除されます．
+- 再度，[ここから](#pythonバインディングのビルドを有効化)実行してください．
 
 ## ディレクトリ構造
 
 - `master/`: 実験用メインプログラム
   - `main.cc`: 引数処理と起動
   - `NetSim.h`: NetSim クラス宣言とシミュレーション全体で共有する定数・構造体を定義
-  - `config.cc`: 設定 JSON や端末配置ファイルを読み込み、AP/端末数・初期 RTT・アプリ利用種別を NetSim に反映
-  - `applications.cc`: Kameda モジュールや監視端末、音声・映像アプリなどをノードへインストールしデータ収集を制御
-  - `topology.cc`: 各ノード生成から Wi-Fi/NR/P2P デバイス設定、モビリティ、ルーティング設定までネットワークを構築
+  - `config.cc`: 設定 JSON や端末配置ファイルを読み込み，AP/端末数・初期 RTT・アプリ利用種別を NetSim に反映
+  - `applications.cc`: Kameda モジュールや監視端末，音声・映像アプリなどをノードへインストールしデータ収集を制御
+  - `topology.cc`: 各ノード生成から Wi-Fi/NR/P2P デバイス設定，モビリティ，ルーティング設定までネットワークを構築
   - `RttForwarderApp.cc/h`: RTT 測定結果を UDP 受信→TCP 送信でリモートホストへ転送する専用 Application（再接続処理付き）
 - `data/`: 入力データ（上記ファイルを配置）
 - `OUTPUT/`: 実行時出力（RTT/PCAP など）
