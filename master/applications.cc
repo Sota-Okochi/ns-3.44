@@ -483,14 +483,15 @@ void NetSim::SetWebmeetingApp()
     const Time downlinkStart = Seconds(1.05);
     Time stopTime = m_simulationDuration.IsZero() ? Seconds(7.0) : m_simulationDuration;
 
-    Ptr<OutputStreamWrapper> uplinkStream;
-    Ptr<OutputStreamWrapper> downlinkStream;
-    AsciiTraceHelper asciiHelper;
-    if (m_enableWebmeetingTracing)
-    {
-        uplinkStream = asciiHelper.CreateFileStream(OUTPUT_DIR + "webmeeting_video-uplink.tr");
-        downlinkStream = asciiHelper.CreateFileStream(OUTPUT_DIR + "webmeeting_video-downlink.tr");
-    }
+    // Webmeeting ASCII trace output is temporarily disabled to reduce logging/IO
+    // Ptr<OutputStreamWrapper> uplinkStream;
+    // Ptr<OutputStreamWrapper> downlinkStream;
+    // AsciiTraceHelper asciiHelper;
+    // if (m_enableWebmeetingTracing)
+    // {
+    //     uplinkStream = asciiHelper.CreateFileStream(OUTPUT_DIR + "webmeeting_video-uplink.tr");
+    //     downlinkStream = asciiHelper.CreateFileStream(OUTPUT_DIR + "webmeeting_video-downlink.tr");
+    // }
 
     bool installedAny = false;
 
@@ -536,11 +537,11 @@ void NetSim::SetWebmeetingApp()
         ApplicationContainer videoUpClientApps = videoUpClient.Install(client);
         videoUpClientApps.Start(startTime);
         videoUpClientApps.Stop(stopTime);
-        if (m_enableWebmeetingTracing && uplinkStream != nullptr && videoUpClientApps.GetN() > 0)
-        {
-            videoUpClientApps.Get(0)->TraceConnectWithoutContext(
-                "Tx", MakeBoundCallback(&TracePacketToAscii, uplinkStream));
-        }
+        // if (m_enableWebmeetingTracing && uplinkStream != nullptr && videoUpClientApps.GetN() > 0)
+        // {
+        //     videoUpClientApps.Get(0)->TraceConnectWithoutContext(
+        //         "Tx", MakeBoundCallback(&TracePacketToAscii, uplinkStream));
+        // }
 
         PacketSinkHelper videoDownSink("ns3::UdpSocketFactory",
                                        InetSocketAddress(Ipv4Address::GetAny(), videoDownPort));
@@ -560,12 +561,12 @@ void NetSim::SetWebmeetingApp()
         ApplicationContainer videoDownServerApps = videoDownServer.Install(server_live);
         videoDownServerApps.Start(downlinkStart);
         videoDownServerApps.Stop(stopTime);
-        if (m_enableWebmeetingTracing && downlinkStream != nullptr &&
-            videoDownServerApps.GetN() > 0)
-        {
-            videoDownServerApps.Get(0)->TraceConnectWithoutContext(
-                "Tx", MakeBoundCallback(&TracePacketToAscii, downlinkStream));
-        }
+        // if (m_enableWebmeetingTracing && downlinkStream != nullptr &&
+        //     videoDownServerApps.GetN() > 0)
+        // {
+        //     videoDownServerApps.Get(0)->TraceConnectWithoutContext(
+        //         "Tx", MakeBoundCallback(&TracePacketToAscii, downlinkStream));
+        // }
 
         UdpEchoServerHelper audioServer(audioPort);
         ApplicationContainer audioServerApps = audioServer.Install(server_live);
