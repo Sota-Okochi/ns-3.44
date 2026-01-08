@@ -231,6 +231,27 @@ void NetSim::Init(int argc, char *argv[]){
         m_apSelectionInput.initialAp.push_back(data.apNo);
     }
 
+    // 各基地局の接続数を表示
+    uint32_t printLimit = std::min<uint32_t>(termNum, static_cast<uint32_t>(m_termData.size()));
+    if (APnum > 0 && printLimit > 0)
+    {
+        std::vector<uint32_t> apCounts(APnum, 0);
+        for (uint32_t i = 0; i < printLimit; ++i)
+        {
+            const auto& data = m_termData[i];
+            uint32_t apIndex = (data.apNo > 0) ? static_cast<uint32_t>(data.apNo - 1) : APnum;
+            if (apIndex < apCounts.size())
+            {
+                ++apCounts[apIndex];
+            }
+        }
+        std::cout << "=== Baseline terminal counts per AP (first " << printLimit << ") ===" << std::endl;
+        for (uint32_t i = 0; i < apCounts.size(); ++i)
+        {
+            std::cout << "AP" << (i + 1) << ": " << apCounts[i] << " terminals" << std::endl;
+        }
+    }
+
     // 監視端末と同じAPで確実に通信が発生するよう、各APに最低限の動画端末を割り当てる
     EnsureMonitorVideoTerminals(3);
 }
