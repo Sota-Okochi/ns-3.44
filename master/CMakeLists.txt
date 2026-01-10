@@ -3,6 +3,7 @@ set(master_sources
     config.cc
     topology.cc
     applications.cc
+    handover.cc
     RttForwarderApp.cc
 )
 

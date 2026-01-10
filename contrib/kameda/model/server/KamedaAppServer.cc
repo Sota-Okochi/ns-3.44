@@ -13,6 +13,7 @@
 #include "ns3/KamedaAppServer.h"
 #include "ns3/APselection.h"
 
+#include <algorithm>
 #include <fstream>
 
 namespace ns3{
@@ -27,6 +28,9 @@ KamedaAppServer::KamedaAppServer(const ApSelectionInput& input)
     m_listeningPort = 8080;
     m_socket = NULL;
     m_file_out = false; // ファイル出力を無効化
+    m_cycleCount = 2;
+    m_cycleDuration = Seconds(7.0);
+    m_cycleIndex = 0;
     // APselectionを有効化（外部から渡された設定を利用）
     apselect = CreateObject<APselection>();
     apselect->init(m_input);
@@ -47,6 +51,15 @@ void KamedaAppServer::DoDispose(){
 
 void KamedaAppServer::StartApplication(){
     NS_LOG_FUNCTION(this);
+
+    if (apselect && !m_handoverCallback)
+    {
+        apselect->SetHandoverCallback(nullptr);
+    }
+    else if (apselect && m_handoverCallback)
+    {
+        apselect->SetHandoverCallback(m_handoverCallback);
+    }
 
     if(!m_socket){
         m_socket = Socket::CreateSocket(GetNode(), TcpSocketFactory::GetTypeId()); // TCP通信用ソケット生成
@@ -78,9 +91,12 @@ void KamedaAppServer::StartApplication(){
 
     // バッチ処理対応：タイムアウト時間を最適化
     // 監視端末方式: 3台の監視端末からのデータ収集完了を待つ（6.5秒で確実に実行）
-    std::cout << "=== Scheduling Ending() function at 6.5s ===" << std::endl;
-    Simulator::Schedule(Seconds(6.5), &KamedaAppServer::Ending, this); // 6.5秒後にEnding関数を呼び出す（監視端末対応）
-    std::cout << "=== Ending() function scheduled successfully ===" << std::endl;
+    if (apselect)
+    {
+        apselect->StartNewCycle(1);
+    }
+    std::cout << "=== Scheduling cycle end handlers ===" << std::endl;
+    ScheduleCycleEnd(0);
 }
 
 void KamedaAppServer::StopApplication(){
@@ -313,18 +329,34 @@ std::vector<std::string> KamedaAppServer::SplitString(const std::string &input, 
 }
 
 void KamedaAppServer::Ending(){
-    std::cout << "=== KamedaAppServer::Ending() called at " << Simulator::Now().GetSeconds() << "s ===" << std::endl;
-    
-    
-    // APselectionで最適化処理を実行
+    std::cout << "=== KamedaAppServer::Ending() called at " << Simulator::Now().GetSeconds()
+              << "s (cycle " << (m_cycleIndex + 1) << ") ===" << std::endl;
+
     if(apselect) {
         std::cout << "=== Starting AP selection optimization ===" << std::endl;
         apselect->tmain();
         std::cout << "=== AP selection optimization completed ===" << std::endl;
     }
-    
-    std::cout << "=== KamedaAppServer::Ending() completed ===" << std::endl;
-    Simulator::Stop();
+
+    if (m_handoverCallback && apselect)
+    {
+        m_handoverCallback(apselect->GetLastAssignment());
+    }
+
+    m_cycleIndex++;
+    if (m_cycleIndex < m_cycleCount)
+    {
+        if (apselect)
+        {
+            apselect->StartNewCycle(m_cycleIndex + 1);
+        }
+        ScheduleCycleEnd(m_cycleIndex);
+    }
+    else
+    {
+        std::cout << "=== All cycles completed; stopping simulator ===" << std::endl;
+        Simulator::Stop(m_cycleDuration * m_cycleCount + Seconds(0.1));
+    }
 }
 
 // JSON形式ファイルを完成させる
@@ -338,6 +370,43 @@ void KamedaAppServer::FinalizeJSONFile(){
         ofs.close();
         std::cout << "JSON file finalized" << std::endl;
     }
+}
+
+void KamedaAppServer::ConfigureCycles(uint32_t count, Time duration)
+{
+    m_cycleCount = std::max<uint32_t>(1, count);
+    m_cycleDuration = duration.IsPositive() ? duration : Seconds(7.0);
+}
+
+void KamedaAppServer::SetHandoverCallback(const std::function<void(const std::vector<int>&)>& cb)
+{
+    m_handoverCallback = cb;
+    if (apselect)
+    {
+        apselect->SetHandoverCallback(m_handoverCallback);
+    }
+}
+
+void KamedaAppServer::ScheduleCycleEnd(uint32_t cycleIndex)
+{
+    // Move the optimization close to the monitor window end (3.6s) with a small guard
+    const Time monitorWindowStop = Seconds(3.6);
+    const Time guard = Seconds(0.2);
+
+    Time cycleStart = m_cycleDuration * cycleIndex;
+    Time preferred = cycleStart + monitorWindowStop + guard;
+    Time cycleBoundary = m_cycleDuration * (cycleIndex + 1);
+
+    // Do not let the end event slip past the cycle boundary
+    Time when = std::min(preferred, cycleBoundary);
+    if (when < Simulator::Now())
+    {
+        when = Simulator::Now();
+    }
+
+    Simulator::Schedule(when - Simulator::Now(), &KamedaAppServer::Ending, this);
+    std::cout << "=== Cycle " << (cycleIndex + 1) << " end scheduled at "
+              << when.GetSeconds() << "s (after monitor window) ===" << std::endl;
 }
 
 }

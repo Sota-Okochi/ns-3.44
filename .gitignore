@@ -27,6 +27,4 @@ OUTPUT/
 # Windows ADS
 *:Zone.Identifier
 
-.lock-ns3_linux_build
-
-.lock-ns3_darwin_build
+.lock-ns3_*

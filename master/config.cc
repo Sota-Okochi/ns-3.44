@@ -154,11 +154,14 @@ NetSim::NetSim()
     remote_host = nullptr;
     cerNode = nullptr;
     m_remoteHostAddress = Ipv4Address::GetZero();
-    m_simulationDuration = Seconds(7.0);
+    m_cycleCount = 2;
+    m_cycleDuration = Seconds(7.0);
+    m_simulationDuration = m_cycleDuration * m_cycleCount;
     m_browserRequestInterval = Seconds(1.0);
     m_browserRequestCount = 10;
     m_enableWebmeetingTracing = true;
     m_goodputReportScheduled = false;
+    m_currentCycle = 0;
 
     // Ensure OUTPUT directory exists before writing trace or log files
     SystemPath::MakeDirectories(OUTPUT_DIR);
@@ -171,7 +174,7 @@ void NetSim::Init(int argc, char *argv[]){
     NS_LOG_FUNCTION(this);
 
     CommandLine cmd;
-    cmd.AddValue("nth", "1(st) is Random, 2(nd) is Greedy, 3(rd) is Hungarian", m_nth);
+    cmd.AddValue("nth", "1(st) is Random, 2(nd) is Greedy, 3(rd) is Hungarian, 4(th) is Random Init", m_nth);
     cmd.AddValue("mob", "1 is constant, 2 is randomwalk", m_mob);
     cmd.Parse(argc, argv);
     G_nth = m_nth;
@@ -190,46 +193,93 @@ void NetSim::Init(int argc, char *argv[]){
     m_apSelectionInput.capacities = setting.capacities;
     m_apSelectionInput.initialRtt = setting.initialRtt;
 
-    std::string filename2;
-    if(m_nth == 1){
-        filename2 = std::string(INPUT_DIR) + "termData_1st.txt";
-    }else if(m_nth == 2){
-        filename2 = std::string(INPUT_DIR) + "termData_2nd.txt";
-    }else if(m_nth == 3){
-        filename2 = std::string(INPUT_DIR) + "reconnect_hungarian.txt";
-    }else{
-        std::cerr << "nth error" << std::endl;
-    }
-    std::ifstream ifs2(filename2);
-    if(ifs2.fail()){
-        std::cerr << "No Input File 2" << std::endl;
-        return;
-    }
-    for(std::string line; std::getline(ifs2, line); ){
-        std::vector<std::string> ret = split(line, ' ');
-        std::stringstream ss1, ss2, ss3, ss4;
-        TermData data;
-        if(m_nth == 1 || m_nth ==2){
-            ss1 << ret.at(1);
-            ss1 >> data.use_appli;
-            ss2 << ret.at(2);
-            ss2 >> data.apNo;
-            ss3 << ret.at(3);
-            ss3 >> data.x;
-            ss4 << ret.at(4);
-            ss4 >> data.y;
-        }else{
-            ss1 << ret.at(1);
-            ss1 >> data.use_appli;
-            ss2 << ret.at(2);
-            ss2 >> data.apNo;
+    m_termData.clear();
+    m_apSelectionInput.useAppli.clear();
+    m_apSelectionInput.initialAp.clear();
+
+    if (m_nth == 4)
+    {
+        Ptr<UniformRandomVariable> apRand = CreateObject<UniformRandomVariable>();
+        Ptr<UniformRandomVariable> appRand = CreateObject<UniformRandomVariable>();
+        uint32_t apCount = std::max<uint32_t>(APnum, 1);
+
+        for (uint32_t i = 0; i < termNum; ++i)
+        {
+            TermData data;
+            data.use_appli = static_cast<int>(appRand->GetInteger(1, 4));
+            data.apNo = static_cast<int>(apRand->GetInteger(1, apCount));
             data.x = 0.0;
             data.y = 0.0;
+            m_termData.push_back(data);
+            m_apSelectionInput.useAppli.push_back(data.use_appli);
+            m_apSelectionInput.initialAp.push_back(data.apNo);
         }
-        m_termData.push_back(data);
-        m_apSelectionInput.useAppli.push_back(data.use_appli);
-        m_apSelectionInput.initialAp.push_back(data.apNo);
+        std::cout << "初期AP番号: [";
+        for (size_t i = 0; i < m_apSelectionInput.initialAp.size(); ++i)
+        {
+            std::cout << m_apSelectionInput.initialAp[i];
+            if (i + 1 != m_apSelectionInput.initialAp.size())
+            {
+                std::cout << ", ";
+            }
+        }
+        std::cout << "]" << std::endl;
+        std::cout << "初期アプリ番号: [";
+        for (size_t i = 0; i < m_apSelectionInput.useAppli.size(); ++i)
+        {
+            std::cout << m_apSelectionInput.useAppli[i];
+            if (i + 1 != m_apSelectionInput.useAppli.size())
+            {
+                std::cout << ", ";
+            }
+        }
+        std::cout << "]" << std::endl;
     }
+    else
+    {
+        std::string filename2;
+        if(m_nth == 1){
+            filename2 = std::string(INPUT_DIR) + "termData_1st.txt";
+        }else if(m_nth == 2){
+            filename2 = std::string(INPUT_DIR) + "termData_2nd.txt";
+        }else if(m_nth == 3){
+            filename2 = std::string(INPUT_DIR) + "reconnect_hungarian.txt";
+        }else{
+            std::cerr << "nth error" << std::endl;
+            return;
+        }
+        std::ifstream ifs2(filename2);
+        if(ifs2.fail()){
+            std::cerr << "No Input File 2" << std::endl;
+            return;
+        }
+        for(std::string line; std::getline(ifs2, line); ){
+            std::vector<std::string> ret = split(line, ' ');
+            std::stringstream ss1, ss2, ss3, ss4;
+            TermData data;
+            if(m_nth == 1 || m_nth ==2){
+                ss1 << ret.at(1);
+                ss1 >> data.use_appli;
+                ss2 << ret.at(2);
+                ss2 >> data.apNo;
+                ss3 << ret.at(3);
+                ss3 >> data.x;
+                ss4 << ret.at(4);
+                ss4 >> data.y;
+            }else{
+                ss1 << ret.at(1);
+                ss1 >> data.use_appli;
+                ss2 << ret.at(2);
+                ss2 >> data.apNo;
+                data.x = 0.0;
+                data.y = 0.0;
+            }
+            m_termData.push_back(data);
+            m_apSelectionInput.useAppli.push_back(data.use_appli);
+            m_apSelectionInput.initialAp.push_back(data.apNo);
+        }
+    }
+    m_activeAssignment = m_apSelectionInput.initialAp;
 
     // 各基地局の接続数を表示
     uint32_t printLimit = std::min<uint32_t>(termNum, static_cast<uint32_t>(m_termData.size()));
@@ -340,6 +390,7 @@ void NetSim::EnsureMonitorVideoTerminals(uint32_t minVideoPerAp)
             m_apSelectionInput.useAppli.push_back(data.use_appli);
             m_apSelectionInput.initialAp.push_back(data.apNo);
         }
+        m_activeAssignment = m_apSelectionInput.initialAp;
     }
 }
 
@@ -370,6 +421,7 @@ void NetSim::RunSim(){
 
     NS_LOG_FUNCTION(this);
 
+    ConfigureCycleParameters();
     Configure();
     CreateNetworkTopology(); // ノードの生成
     ConfigureDataLinkLayer();
@@ -381,6 +433,11 @@ void NetSim::RunSim(){
     Ptr<Ipv4FlowClassifier> flowClassifier = DynamicCast<Ipv4FlowClassifier>(flowmonHelper.GetClassifier());
 
     SetAppLayer(); // 各種アプリケーションの設定
+
+    if (m_simulationDuration.IsPositive())
+    {
+        Simulator::Stop(m_simulationDuration);
+    }
 
     Time checkStop = m_simulationDuration.IsZero() ? Seconds(7.0) : m_simulationDuration;
     if (flowMonitor && checkStop.IsPositive())

@@ -151,11 +151,15 @@ private:
     Ipv4Address m_remoteHostAddress;
     Time m_simulationDuration;
     Time m_browserRequestInterval;
-   uint32_t m_browserRequestCount;
+    uint32_t m_browserRequestCount;
     bool m_enableWebmeetingTracing;
     bool m_goodputReportScheduled;
     std::unordered_set<uint32_t> m_wifiApAddresses;
     std::unordered_set<uint32_t> m_wifiStationAddresses;
+    uint32_t m_cycleCount;
+    uint32_t m_currentCycle;
+    Time m_cycleDuration;
+    std::vector<int> m_activeAssignment;
 
     std::vector<std::string> split(const std::string& input, char delimiter)
 {
@@ -169,6 +173,10 @@ private:
     return result;
 }   //split
 
+    void ScheduleMonitorWindows();
+    void HandleHandoverRequest(const std::vector<int>& assignment);
+    void ConfigureCycleParameters();
+    void PrintAssignmentSummary(const std::vector<int>& assignment) const;
 
 };  //class
 

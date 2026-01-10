@@ -40,6 +40,8 @@ void PingRtt (uint16_t seq, Time rtt)
         filename = std::string(OUTPUT_DIR) + "outputData_2nd.txt";
     }else if(G_nth == 3){
         filename = std::string(OUTPUT_DIR) + "outputData_hungarian.txt";
+    }else if(G_nth == 4){
+        filename = std::string(OUTPUT_DIR) + "outputData_random_init.txt";
     }else{
         std::cerr << "nth error in PingRtt" << std::endl;
     }
@@ -129,7 +131,7 @@ void NetSim::AttachMonitorApplication(uint32_t apId, Ptr<Node> monitor)
     Ptr<APMonitorTerminal> monitorApp = CreateObject<APMonitorTerminal>(apId, rttServerAddress, remoteAddress);
     monitor->AddApplication(monitorApp);
     monitorApp->SetStartTime(Seconds(1.5));
-    monitorApp->SetStopTime(Seconds(3.6));
+    monitorApp->SetStopTime(m_simulationDuration);
     m_monitorApps[apId] = monitorApp;
 }
 
@@ -184,9 +186,13 @@ void NetSim::SetKamedaModule(void){
 
     NS_LOG_LOGIC("install remote host Kameda server");
     Ptr<KamedaAppServer> appServer = CreateObject<KamedaAppServer>(m_apSelectionInput);
+    appServer->ConfigureCycles(m_cycleCount, m_cycleDuration);
+    appServer->SetHandoverCallback([this](const std::vector<int>& assignment) {
+        HandleHandoverRequest(assignment);
+    });
     remote_host->AddApplication(appServer);
     appServer->SetStartTime(Seconds(1.0));
-    appServer->SetStopTime(Seconds(7.0));
+    appServer->SetStopTime(m_simulationDuration);
 
     NS_LOG_LOGIC("install RTT forwarder on server_rtt");
     Ptr<RttForwarderApp> forwarder = CreateObject<RttForwarderApp>();
@@ -197,7 +203,7 @@ void NetSim::SetKamedaModule(void){
     forwarder->SetListeningPort(9000);
     server_rtt->AddApplication(forwarder);
     forwarder->SetStartTime(Seconds(0.9));
-    forwarder->SetStopTime(Seconds(7.0));
+    forwarder->SetStopTime(m_simulationDuration);
 
     if (monitorTerminals.size() < 3) {
         monitorTerminals.resize(3, nullptr);
@@ -207,6 +213,7 @@ void NetSim::SetKamedaModule(void){
         Ptr<Node> monitor = monitorTerminals[apId];
         AttachMonitorApplication(apId, monitor);
     }
+    ScheduleMonitorWindows();
 }
 
 void NetSim::SetBrowserApp()
@@ -232,7 +239,10 @@ void NetSim::SetBrowserApp()
     const uint32_t requestBytes = 750u * 1024u;
     const Time requestDuration = Seconds(0.5);
     const Time firstRequest = Seconds(1.0);
-    const Time sinkStop = firstRequest + interval * requestCount + requestDuration;
+    const uint32_t cycles = std::max<uint32_t>(1, m_cycleCount);
+    const Time sinkStop = m_simulationDuration.IsZero()
+                              ? (firstRequest + interval * requestCount + requestDuration)
+                              : m_simulationDuration;
     const uint16_t basePort = 15000;
     bool installedAny = false;
 
@@ -263,16 +273,20 @@ void NetSim::SetBrowserApp()
         sinkApps.Start(Seconds(0.9));
         sinkApps.Stop(sinkStop);
 
-        Simulator::Schedule(firstRequest,
-                            &ScheduleBrowserDownload,
-                            server_browser,
-                            clientAddress,
-                            port,
-                            0,
-                            requestCount,
-                            interval,
-                            requestDuration,
-                            requestBytes);
+        for (uint32_t cycle = 0; cycle < cycles; ++cycle)
+        {
+            Time offset = m_cycleDuration * cycle;
+            Simulator::Schedule(firstRequest + offset,
+                                &ScheduleBrowserDownload,
+                                server_browser,
+                                clientAddress,
+                                port,
+                                0,
+                                requestCount,
+                                interval,
+                                requestDuration,
+                                requestBytes);
+        }
         installedAny = true;
         NS_LOG_LOGIC("browser download configured for terminal " << i << " port " << port);
     }

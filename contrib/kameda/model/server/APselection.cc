@@ -67,6 +67,9 @@ void APselection::init(const ApSelectionInput& input){
     m_monitor_tp.assign(aps, 0.0);
     m_has_tp.assign(aps, false);
 
+    m_lastAssignment = initial_AP;
+    m_cycleIndex = 1;
+
     // --------各端末の初期接続先と初期アプリ種別の表示-----------
     /*if (!initial_AP.empty() && !initial_app.empty()){
             std::cout << "=== 端末初期設定 ===" << std::endl;
@@ -129,7 +132,7 @@ void APselection::setData(std::string senderIpAddress, std::string recvMessage){
 
 void APselection::tmain(){
     NS_LOG_FUNCTION(this);
-    std::cout << "=== APselection::tmain() START ===" << std::endl;
+    std::cout << "=== APselection::tmain() START (cycle " << m_cycleIndex << ") ===" << std::endl;
     std::cout << "APs: " << aps << std::endl;
     std::cout << "monitors: " << m_monitor_rtt.size() << std::endl;
 
@@ -196,13 +199,28 @@ void APselection::cal_initial_harmonic_mean(){
         double satisfaction = calculate_satisfaction(term_index, ap_index);
         sum_satisfaction += satisfaction;
     }
-    initial_harmonic_mean = terms / sum_satisfaction;
+    if (sum_satisfaction <= 0.0)
+    {
+        std::cout << "割り当て前端末満足度の調和平均：計測値が不足しているため 0 として扱います" << std::endl;
+        initial_harmonic_mean = 0.0;
+    }
+    else
+    {
+        initial_harmonic_mean = terms / sum_satisfaction;
+    }
     std::cout << std::fixed << std::setprecision(6)
               << "割り当て前端末満足度の調和平均：" << initial_harmonic_mean << std::endl;
 }
 
 // 端末満足度計算（共通ロジック）
 double APselection::calculate_satisfaction(int terminal_idx, int ap_idx) {
+    if (ap_idx < 0 ||
+        ap_idx >= static_cast<int>(m_monitor_tp.size()) ||
+        ap_idx >= static_cast<int>(m_monitor_rtt.size()))
+    {
+        return APConstants::MIN_SATISFACTION_THRESHOLD;
+    }
+
     int appNum = initial_app[terminal_idx];
     double satis = 0;
 
@@ -210,11 +228,23 @@ double APselection::calculate_satisfaction(int terminal_idx, int ap_idx) {
         appNum == static_cast<int>(APConstants::AppType::VIDEO)) {
             // TP指標
             double needTp = traffic_request[terminal_idx];
-            satis = m_monitor_tp[ap_idx] * APConstants::MIN_SATISFACTION_THRESHOLD / needTp;
+            double measuredTpMbps = m_has_tp[ap_idx]
+                                        ? m_monitor_tp[ap_idx] * APConstants::BPS_TO_MBPS
+                                        : 0.0;
+            if (measuredTpMbps <= 0.0)
+            {
+                measuredTpMbps = APConstants::MIN_SATISFACTION_THRESHOLD;
+            }
+            satis = measuredTpMbps / needTp;
         } else {
             // RTT指標
             double needRtt = traffic_request[terminal_idx];  
-            satis = needRtt / m_monitor_rtt[ap_idx];
+            double measuredRtt = m_has_rtt[ap_idx] ? m_monitor_rtt[ap_idx] : needRtt;
+            if (measuredRtt <= 0.0)
+            {
+                measuredRtt = needRtt;
+            }
+            satis = needRtt / measuredRtt;
     }
 
     return satis;
@@ -239,13 +269,45 @@ void APselection::random_assignment_test() {
         assignment.push_back(apIndex + 1); // 1 ベースで格納
     }
 
-    std::cout << "割り当て結果（端末ID:AP番号）: ";
+    std::cout << "割り当て結果: [";
     for (size_t i = 0; i < assignment.size(); ++i) {
-        std::cout << i + 1 << ":" << assignment[i];
+        std::cout << assignment[i];
         if (i + 1 != assignment.size()) {
-            std::cout << " ";
+            std::cout << ", ";
         }
     }
-    std::cout << std::endl;
+    std::cout << "]" << std::endl;
+
+    m_lastAssignment = assignment;
+    if (m_handoverCallback)
+    {
+        m_handoverCallback(assignment);
+    }
+}
+
+void APselection::StartNewCycle(uint32_t cycleIndex)
+{
+    std::cout << "=== APselection::StartNewCycle(" << cycleIndex << ") ===" << std::endl;
+    m_cycleIndex = cycleIndex;
+    if (!m_lastAssignment.empty())
+    {
+        initial_AP = m_lastAssignment;
+    }
+    ResetMonitorStats();
+}
+
+void APselection::SetHandoverCallback(std::function<void(const std::vector<int>&)> cb)
+{
+    m_handoverCallback = std::move(cb);
+}
+
+void APselection::ResetMonitorStats()
+{
+    std::fill(m_monitor_rtt.begin(), m_monitor_rtt.end(), 0.0);
+    std::fill(m_rtt_sum.begin(), m_rtt_sum.end(), 0.0);
+    std::fill(m_rtt_count.begin(), m_rtt_count.end(), 0);
+    std::fill(m_has_rtt.begin(), m_has_rtt.end(), false);
+    std::fill(m_monitor_tp.begin(), m_monitor_tp.end(), 0.0);
+    std::fill(m_has_tp.begin(), m_has_tp.end(), false);
 }
 }

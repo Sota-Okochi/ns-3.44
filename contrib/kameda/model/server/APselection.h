@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <fstream>
 #include <random>
+#include <functional>
 #include <sstream>
 #include <chrono>
 #include <iostream>
@@ -57,12 +58,16 @@ public:
     void init(const ApSelectionInput& input);
     void tmain();
     void setData(std::string senderIpAddress, std::string recvMessage);
+    void StartNewCycle(uint32_t cycleIndex);
+    void SetHandoverCallback(std::function<void(const std::vector<int>&)> cb);
+    const std::vector<int>& GetLastAssignment() const { return m_lastAssignment; }
     
 private:
     void cal_traffic_request(); // 必要TP, RTTの算出
     void cal_initial_harmonic_mean(); // 端末満足度の調和平均の計算
     double calculate_satisfaction(int terminal_idx, int ap_idx);
     void random_assignment_test();
+    void ResetMonitorStats();
     
     std::vector<double> m_monitor_rtt;   // 各基地局ごとの平均RTT
     std::vector<double> m_rtt_sum;       // 平均算出用の合計値
@@ -76,6 +81,9 @@ private:
     int terms;                      //端末数
     std::vector<int> initial_app;       //各端末の初期アプリ番号
     std::vector<int> initial_AP;       //各端末の初期接続先
+    std::vector<int> m_lastAssignment;  // 直近の割当結果（1ベース）
+    uint32_t m_cycleIndex = 0;          // 現在のサイクル番号（1スタート）
+    std::function<void(const std::vector<int>&)> m_handoverCallback;
     
     std::vector<double> traffic_request;      //必要TP, RTT
     

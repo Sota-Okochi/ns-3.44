@@ -80,6 +80,8 @@ void APMonitorTerminal::StartContinuousMonitoring()
         Simulator::Cancel(m_closeEvent);
     }
 
+    ResetGoodputStats();
+
     m_isMonitoring = true;
     std::cout << "=== Starting continuous monitoring for AP" << m_apId << " ===" << std::endl;
     
@@ -282,6 +284,18 @@ void APMonitorTerminal::ReportRTTToServer()
               << ", Average RTT (base): " << baseAverage
               << "ms, Moving Average (last " << windowSize << "): "
               << m_averageRtt << "ms" << std::endl;
+
+    double goodputBps = 0.0;
+    if (m_hasVideoTraffic && m_lastRxTime > m_measurementStartTime)
+    {
+        double duration = (m_lastRxTime - m_measurementStartTime).GetSeconds();
+        if (duration > 0.0)
+        {
+            goodputBps = static_cast<double>(m_totalRxBytes) * 8.0 / duration;
+            SetLastGoodputBps(goodputBps);
+        }
+    }
+    std::cout << "Video goodput (bps): " << goodputBps << std::endl;
     
     // TCP接続を作成してサーバーに送信
     m_socket = CreateTcpSocket();
