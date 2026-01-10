@@ -355,7 +355,7 @@ void KamedaAppServer::Ending(){
     else
     {
         std::cout << "=== All cycles completed; stopping simulator ===" << std::endl;
-        Simulator::Stop(m_cycleDuration * m_cycleCount + Seconds(0.1));
+        Simulator::Stop(m_cycleDuration * m_cycleCount);
     }
 }
 
