@@ -69,6 +69,7 @@ void APselection::init(const ApSelectionInput& input){
 
     m_lastAssignment = initial_AP;
     m_cycleIndex = 1;
+    Simulator::ScheduleDestroy(&APselection::PrintCycleHarmonicMeans, this);
 
     // --------各端末の初期接続先と初期アプリ種別の表示-----------
     /*if (!initial_AP.empty() && !initial_app.empty()){
@@ -210,6 +211,7 @@ void APselection::cal_initial_harmonic_mean(){
     }
     std::cout << std::fixed << std::setprecision(6)
               << "割り当て前端末満足度の調和平均：" << initial_harmonic_mean << std::endl;
+    RecordHarmonicMean(initial_harmonic_mean);
 }
 
 // 端末満足度計算（共通ロジック）
@@ -309,5 +311,34 @@ void APselection::ResetMonitorStats()
     std::fill(m_has_rtt.begin(), m_has_rtt.end(), false);
     std::fill(m_monitor_tp.begin(), m_monitor_tp.end(), 0.0);
     std::fill(m_has_tp.begin(), m_has_tp.end(), false);
+}
+
+void APselection::RecordHarmonicMean(double value)
+{
+    if (m_cycleIndex == 0)
+    {
+        m_cycleIndex = 1;
+    }
+    if (m_cycleHarmonicMeans.size() < m_cycleIndex)
+    {
+        m_cycleHarmonicMeans.resize(m_cycleIndex, 0.0);
+    }
+    m_cycleHarmonicMeans[m_cycleIndex - 1] = value;
+}
+
+void APselection::PrintCycleHarmonicMeans()
+{
+    if (m_cycleHarmonicMeans.empty())
+    {
+        std::cout << "[HarmonicMean] 記録された値がありません" << std::endl;
+        return;
+    }
+
+    std::cout << "=== サイクル別 調和平均一覧 ===" << std::endl;
+    std::cout << std::fixed << std::setprecision(6);
+    for (size_t i = 0; i < m_cycleHarmonicMeans.size(); ++i)
+    {
+        std::cout << "  Cycle " << (i + 1) << ": " << m_cycleHarmonicMeans[i] << std::endl;
+    }
 }
 }

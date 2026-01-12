@@ -68,6 +68,8 @@ private:
     double calculate_satisfaction(int terminal_idx, int ap_idx);
     void random_assignment_test();
     void ResetMonitorStats();
+    void RecordHarmonicMean(double value);
+    void PrintCycleHarmonicMeans();
     
     std::vector<double> m_monitor_rtt;   // 各基地局ごとの平均RTT
     std::vector<double> m_rtt_sum;       // 平均算出用の合計値
@@ -84,6 +86,7 @@ private:
     std::vector<int> m_lastAssignment;  // 直近の割当結果（1ベース）
     uint32_t m_cycleIndex = 0;          // 現在のサイクル番号（1スタート）
     std::function<void(const std::vector<int>&)> m_handoverCallback;
+    std::vector<double> m_cycleHarmonicMeans; // サイクルごとの調和平均
     
     std::vector<double> traffic_request;      //必要TP, RTT
     

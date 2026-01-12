@@ -624,7 +624,7 @@ void NetSim::InstallMonitorCompetitionTraffic()
     const Time loadStart = Seconds(1.4);
     const Time loadStop = Seconds(3.6);
     const uint16_t basePort = 20000;
-    const uint32_t maxFlowsPerAp = 3;
+    const uint32_t maxFlowsPerAp = 10;
 
     for (uint32_t apIndex = 0; apIndex < APnum; ++apIndex)
     {
