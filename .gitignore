@@ -10,6 +10,7 @@ cmake-cache/
 *.exe
 *.out
 *.log
+.ccache/
 
 # ns-3 specific
 OUTPUT/
@@ -28,3 +29,5 @@ OUTPUT/
 *:Zone.Identifier
 
 .lock-ns3_*
+
+.vscode/
