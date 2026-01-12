@@ -19,6 +19,7 @@
 #include "ns3/wifi-helper.h"
 #include "ns3/nr-module.h"
 #include "ns3/flow-monitor-module.h"
+#include "ns3/packet-sink.h"
 #include "RttForwarderApp.h"
 
 #include <sstream>

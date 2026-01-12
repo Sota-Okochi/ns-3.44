@@ -1,5 +1,4 @@
 #include "NetSim.h"
-#include "ns3/packet-sink.h"
 
 NS_LOG_COMPONENT_DEFINE("NetSimApplications");
 
@@ -216,6 +215,7 @@ void NetSim::SetKamedaModule(void){
     ScheduleMonitorWindows();
 }
 
+// ブラウザアプリケーションの設定
 void NetSim::SetBrowserApp()
 {
     NS_LOG_LOGIC("install browser apps");
@@ -236,7 +236,7 @@ void NetSim::SetBrowserApp()
     const Time interval =
         m_browserRequestInterval.IsZero() ? Seconds(1.0) : m_browserRequestInterval;
     const uint32_t requestCount = std::max<uint32_t>(1, m_browserRequestCount);
-    const uint32_t requestBytes = 750u * 1024u;
+    const uint32_t requestBytes = 1300u * 1024u;
     const Time requestDuration = Seconds(0.5);
     const Time firstRequest = Seconds(1.0);
     const uint32_t cycles = std::max<uint32_t>(1, m_cycleCount);
@@ -297,7 +297,7 @@ void NetSim::SetBrowserApp()
     }
 }
 
-
+// 動画アプリケーションの設定
 void NetSim::SetVideoApp(void){
 
     NS_LOG_LOGIC("install video apps");
@@ -343,7 +343,7 @@ void NetSim::SetVideoApp(void){
         UdpServerHelper sinkHelper(streamPort);
         ApplicationContainer sinkApps = sinkHelper.Install(client);
 
-        std::string traceFile = std::string(INPUT_DIR) + "Verbose_Jurassic.dat";
+        std::string traceFile = std::string(INPUT_DIR) + "YouTube1080p_2min.dat";
         UdpTraceClientHelper udpClient(clientAddress, streamPort, traceFile);
 
         ApplicationContainer serverApps = udpClient.Install(server_udpVideo);
@@ -384,7 +384,7 @@ void NetSim::SetVideoApp(void){
             continue;
         }
 
-        std::string traceFile = std::string(INPUT_DIR) + "Verbose_Jurassic.dat";
+        std::string traceFile = std::string(INPUT_DIR) + "YouTube1080p_2min.dat";
 
         PacketSinkHelper sinkHelper("ns3::UdpSocketFactory",
                                     InetSocketAddress(Ipv4Address::GetAny(), monitorPort));
@@ -437,6 +437,7 @@ void NetSim::SetVideoApp(void){
     InstallMonitorCompetitionTraffic();
 }
 
+// 通話アプリケーションの設定
 void NetSim::SetVoiceApp(void){
 
     NS_LOG_LOGIC("install voice apps");
@@ -449,6 +450,7 @@ void NetSim::SetVoiceApp(void){
     }
 
     uint16_t port = 1000;
+    uint16_t downlinkPort = 2000;
     const int phoneINTERVAL = 20;
     const int phoneMAXPACKETS = 1000000;
     const int phonePACKETSIZE = 60;
@@ -456,6 +458,19 @@ void NetSim::SetVoiceApp(void){
         if(m_termData[i].use_appli != 3){
             continue;
         }
+        Ptr<Node> client = terms[i];
+        if (client == nullptr)
+        {
+            continue;
+        }
+
+        Ipv4Address clientAddress = GetPrimaryIpv4(client);
+        if (clientAddress == Ipv4Address("0.0.0.0"))
+        {
+            NS_LOG_WARN("Voice terminal " << i << " has no IPv4 address");
+            continue;
+        }
+
         PacketSinkHelper packetsh("ns3::UdpSocketFactory", InetSocketAddress(Ipv4Address::GetAny(), port));
         ApplicationContainer serverApps;
         serverApps.Add(packetsh.Install(server_udpVoice));
@@ -465,14 +480,33 @@ void NetSim::SetVoiceApp(void){
         udpClient.SetAttribute("PacketSize", UintegerValue(phonePACKETSIZE));
 
         ApplicationContainer clientApps;
-        clientApps.Add(udpClient.Install(terms[i]));
+        clientApps.Add(udpClient.Install(client));
         serverApps.Start(Seconds(1.0));
         clientApps.Start(Seconds(1.0));
 
+        // Downlink: server -> client voice stream (fixed 60B every ~20ms)
+        PacketSinkHelper downlinkSink("ns3::UdpSocketFactory",
+                                      InetSocketAddress(Ipv4Address::GetAny(), downlinkPort));
+        ApplicationContainer downlinkApps = downlinkSink.Install(client);
+        OnOffHelper downlinkSrc("ns3::UdpSocketFactory",
+                                InetSocketAddress(clientAddress, downlinkPort));
+        downlinkSrc.SetAttribute("PacketSize", UintegerValue(phonePACKETSIZE));
+        downlinkSrc.SetAttribute("DataRate", DataRateValue(DataRate("24000bps")));
+        downlinkSrc.SetAttribute("OnTime",
+                                 StringValue("ns3::ConstantRandomVariable[Constant=1.0]"));
+        downlinkSrc.SetAttribute("OffTime",
+                                 StringValue("ns3::ConstantRandomVariable[Constant=0.0]"));
+        downlinkSrc.SetAttribute("MaxBytes", UintegerValue(0));
+        ApplicationContainer downlinkSrcApps = downlinkSrc.Install(server_udpVoice);
+        downlinkApps.Start(Seconds(1.0));
+        downlinkSrcApps.Start(Seconds(1.0));
+
         port++;
+        downlinkPort++;
     }
 }
 
+// Webmeetingアプリケーションの設定
 void NetSim::SetWebmeetingApp()
 {
     NS_LOG_LOGIC("install webmeeting apps");
@@ -624,7 +658,7 @@ void NetSim::InstallMonitorCompetitionTraffic()
     const Time loadStart = Seconds(1.4);
     const Time loadStop = Seconds(3.6);
     const uint16_t basePort = 20000;
-    const uint32_t maxFlowsPerAp = 10;
+    const uint32_t maxFlowsPerAp = 20;
 
     for (uint32_t apIndex = 0; apIndex < APnum; ++apIndex)
     {
