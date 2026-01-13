@@ -66,7 +66,7 @@ private:
     void cal_traffic_request(); // 必要TP, RTTの算出
     void cal_initial_harmonic_mean(); // 端末満足度の調和平均の計算
     double calculate_satisfaction(int terminal_idx, int ap_idx);
-    void random_assignment_test();
+    void random_assignment(); //ランダム法による割り当て
     void ResetMonitorStats();
     void RecordHarmonicMean(double value);
     void PrintCycleHarmonicMeans();

@@ -161,7 +161,7 @@ void APselection::tmain(){
     // 割り当て前端末満足度の調和平均の計算
     cal_initial_harmonic_mean();
     
-    random_assignment_test();
+    random_assignment();
 
     // 現在までのサイクルの調和平均を即時表示
     PrintCycleHarmonicMeans();
@@ -255,8 +255,8 @@ double APselection::calculate_satisfaction(int terminal_idx, int ap_idx) {
 }
 
 // ランダムにAPを割り当てるダミー処理
-void APselection::random_assignment_test() {
-    std::cout << "=== APselection::random_assignment_test() ===" << std::endl;
+void APselection::random_assignment() {
+    std::cout << "=== APselection::random_assignment() ===" << std::endl;
 
     // 割り当て結果用の一次元配列（initial_AP に合わせて 1 ベースで保持）
     std::vector<int> assignment;
