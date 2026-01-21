@@ -23,7 +23,7 @@ flowchart LR
     %% --- Groups ---
     subgraph G5G["5G"]
         UE[UE]
-        gNB[gNB]
+        AP0[AP0]
         EPC["EPC (UPF)"]
         UE --> gNB
         gNB --> EPC
@@ -72,7 +72,7 @@ flowchart LR
 | 種別 | 名称 | 役割 | 主な接続先 |
 |---|---|---|---|
 | 5G | UE | 端末 | gNB |
-| 5G | gNB | 5G基地局 | UE / EPC |
+| 5G | AP0 | 5G基地局 | UE / EPC |
 | 5G | EPC (UPF) | 5Gコア | gNB / CER |
 | Wi‑Fi1 | STA1 | 端末 | AP1 |
 | Wi‑Fi1 | AP1 | Wi‑Fi AP | STA1 / L3 Router1 |
