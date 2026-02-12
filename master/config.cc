@@ -174,7 +174,7 @@ void NetSim::Init(int argc, char *argv[]){
     NS_LOG_FUNCTION(this);
 
     CommandLine cmd;
-    cmd.AddValue("nth", "1(st) is Random, 2(nd) is Greedy, 3(rd) is Hungarian, 4(th) is Random Init", m_nth);
+    cmd.AddValue("nth", " 3(rd) is static app, 4(th) is random app", m_nth);
     cmd.AddValue("mob", "1 is constant, 2 is randomwalk", m_mob);
     cmd.Parse(argc, argv);
     G_nth = m_nth;

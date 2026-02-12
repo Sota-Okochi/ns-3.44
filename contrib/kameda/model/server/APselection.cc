@@ -66,6 +66,8 @@ void APselection::init(const ApSelectionInput& input){
     m_has_rtt.assign(aps, false);
     m_monitor_tp.assign(aps, 0.0);
     m_has_tp.assign(aps, false);
+    m_terminal_tp.assign(terms, 0.0);
+    m_has_terminal_tp.assign(terms, false);
 
     m_lastAssignment = initial_AP;
     m_cycleIndex = 1;
@@ -228,13 +230,21 @@ double APselection::calculate_satisfaction(int terminal_idx, int ap_idx) {
     int appNum = initial_app[terminal_idx];
     double satis = 0;
 
-    if(appNum == static_cast<int>(APConstants::AppType::BROWSER) || 
+    if(appNum == static_cast<int>(APConstants::AppType::BROWSER) ||
         appNum == static_cast<int>(APConstants::AppType::VIDEO)) {
-            // TP指標
+            // TP指標: 端末自身のTPを優先、なければモニターTPにフォールバック
             double needTp = traffic_request[terminal_idx];
-            double measuredTpMbps = m_has_tp[ap_idx]
-                                        ? m_monitor_tp[ap_idx] * APConstants::BPS_TO_MBPS
-                                        : 0.0;
+            double measuredTpMbps = 0.0;
+            if (terminal_idx >= 0 &&
+                terminal_idx < static_cast<int>(m_has_terminal_tp.size()) &&
+                m_has_terminal_tp[terminal_idx])
+            {
+                measuredTpMbps = m_terminal_tp[terminal_idx] * APConstants::BPS_TO_MBPS;
+            }
+            else if (m_has_tp[ap_idx])
+            {
+                measuredTpMbps = m_monitor_tp[ap_idx] * APConstants::BPS_TO_MBPS;
+            }
             if (measuredTpMbps <= 0.0)
             {
                 measuredTpMbps = APConstants::MIN_SATISFACTION_THRESHOLD;
@@ -313,6 +323,20 @@ void APselection::ResetMonitorStats()
     std::fill(m_has_rtt.begin(), m_has_rtt.end(), false);
     std::fill(m_monitor_tp.begin(), m_monitor_tp.end(), 0.0);
     std::fill(m_has_tp.begin(), m_has_tp.end(), false);
+    std::fill(m_terminal_tp.begin(), m_terminal_tp.end(), 0.0);
+    std::fill(m_has_terminal_tp.begin(), m_has_terminal_tp.end(), false);
+}
+
+void APselection::setTerminalTp(int termIdx, double tpBps)
+{
+    if (termIdx < 0 || termIdx >= static_cast<int>(m_terminal_tp.size()))
+    {
+        return;
+    }
+    m_terminal_tp[termIdx] = tpBps;
+    m_has_terminal_tp[termIdx] = true;
+    std::cout << "Terminal TP stored: term=" << termIdx
+              << ", TP=" << (tpBps * APConstants::BPS_TO_MBPS) << "Mbps" << std::endl;
 }
 
 void APselection::RecordHarmonicMean(double value)

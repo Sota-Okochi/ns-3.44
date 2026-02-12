@@ -200,25 +200,25 @@ void KamedaAppServer::ProcessMonitorData(std::string senderIpAddress, std::strin
     
     // RTT値を抽出
     double rttValue = std::stod(parts[1]);
-    double goodputBps = 0.0;
-    bool hasGoodput = false;
+    double throughputBps = 0.0;
+    bool hasThroughput = false;
     if (parts.size() >= 3)
     {
         try
         {
-            goodputBps = std::stod(parts[2]);
-            hasGoodput = true;
+            throughputBps = std::stod(parts[2]);
+            hasThroughput = true;
         }
         catch (const std::exception& ex)
         {
-            std::cout << "Failed to parse goodput: " << ex.what() << std::endl;
+            std::cout << "Failed to parse throughput: " << ex.what() << std::endl;
         }
     }
     
     std::cout << "Processed Monitor Data: AP=" << apNo << ", RTT=" << rttValue << "ms";
-    if (hasGoodput)
+    if (hasThroughput)
     {
-        std::cout << ", Goodput=" << goodputBps << "bps";
+        std::cout << ", Throughput=" << throughputBps << "bps";
     }
     std::cout << std::endl;
     
@@ -231,9 +231,9 @@ void KamedaAppServer::ProcessMonitorData(std::string senderIpAddress, std::strin
         
         std::stringstream monitorMsg;
         monitorMsg << "MONITOR_" << apNo << "," << rttValue;
-        if (hasGoodput)
+        if (hasThroughput)
         {
-            monitorMsg << "," << goodputBps;
+            monitorMsg << "," << throughputBps;
         }
         apselect->setData(apIpAddress.str(), monitorMsg.str());
         
@@ -376,6 +376,14 @@ void KamedaAppServer::ConfigureCycles(uint32_t count, Time duration)
 {
     m_cycleCount = std::max<uint32_t>(1, count);
     m_cycleDuration = duration.IsPositive() ? duration : Seconds(7.0);
+}
+
+void KamedaAppServer::SetTerminalTp(int termIdx, double tpBps)
+{
+    if (apselect)
+    {
+        apselect->setTerminalTp(termIdx, tpBps);
+    }
 }
 
 void KamedaAppServer::SetHandoverCallback(const std::function<void(const std::vector<int>&)>& cb)

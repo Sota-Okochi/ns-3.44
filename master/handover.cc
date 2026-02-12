@@ -40,6 +40,9 @@ void NetSim::ScheduleMonitorWindows()
             Simulator::Schedule(start, &APMonitorTerminal::StartContinuousMonitoring, monitor);
             Simulator::Schedule(stop, &APMonitorTerminal::StopMonitoring, monitor);
         }
+        // 端末別TP計測: ウィンドウ開始時にスナップショット、終了時に収集
+        Simulator::Schedule(start, &NetSim::SnapshotTerminalBytes, this);
+        Simulator::Schedule(stop, &NetSim::CollectTerminalThroughput, this);
     }
 }
 

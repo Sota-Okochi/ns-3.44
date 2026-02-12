@@ -192,6 +192,9 @@ void NetSim::SetKamedaModule(void){
     remote_host->AddApplication(appServer);
     appServer->SetStartTime(Seconds(1.0));
     appServer->SetStopTime(m_simulationDuration);
+    m_kamedaServer = appServer;
+    m_terminalSinks.resize(terms.size());
+    m_terminalRxBytesAtWindowStart.resize(terms.size(), 0);
 
     NS_LOG_LOGIC("install RTT forwarder on server_rtt");
     Ptr<RttForwarderApp> forwarder = CreateObject<RttForwarderApp>();
@@ -273,6 +276,12 @@ void NetSim::SetBrowserApp()
         sinkApps.Start(Seconds(0.9));
         sinkApps.Stop(sinkStop);
 
+        if (sinkApps.GetN() > 0 && i < m_terminalSinks.size())
+        {
+            Ptr<PacketSink> ps = DynamicCast<PacketSink>(sinkApps.Get(0));
+            m_terminalSinks[i] = ps;
+        }
+
         for (uint32_t cycle = 0; cycle < cycles; ++cycle)
         {
             Time offset = m_cycleDuration * cycle;
@@ -340,8 +349,15 @@ void NetSim::SetVideoApp(void){
             continue;
         }
 
-        UdpServerHelper sinkHelper(streamPort);
+        PacketSinkHelper sinkHelper("ns3::UdpSocketFactory",
+                                    InetSocketAddress(Ipv4Address::GetAny(), streamPort));
         ApplicationContainer sinkApps = sinkHelper.Install(client);
+
+        if (sinkApps.GetN() > 0 && i < m_terminalSinks.size())
+        {
+            Ptr<PacketSink> ps = DynamicCast<PacketSink>(sinkApps.Get(0));
+            m_terminalSinks[i] = ps;
+        }
 
         std::string traceFile = std::string(INPUT_DIR) + "YouTube1080p_2min.dat";
         UdpTraceClientHelper udpClient(clientAddress, streamPort, traceFile);
@@ -714,5 +730,58 @@ void NetSim::ReportMonitorGoodput()
 }
 
 
+
+void NetSim::SnapshotTerminalBytes()
+{
+    for (uint32_t i = 0; i < m_terminalSinks.size(); ++i)
+    {
+        if (m_terminalSinks[i] != nullptr)
+        {
+            m_terminalRxBytesAtWindowStart[i] = m_terminalSinks[i]->GetTotalRx();
+        }
+        else
+        {
+            m_terminalRxBytesAtWindowStart[i] = 0;
+        }
+    }
+}
+
+void NetSim::CollectTerminalThroughput()
+{
+    if (m_kamedaServer == nullptr)
+    {
+        return;
+    }
+
+    const Time startOffset = Seconds(1.5);
+    const Time stopOffset = Seconds(3.6);
+    double windowSeconds = (stopOffset - startOffset).GetSeconds();
+    if (windowSeconds <= 0.0)
+    {
+        return;
+    }
+
+    for (uint32_t i = 0; i < m_terminalSinks.size(); ++i)
+    {
+        if (m_terminalSinks[i] == nullptr)
+        {
+            continue;
+        }
+        if (i >= m_termData.size())
+        {
+            continue;
+        }
+        int appType = m_termData[i].use_appli;
+        if (appType != 1 && appType != 2)
+        {
+            continue;
+        }
+
+        uint64_t currentBytes = m_terminalSinks[i]->GetTotalRx();
+        uint64_t deltaBytes = currentBytes - m_terminalRxBytesAtWindowStart[i];
+        double tpBps = static_cast<double>(deltaBytes) * 8.0 / windowSeconds;
+        m_kamedaServer->SetTerminalTp(static_cast<int>(i), tpBps);
+    }
+}
 
 } // namespace ns3

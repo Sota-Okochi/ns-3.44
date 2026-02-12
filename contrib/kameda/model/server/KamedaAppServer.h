@@ -19,6 +19,7 @@ public:
     virtual ~KamedaAppServer();
     void ConfigureCycles(uint32_t count, Time duration);
     void SetHandoverCallback(const std::function<void(const std::vector<int>&)>& cb);
+    void SetTerminalTp(int termIdx, double tpBps);
 
 protected:
     virtual void DoDispose();

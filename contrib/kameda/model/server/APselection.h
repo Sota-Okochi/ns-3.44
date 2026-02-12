@@ -31,7 +31,7 @@ namespace APConstants {
     
     // アプリケーションのトラフィック要求（必要TP, RTT）
     constexpr double BROWSER_REQUIRED_TP = 5.0;      // Mbps（ブラウザ）
-    constexpr double VIDEO_REQUIRED_TP = 10.0;       // Mbps（動画ストリーミング）
+    constexpr double VIDEO_REQUIRED_TP = 2.0;       // Mbps（動画ストリーミング）
     constexpr double VOICE_CALL_REQUIRED_RTT = 200.0; // ms（通話アプリケーション）
     constexpr double LIVE_STREAM_REQUIRED_RTT = 50.0; // ms（ライブ配信）
     
@@ -61,6 +61,7 @@ public:
     void StartNewCycle(uint32_t cycleIndex);
     void SetHandoverCallback(std::function<void(const std::vector<int>&)> cb);
     const std::vector<int>& GetLastAssignment() const { return m_lastAssignment; }
+    void setTerminalTp(int termIdx, double tpBps);
     
 private:
     void cal_traffic_request(); // 必要TP, RTTの算出
@@ -77,6 +78,8 @@ private:
     std::vector<bool> m_has_rtt;         // RTT取得済みフラグ
     std::vector<double> m_monitor_tp;    // 各基地局ごとの実測TP（bit/s）
     std::vector<bool> m_has_tp;          // TP取得済みフラグ
+    std::vector<double> m_terminal_tp;   // 端末ごとの実測TP (bit/s)
+    std::vector<bool> m_has_terminal_tp; // 端末ごとのTP取得済みフラグ
     std::vector<double> m_link_rtt;                   //接続時のRTTデータ
 
     int aps;                        //基地局数 

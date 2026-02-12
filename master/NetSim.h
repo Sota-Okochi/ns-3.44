@@ -162,6 +162,13 @@ private:
     Time m_cycleDuration;
     std::vector<int> m_activeAssignment;
 
+    // 端末別TP計測用
+    std::vector<Ptr<PacketSink>> m_terminalSinks;
+    std::vector<uint64_t> m_terminalRxBytesAtWindowStart;
+    Ptr<KamedaAppServer> m_kamedaServer;
+    void SnapshotTerminalBytes();
+    void CollectTerminalThroughput();
+
     std::vector<std::string> split(const std::string& input, char delimiter)
 {
     std::istringstream stream(input);

@@ -26,6 +26,6 @@ build_lib(
   LIBNAME kameda
   SOURCE_FILES ${kameda_sources}
   HEADER_FILES ${kameda_headers}
-  LIBRARIES_TO_LINK ${libcore} ${libnetwork} ${libinternet} ${libinternet-apps} ${libapplications} ${libwifi}
+  LIBRARIES_TO_LINK ${libcore} ${libnetwork} ${libinternet} ${libinternet-apps} ${libapplications} ${libwifi} ${libflow-monitor}
   TEST_SOURCES ${kameda_test_sources}
 )

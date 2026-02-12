@@ -9,6 +9,7 @@
 #include "ns3/internet-module.h"
 #include "ns3/ping.h"
 #include "ns3/packet.h"
+#include "ns3/flow-monitor-module.h"
 
 namespace ns3 {
 
@@ -107,6 +108,8 @@ private:
     void ResetGoodputStats();
     void ScheduleNextMeasurement(Time delay);
     void HandleMeasurementTimeout();
+    Ipv4Address GetPrimaryIpv4(Ptr<Node> node) const;
+    double ComputeThroughputBps();
 
     // メンバー変数
     uint32_t m_apId;                    // 監視対象AP ID
@@ -144,6 +147,13 @@ private:
     bool m_hasVideoTraffic;
     double m_lastGoodputBps;
     bool m_hasGoodput;
+
+    // FlowMonitor を使ったスループット計測用
+    FlowMonitorHelper m_flowHelper;
+    Ptr<FlowMonitor> m_flowMonitor;
+    Ptr<Ipv4FlowClassifier> m_flowClassifier;
+    double m_lastThroughputBps;
+    bool m_hasThroughput;
 };
 
 } // namespace ns3
