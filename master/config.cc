@@ -206,7 +206,23 @@ void NetSim::Init(int argc, char *argv[]){
         for (uint32_t i = 0; i < termNum; ++i)
         {
             TermData data;
-            data.use_appli = static_cast<int>(appRand->GetInteger(1, 4));
+            const double appDraw = appRand->GetValue(0.0, 1.0);
+            if (appDraw < 0.30)
+            {
+                data.use_appli = 1;
+            }
+            else if (appDraw < 0.60)
+            {
+                data.use_appli = 2;
+            }
+            else if (appDraw < 0.70)
+            {
+                data.use_appli = 3;
+            }
+            else
+            {
+                data.use_appli = 4;
+            }
             data.apNo = static_cast<int>(apRand->GetInteger(1, apCount));
             data.x = 0.0;
             data.y = 0.0;
