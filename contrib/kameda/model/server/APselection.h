@@ -26,14 +26,14 @@ namespace APConstants {
         BROWSER = 1,     // ブラウザ
         VIDEO = 2,       // 動画ストリーミング
         VOICE_CALL = 3,  // 通話アプリケーション
-        LIVE_STREAM = 4  // ライブ配信
+        ONLINE_GAME = 4  // オンラインゲーム
     };
     
     // アプリケーションのトラフィック要求（必要TP, RTT）
     constexpr double BROWSER_REQUIRED_TP = 2.0;      // Mbps（ブラウザ）
     constexpr double VIDEO_REQUIRED_TP = 5.0;       // Mbps（動画ストリーミング）
-    constexpr double VOICE_CALL_REQUIRED_RTT = 60.0; // ms（通話アプリケーション）
-    constexpr double LIVE_STREAM_REQUIRED_RTT = 30.0; // ms（ライブ配信）
+    constexpr double VOICE_CALL_REQUIRED_RTT = 100.0; // ms（通話アプリケーション）
+    constexpr double ONLINE_GAME_REQUIRED_RTT = 50.0; // ms（オンラインゲーム）
     
     // 桁合わせ
     constexpr double MIN_SATISFACTION_THRESHOLD = 1e-6;

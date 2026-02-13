@@ -80,7 +80,7 @@ private:
     void SetAutoLoadGeneration();  // ns-3標準機能による自動負荷生成
     void SetGreedy();
     void SetBrowserApp();
-    void SetWebmeetingApp();
+    void SetOnlineGameApp();
     void ReportMonitorGoodput();
     void CheckFlowMonitor(Ptr<FlowMonitor> monitor, Ptr<Ipv4FlowClassifier> classifier);
     
@@ -131,7 +131,7 @@ private:
     Ptr<Node> server_udpVoice;
     Ptr<Node> server_udpVideo;
     Ptr<Node> server_rtt;
-    Ptr<Node> server_live;
+    Ptr<Node> server_onlineGame;
     Ptr<Node> server_browser;
     Ptr<Node> remote_host;
     Ptr<Node> cerNode;
@@ -152,7 +152,7 @@ private:
     Time m_simulationDuration;
     Time m_browserRequestInterval;
     uint32_t m_browserRequestCount;
-    bool m_enableWebmeetingTracing;
+    bool m_enableOnlineGameTracing;
     bool m_goodputReportScheduled;
     std::unordered_set<uint32_t> m_wifiApAddresses;
     std::unordered_set<uint32_t> m_wifiStationAddresses;

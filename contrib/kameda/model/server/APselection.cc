@@ -187,8 +187,8 @@ void APselection::cal_traffic_request(){
         else if(initial_app.at(i) == static_cast<int>(APConstants::AppType::VOICE_CALL)){
             traffic_request.push_back(APConstants::VOICE_CALL_REQUIRED_RTT);  //通話アプリケーション（RTT）
         }
-        else if(initial_app.at(i) == static_cast<int>(APConstants::AppType::LIVE_STREAM)){
-            traffic_request.push_back(APConstants::LIVE_STREAM_REQUIRED_RTT);  //ライブ配信（RTT）
+        else if(initial_app.at(i) == static_cast<int>(APConstants::AppType::ONLINE_GAME)){
+            traffic_request.push_back(APConstants::ONLINE_GAME_REQUIRED_RTT);  //オンラインゲーム（RTT）
         }
     }
     

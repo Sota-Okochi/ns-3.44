@@ -25,7 +25,7 @@ namespace APConstants {
         BROWSER = 1,     // ブラウザ
         VIDEO = 2,       // 動画ストリーミング
         VOICE_CALL = 3,  // 通話アプリケーション
-        LIVE_STREAM = 4  // ライブ配信
+        ONLINE_GAME = 4  // オンラインゲーム
     };
     
     // システム設定
@@ -46,7 +46,7 @@ namespace APConstants {
     constexpr double BROWSER_REQUIRED_TP = 5.0;      // KB/s（ブラウザ）
     constexpr double VIDEO_REQUIRED_TP = 10.0;       // KB/s（動画ストリーミング）
     constexpr double VOICE_CALL_REQUIRED_RTT = 200.0; // ms（通話アプリケーション）
-    constexpr double LIVE_STREAM_REQUIRED_RTT = 50.0; // ms（ライブ配信）
+    constexpr double ONLINE_GAME_REQUIRED_RTT = 50.0; // ms（オンラインゲーム）
     
     // ハンガリアン法計算用
     constexpr double PRECISION_MULTIPLIER = 1000000.0; // 10^6

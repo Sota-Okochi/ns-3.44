@@ -138,7 +138,7 @@ void NetSim::CreateServerNodes()
     server_udpVoice = CreateObject<Node>();
     server_udpVideo = CreateObject<Node>();
     server_rtt = CreateObject<Node>();
-    server_live = CreateObject<Node>();
+    server_onlineGame = CreateObject<Node>();
     server_browser = CreateObject<Node>();
     remote_host = CreateObject<Node>();
 
@@ -150,7 +150,7 @@ void NetSim::CreateServerNodes()
         m_serverCerNodes.push_back(NodeContainer(server_rtt, cerNode));
         m_serverCerNodes.push_back(NodeContainer(server_udpVideo, cerNode));
         m_serverCerNodes.push_back(NodeContainer(server_udpVoice, cerNode));
-        m_serverCerNodes.push_back(NodeContainer(server_live, cerNode));
+        m_serverCerNodes.push_back(NodeContainer(server_onlineGame, cerNode));
         m_serverCerNodes.push_back(NodeContainer(server_browser, cerNode));
         m_serverCerNodes.push_back(NodeContainer(remote_host, cerNode));
     }
@@ -564,7 +564,7 @@ void NetSim::ConfigureNetworkLayer(){
     }
 
     // サーバ群とCERのリンクIPの設定
-    std::vector<Ptr<Node>> serverNodes = {server_rtt, server_udpVideo, server_udpVoice, server_live, server_browser, remote_host};
+    std::vector<Ptr<Node>> serverNodes = {server_rtt, server_udpVideo, server_udpVoice, server_onlineGame, server_browser, remote_host};
     m_remoteHostAddress = Ipv4Address::GetZero();
     for (size_t i = 0; i < serverNodes.size(); ++i)
     {

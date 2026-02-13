@@ -63,11 +63,6 @@ void TracePacketToAscii(Ptr<OutputStreamWrapper> stream, Ptr<const Packet> packe
     (*os) << Simulator::Now().GetSeconds() << " " << packet->GetSize() << std::endl;
 }
 
-void WebMeetingRttTrace(const Time& rtt)
-{
-    NS_LOG_INFO("Webmeeting RTT " << rtt.GetMilliSeconds() << " ms");
-}
-
 void ScheduleBrowserDownload(Ptr<Node> server,
                              Ipv4Address clientAddress,
                              uint16_t port,
@@ -142,7 +137,7 @@ void NetSim::SetAppLayer(){
     SetBrowserApp(); // ブラウザ, アプリ番号1, TP
     SetVideoApp(); // 動画, アプリ番号2, TP
     SetVoiceApp(); // 通話, アプリ番号3, RTT
-    SetWebmeetingApp(); //Web会議, アプリ番号4, RTT
+    SetOnlineGameApp(); // オンラインゲーム, アプリ番号4, RTT
 }
 
 void NetSim::SetGreedy(void){
@@ -507,40 +502,33 @@ void NetSim::SetVoiceApp(void){
     }
 }
 
-// Webmeetingアプリケーションの設定
-void NetSim::SetWebmeetingApp()
+// オンラインゲームアプリケーションの設定
+void NetSim::SetOnlineGameApp()
 {
-    NS_LOG_LOGIC("install webmeeting apps");
+    NS_LOG_LOGIC("install online-game apps");
 
-    if (server_live == nullptr)
+    if (server_onlineGame == nullptr)
     {
-        NS_LOG_WARN("Live streaming server node is not configured");
+        NS_LOG_WARN("Online game server node is not configured");
         return;
     }
 
-    Ipv4Address serverAddress = GetPrimaryIpv4(server_live);
+    Ipv4Address serverAddress = GetPrimaryIpv4(server_onlineGame);
     if (serverAddress == Ipv4Address("0.0.0.0"))
     {
-        NS_LOG_WARN("Live streaming server address unavailable");
+        NS_LOG_WARN("Online game server address unavailable");
         return;
     }
 
-    const uint16_t videoUpBasePort = 13000;
-    const uint16_t videoDownBasePort = 13400;
-    const uint16_t audioBasePort = 14000;
+    // MOBA想定: 双方向の小パケットを常時一定レートで送受信
+    const uint16_t uplinkBasePort = 13000;
+    const uint16_t downlinkBasePort = 13400;
     const Time startTime = Seconds(1.0);
-    const Time downlinkStart = Seconds(1.05);
-    Time stopTime = m_simulationDuration.IsZero() ? Seconds(7.0) : m_simulationDuration;
-
-    // Webmeeting ASCII trace output is temporarily disabled to reduce logging/IO
-    // Ptr<OutputStreamWrapper> uplinkStream;
-    // Ptr<OutputStreamWrapper> downlinkStream;
-    // AsciiTraceHelper asciiHelper;
-    // if (m_enableWebmeetingTracing)
-    // {
-    //     uplinkStream = asciiHelper.CreateFileStream(OUTPUT_DIR + "webmeeting_video-uplink.tr");
-    //     downlinkStream = asciiHelper.CreateFileStream(OUTPUT_DIR + "webmeeting_video-downlink.tr");
-    // }
+    const Time stopTime = m_simulationDuration.IsZero() ? Seconds(7.0) : m_simulationDuration;
+    const Time tickInterval = MilliSeconds(33);
+    const uint32_t packetSizeBytes = 200;
+    const uint64_t dataRateBps =
+        static_cast<uint64_t>((static_cast<double>(packetSizeBytes) * 8.0) / tickInterval.GetSeconds());
 
     bool installedAny = false;
 
@@ -560,92 +548,58 @@ void NetSim::SetWebmeetingApp()
         Ipv4Address clientAddress = GetPrimaryIpv4(client);
         if (clientAddress == Ipv4Address("0.0.0.0"))
         {
-            NS_LOG_WARN("Webmeeting terminal " << i << " has no IPv4 address");
+            NS_LOG_WARN("Online game terminal " << i << " has no IPv4 address");
             continue;
         }
 
-        const uint16_t videoUpPort = videoUpBasePort + static_cast<uint16_t>(i);
-        const uint16_t videoDownPort = videoDownBasePort + static_cast<uint16_t>(i);
-        const uint16_t audioPort = audioBasePort + static_cast<uint16_t>(i);
+        const uint16_t uplinkPort = uplinkBasePort + static_cast<uint16_t>(i);
+        const uint16_t downlinkPort = downlinkBasePort + static_cast<uint16_t>(i);
 
-        PacketSinkHelper videoUpSink("ns3::UdpSocketFactory",
-                                     InetSocketAddress(Ipv4Address::GetAny(), videoUpPort));
-        ApplicationContainer videoUpSinkApps = videoUpSink.Install(server_live);
-        videoUpSinkApps.Start(startTime);
-        videoUpSinkApps.Stop(stopTime);
+        PacketSinkHelper uplinkSink("ns3::UdpSocketFactory",
+                                    InetSocketAddress(Ipv4Address::GetAny(), uplinkPort));
+        ApplicationContainer uplinkSinkApps = uplinkSink.Install(server_onlineGame);
+        uplinkSinkApps.Start(startTime);
+        uplinkSinkApps.Stop(stopTime);
 
-        OnOffHelper videoUpClient("ns3::UdpSocketFactory",
-                                  InetSocketAddress(serverAddress, videoUpPort));
-        videoUpClient.SetAttribute("PacketSize", UintegerValue(1200));
-        videoUpClient.SetAttribute("DataRate", DataRateValue(DataRate("1.2Mbps")));
-        videoUpClient.SetAttribute("OnTime",
-                                   StringValue("ns3::ConstantRandomVariable[Constant=0.95]"));
-        videoUpClient.SetAttribute("OffTime",
-                                   StringValue("ns3::ConstantRandomVariable[Constant=0.05]"));
-        videoUpClient.SetAttribute("MaxBytes", UintegerValue(0));
-        ApplicationContainer videoUpClientApps = videoUpClient.Install(client);
-        videoUpClientApps.Start(startTime);
-        videoUpClientApps.Stop(stopTime);
-        // if (m_enableWebmeetingTracing && uplinkStream != nullptr && videoUpClientApps.GetN() > 0)
-        // {
-        //     videoUpClientApps.Get(0)->TraceConnectWithoutContext(
-        //         "Tx", MakeBoundCallback(&TracePacketToAscii, uplinkStream));
-        // }
+        OnOffHelper uplinkSrc("ns3::UdpSocketFactory",
+                              InetSocketAddress(serverAddress, uplinkPort));
+        uplinkSrc.SetAttribute("PacketSize", UintegerValue(packetSizeBytes));
+        uplinkSrc.SetAttribute("DataRate", DataRateValue(DataRate(dataRateBps)));
+        uplinkSrc.SetAttribute("OnTime",
+                               StringValue("ns3::ConstantRandomVariable[Constant=1.0]"));
+        uplinkSrc.SetAttribute("OffTime",
+                               StringValue("ns3::ConstantRandomVariable[Constant=0.0]"));
+        uplinkSrc.SetAttribute("MaxBytes", UintegerValue(0));
+        ApplicationContainer uplinkSrcApps = uplinkSrc.Install(client);
+        uplinkSrcApps.Start(startTime);
+        uplinkSrcApps.Stop(stopTime);
 
-        PacketSinkHelper videoDownSink("ns3::UdpSocketFactory",
-                                       InetSocketAddress(Ipv4Address::GetAny(), videoDownPort));
-        ApplicationContainer videoDownSinkApps = videoDownSink.Install(client);
-        videoDownSinkApps.Start(startTime);
-        videoDownSinkApps.Stop(stopTime);
+        PacketSinkHelper downlinkSink("ns3::UdpSocketFactory",
+                                      InetSocketAddress(Ipv4Address::GetAny(), downlinkPort));
+        ApplicationContainer downlinkSinkApps = downlinkSink.Install(client);
+        downlinkSinkApps.Start(startTime);
+        downlinkSinkApps.Stop(stopTime);
 
-        OnOffHelper videoDownServer("ns3::UdpSocketFactory",
-                                    InetSocketAddress(clientAddress, videoDownPort));
-        videoDownServer.SetAttribute("PacketSize", UintegerValue(1200));
-        videoDownServer.SetAttribute("DataRate", DataRateValue(DataRate("1.5Mbps")));
-        videoDownServer.SetAttribute("OnTime",
-                                     StringValue("ns3::ConstantRandomVariable[Constant=1.0]"));
-        videoDownServer.SetAttribute("OffTime",
-                                     StringValue("ns3::ConstantRandomVariable[Constant=0.0]"));
-        videoDownServer.SetAttribute("MaxBytes", UintegerValue(0));
-        ApplicationContainer videoDownServerApps = videoDownServer.Install(server_live);
-        videoDownServerApps.Start(downlinkStart);
-        videoDownServerApps.Stop(stopTime);
-        // if (m_enableWebmeetingTracing && downlinkStream != nullptr &&
-        //     videoDownServerApps.GetN() > 0)
-        // {
-        //     videoDownServerApps.Get(0)->TraceConnectWithoutContext(
-        //         "Tx", MakeBoundCallback(&TracePacketToAscii, downlinkStream));
-        // }
-
-        UdpEchoServerHelper audioServer(audioPort);
-        ApplicationContainer audioServerApps = audioServer.Install(server_live);
-        audioServerApps.Start(startTime);
-        audioServerApps.Stop(stopTime);
-
-        UdpEchoClientHelper audioClient(serverAddress, audioPort);
-        audioClient.SetAttribute("MaxPackets", UintegerValue(0));
-        audioClient.SetAttribute("Interval", TimeValue(MilliSeconds(20)));
-        audioClient.SetAttribute("PacketSize", UintegerValue(160));
-        ApplicationContainer audioClientApps = audioClient.Install(client);
-        audioClientApps.Start(startTime);
-        audioClientApps.Stop(stopTime);
+        OnOffHelper downlinkSrc("ns3::UdpSocketFactory",
+                                InetSocketAddress(clientAddress, downlinkPort));
+        downlinkSrc.SetAttribute("PacketSize", UintegerValue(packetSizeBytes));
+        downlinkSrc.SetAttribute("DataRate", DataRateValue(DataRate(dataRateBps)));
+        downlinkSrc.SetAttribute("OnTime",
+                                 StringValue("ns3::ConstantRandomVariable[Constant=1.0]"));
+        downlinkSrc.SetAttribute("OffTime",
+                                 StringValue("ns3::ConstantRandomVariable[Constant=0.0]"));
+        downlinkSrc.SetAttribute("MaxBytes", UintegerValue(0));
+        ApplicationContainer downlinkSrcApps = downlinkSrc.Install(server_onlineGame);
+        downlinkSrcApps.Start(startTime);
+        downlinkSrcApps.Stop(stopTime);
 
         installedAny = true;
-        NS_LOG_LOGIC("webmeeting configured for terminal " << i);
+        NS_LOG_LOGIC("online-game configured for terminal " << i);
     }
 
-    if (installedAny)
+    if (!installedAny)
     {
-        if (!Config::ConnectWithoutContextFailSafe(
-                "/NodeList/*/ApplicationList/*/$ns3::UdpEchoClient/Rtt",
-                MakeCallback(&WebMeetingRttTrace)))
-        {
-            NS_LOG_WARN("Failed to connect Webmeeting RTT trace source");
-        }
-    }
-    else
-    {
-        NS_LOG_INFO("No webmeeting terminals configured for appId=4");
+        NS_LOG_INFO("No online-game terminals configured for appId=4");
     }
 }
 

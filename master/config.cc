@@ -149,7 +149,7 @@ NetSim::NetSim()
     server_udpVoice = nullptr;
     server_udpVideo = nullptr;
     server_rtt = nullptr;
-    server_live = nullptr;
+    server_onlineGame = nullptr;
     server_browser = nullptr;
     remote_host = nullptr;
     cerNode = nullptr;
@@ -159,7 +159,7 @@ NetSim::NetSim()
     m_simulationDuration = m_cycleDuration * m_cycleCount;
     m_browserRequestInterval = Seconds(1.5);
     m_browserRequestCount = 4;
-    m_enableWebmeetingTracing = true;
+    m_enableOnlineGameTracing = true;
     m_goodputReportScheduled = false;
     m_currentCycle = 0;
 
