@@ -1,5 +1,7 @@
 #include "NetSim.h"
 
+#include <cmath>
+
 NS_LOG_COMPONENT_DEFINE("NetSimTopology");
 
 namespace ns3 {
@@ -336,12 +338,9 @@ void NetSim::ConfigureLTE(uint32_t count){
 
     WifiHelper wifi;
     wifi.SetStandard(WIFI_STANDARD_80211ax);
-    wifi.SetRemoteStationManager(
-        "ns3::ConstantRateWifiManager",
-        "DataMode", StringValue("HeMcs3"),
-        "ControlMode", StringValue("HeMcs0")
-    );
-    Config::SetDefault ("ns3::WifiRemoteStationManager::RtsCtsThreshold", UintegerValue (0));
+    Config::SetDefault("ns3::WifiPhy::ChannelWidth", UintegerValue(40));
+    wifi.SetRemoteStationManager("ns3::IdealWifiManager");
+    Config::SetDefault ("ns3::WifiRemoteStationManager::RtsCtsThreshold", UintegerValue (2200));
     wifi.ConfigHeOptions("BssColor", UintegerValue((count % 63) + 1));
 
     WifiMacHelper mac;
@@ -410,56 +409,73 @@ void NetSim::ConfigureApMobility()
 
 void NetSim::ConfigureTermMobility()
 {
-    double distance = 8.0;
-    double minPoint = -25.0;
-    uint32_t gridWidth = 8;
-
-    if (termNum == 64)
+    // 各APの位置を取得
+    std::vector<Vector> apPositions(APnum, Vector(0.0, 0.0, 0.0));
+    for (uint32_t i = 0; i < APnum && i < wifiAPs.size(); ++i)
     {
-        distance = 50.0 / 8.0;
-        gridWidth = 8;
-    }
-    else if (termNum == 81)
-    {
-        distance = 50.0 / 9.0;
-        gridWidth = 9;
-    }
-    else if (termNum == 100)
-    {
-        distance = 50.0 / 10.0;
-        gridWidth = 10;
+        if (wifiAPs[i] == nullptr)
+        {
+            continue;
+        }
+        Ptr<MobilityModel> mob = wifiAPs[i]->GetObject<MobilityModel>();
+        if (mob != nullptr)
+        {
+            apPositions[i] = mob->GetPosition();
+        }
     }
 
-    MobilityHelper mobility;
-    mobility.SetPositionAllocator("ns3::GridPositionAllocator",
-                                  "MinX", DoubleValue(minPoint),
-                                  "MinY", DoubleValue(minPoint),
-                                  "DeltaX", DoubleValue(distance),
-                                  "DeltaY", DoubleValue(distance),
-                                  "GridWidth", UintegerValue(gridWidth),
-                                  "LayoutType", StringValue("RowFirst"));
-
-    if (m_mob == 2)
-    {
-        mobility.SetMobilityModel("ns3::RandomWalk2dMobilityModel",
-                                   "Bounds", RectangleValue(Rectangle(-50, 50, -50, 50)),
-                                   "Distance", StringValue("10"),
-                                   "Speed", StringValue("ns3::ConstantRandomVariable[Constant=1.0]"),
-                                   "Mode", StringValue("Time"),
-                                   "Time", StringValue("1s"));
-    }
-    else
-    {
-        mobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
-    }
+    // 端末をAPの近く（半径 radius メートル以内）にランダム配置
+    const double radius = 20.0;
+    Ptr<UniformRandomVariable> rng = CreateObject<UniformRandomVariable>();
 
     for (uint32_t idx = 0; idx < terms.size(); ++idx)
     {
         Ptr<Node> term = terms[idx];
-        if (term != nullptr)
+        if (term == nullptr)
         {
-            mobility.Install(term);
+            continue;
         }
+
+        // 端末の割り当てAP (1ベース → 0ベース)
+        uint32_t apIdx = 0;
+        if (idx < m_termData.size() && m_termData[idx].apNo > 0)
+        {
+            apIdx = static_cast<uint32_t>(m_termData[idx].apNo - 1);
+        }
+        if (apIdx >= APnum)
+        {
+            apIdx = 0;
+        }
+
+        Vector apPos = apPositions[apIdx];
+
+        // AP周囲に一様ランダム配置（円形）
+        double angle = rng->GetValue(0.0, 2.0 * M_PI);
+        double r = radius * std::sqrt(rng->GetValue(0.0, 1.0));
+        double x = apPos.x + r * std::cos(angle);
+        double y = apPos.y + r * std::sin(angle);
+
+        Ptr<ListPositionAllocator> pos = CreateObject<ListPositionAllocator>();
+        pos->Add(Vector(x, y, 1.5));
+
+        MobilityHelper mobility;
+        mobility.SetPositionAllocator(pos);
+
+        if (m_mob == 2)
+        {
+            mobility.SetMobilityModel("ns3::RandomWalk2dMobilityModel",
+                                       "Bounds", RectangleValue(Rectangle(-50, 50, -50, 50)),
+                                       "Distance", StringValue("10"),
+                                       "Speed", StringValue("ns3::ConstantRandomVariable[Constant=1.0]"),
+                                       "Mode", StringValue("Time"),
+                                       "Time", StringValue("1s"));
+        }
+        else
+        {
+            mobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
+        }
+
+        mobility.Install(term);
     }
 }
 
@@ -781,7 +797,7 @@ void NetSim::ConfigureNrForAp0()
     }
 
     const double nrCenterFreqHz = 3.5e9;   // 3.5 GHz mid-band
-    const double nrChannelBwHz = 80e6;
+    const double nrChannelBwHz = 100e6;
     const uint8_t nrNumComponentCarriers = 1;
 
     m_nrHelper = CreateObject<NrHelper>();
@@ -793,15 +809,16 @@ void NetSim::ConfigureNrForAp0()
     m_nrHelper->SetSchedulerAttribute("EnableSrsInUlSlots", BooleanValue(false));
     m_nrHelper->SetSchedulerAttribute("EnableSrsInFSlots", BooleanValue(false));
     m_nrHelper->SetSchedulerAttribute("DlCtrlSymbols", UintegerValue(1));
-    m_nrHelper->SetGnbMacAttribute("NumRbPerRbg", UintegerValue(4));
+    // Use finer scheduling granularity to improve per-UE allocation under load.
+    m_nrHelper->SetGnbMacAttribute("NumRbPerRbg", UintegerValue(2));
 
     // Align PHY capabilities with the wider resource budget
-    m_nrHelper->SetGnbPhyAttribute("TxPower", DoubleValue(37.0));
-    m_nrHelper->SetUePhyAttribute("TxPower", DoubleValue(23.0));
-    m_nrHelper->SetGnbAntennaAttribute("NumRows", UintegerValue(4));
-    m_nrHelper->SetGnbAntennaAttribute("NumColumns", UintegerValue(2));
-    m_nrHelper->SetUeAntennaAttribute("NumRows", UintegerValue(1));
-    m_nrHelper->SetUeAntennaAttribute("NumColumns", UintegerValue(1));
+    m_nrHelper->SetGnbPhyAttribute("TxPower", DoubleValue(40.0));
+    m_nrHelper->SetUePhyAttribute("TxPower", DoubleValue(26.0));
+    m_nrHelper->SetGnbAntennaAttribute("NumRows", UintegerValue(8));
+    m_nrHelper->SetGnbAntennaAttribute("NumColumns", UintegerValue(4));
+    m_nrHelper->SetUeAntennaAttribute("NumRows", UintegerValue(2));
+    m_nrHelper->SetUeAntennaAttribute("NumColumns", UintegerValue(2));
 
     CcBwpCreator::SimpleOperationBandConf wideBand(nrCenterFreqHz,
                                                    nrChannelBwHz,

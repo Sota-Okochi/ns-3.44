@@ -31,3 +31,5 @@ OUTPUT/
 .lock-ns3_*
 
 .vscode/
+
+doc/answer.txt

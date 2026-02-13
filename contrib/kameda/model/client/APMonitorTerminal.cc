@@ -63,9 +63,12 @@ void APMonitorTerminal::StartApplication()
     ResetGoodputStats();
 
     // FlowMonitor をインストール（初回のみ）
+    // InstallAll() で全ノードにプローブを設置する。
+    // Install(GetNode()) だと送信元ノードにプローブがないため
+    // FlowProbeTag が付加されず、受信パケットを追跡できない。
     if (m_flowMonitor == nullptr)
     {
-        m_flowMonitor = m_flowHelper.Install(GetNode());
+        m_flowMonitor = m_flowHelper.InstallAll();
         Ptr<FlowClassifier> classifier = m_flowHelper.GetClassifier();
         m_flowClassifier = DynamicCast<Ipv4FlowClassifier>(classifier);
     }

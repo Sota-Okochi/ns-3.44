@@ -397,8 +397,8 @@ void KamedaAppServer::SetHandoverCallback(const std::function<void(const std::ve
 
 void KamedaAppServer::ScheduleCycleEnd(uint32_t cycleIndex)
 {
-    // Move the optimization close to the monitor window end (3.6s) with a small guard
-    const Time monitorWindowStop = Seconds(3.6);
+    // Move the optimization close to the terminal TP window end (6.2s) with a small guard
+    const Time monitorWindowStop = Seconds(6.2);
     const Time guard = Seconds(0.2);
 
     Time cycleStart = m_cycleDuration * cycleIndex;

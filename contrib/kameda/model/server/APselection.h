@@ -30,10 +30,10 @@ namespace APConstants {
     };
     
     // アプリケーションのトラフィック要求（必要TP, RTT）
-    constexpr double BROWSER_REQUIRED_TP = 5.0;      // Mbps（ブラウザ）
-    constexpr double VIDEO_REQUIRED_TP = 2.0;       // Mbps（動画ストリーミング）
-    constexpr double VOICE_CALL_REQUIRED_RTT = 200.0; // ms（通話アプリケーション）
-    constexpr double LIVE_STREAM_REQUIRED_RTT = 50.0; // ms（ライブ配信）
+    constexpr double BROWSER_REQUIRED_TP = 2.0;      // Mbps（ブラウザ）
+    constexpr double VIDEO_REQUIRED_TP = 5.0;       // Mbps（動画ストリーミング）
+    constexpr double VOICE_CALL_REQUIRED_RTT = 60.0; // ms（通話アプリケーション）
+    constexpr double LIVE_STREAM_REQUIRED_RTT = 30.0; // ms（ライブ配信）
     
     // 桁合わせ
     constexpr double MIN_SATISFACTION_THRESHOLD = 1e-6;

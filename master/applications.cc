@@ -193,8 +193,6 @@ void NetSim::SetKamedaModule(void){
     appServer->SetStartTime(Seconds(1.0));
     appServer->SetStopTime(m_simulationDuration);
     m_kamedaServer = appServer;
-    m_terminalSinks.resize(terms.size());
-    m_terminalRxBytesAtWindowStart.resize(terms.size(), 0);
 
     NS_LOG_LOGIC("install RTT forwarder on server_rtt");
     Ptr<RttForwarderApp> forwarder = CreateObject<RttForwarderApp>();
@@ -239,7 +237,7 @@ void NetSim::SetBrowserApp()
     const Time interval =
         m_browserRequestInterval.IsZero() ? Seconds(1.0) : m_browserRequestInterval;
     const uint32_t requestCount = std::max<uint32_t>(1, m_browserRequestCount);
-    const uint32_t requestBytes = 1300u * 1024u;
+    const uint32_t requestBytes = 512u * 1024u;
     const Time requestDuration = Seconds(0.5);
     const Time firstRequest = Seconds(1.0);
     const uint32_t cycles = std::max<uint32_t>(1, m_cycleCount);
@@ -275,12 +273,6 @@ void NetSim::SetBrowserApp()
         ApplicationContainer sinkApps = sinkHelper.Install(client);
         sinkApps.Start(Seconds(0.9));
         sinkApps.Stop(sinkStop);
-
-        if (sinkApps.GetN() > 0 && i < m_terminalSinks.size())
-        {
-            Ptr<PacketSink> ps = DynamicCast<PacketSink>(sinkApps.Get(0));
-            m_terminalSinks[i] = ps;
-        }
 
         for (uint32_t cycle = 0; cycle < cycles; ++cycle)
         {
@@ -352,12 +344,6 @@ void NetSim::SetVideoApp(void){
         PacketSinkHelper sinkHelper("ns3::UdpSocketFactory",
                                     InetSocketAddress(Ipv4Address::GetAny(), streamPort));
         ApplicationContainer sinkApps = sinkHelper.Install(client);
-
-        if (sinkApps.GetN() > 0 && i < m_terminalSinks.size())
-        {
-            Ptr<PacketSink> ps = DynamicCast<PacketSink>(sinkApps.Get(0));
-            m_terminalSinks[i] = ps;
-        }
 
         std::string traceFile = std::string(INPUT_DIR) + "YouTube1080p_2min.dat";
         UdpTraceClientHelper udpClient(clientAddress, streamPort, traceFile);
@@ -731,55 +717,125 @@ void NetSim::ReportMonitorGoodput()
 
 
 
-void NetSim::SnapshotTerminalBytes()
+void NetSim::BuildTerminalIpMap()
 {
-    for (uint32_t i = 0; i < m_terminalSinks.size(); ++i)
+    m_terminalIpAddresses.resize(terms.size(), Ipv4Address("0.0.0.0"));
+    for (uint32_t i = 0; i < terms.size(); ++i)
     {
-        if (m_terminalSinks[i] != nullptr)
+        Ptr<Node> node = terms[i];
+        if (node == nullptr)
         {
-            m_terminalRxBytesAtWindowStart[i] = m_terminalSinks[i]->GetTotalRx();
+            continue;
         }
-        else
+        Ptr<Ipv4> ipv4 = node->GetObject<Ipv4>();
+        if (ipv4 == nullptr)
         {
-            m_terminalRxBytesAtWindowStart[i] = 0;
+            continue;
         }
+        for (uint32_t ifIndex = 0; ifIndex < ipv4->GetNInterfaces(); ++ifIndex)
+        {
+            for (uint32_t a = 0; a < ipv4->GetNAddresses(ifIndex); ++a)
+            {
+                Ipv4InterfaceAddress ifaddr = ipv4->GetAddress(ifIndex, a);
+                if (ifaddr.GetLocal() != Ipv4Address("127.0.0.1"))
+                {
+                    m_terminalIpAddresses[i] = ifaddr.GetLocal();
+                    goto next_term;
+                }
+            }
+        }
+        next_term:;
+    }
+}
+
+void NetSim::ResetTerminalFlowStats()
+{
+    if (m_termFlowMonitor != nullptr)
+    {
+        m_termFlowMonitor->ResetAllStats();
     }
 }
 
 void NetSim::CollectTerminalThroughput()
 {
-    if (m_kamedaServer == nullptr)
+    if (m_kamedaServer == nullptr || m_termFlowMonitor == nullptr ||
+        m_termFlowClassifier == nullptr)
     {
         return;
     }
 
-    const Time startOffset = Seconds(1.5);
-    const Time stopOffset = Seconds(3.6);
-    double windowSeconds = (stopOffset - startOffset).GetSeconds();
-    if (windowSeconds <= 0.0)
-    {
-        return;
-    }
+    m_termFlowMonitor->CheckForLostPackets();
+    auto stats = m_termFlowMonitor->GetFlowStats();
 
-    for (uint32_t i = 0; i < m_terminalSinks.size(); ++i)
+    // 各端末宛の受信ビット数と時間範囲を集計
+    struct TermStats
     {
-        if (m_terminalSinks[i] == nullptr)
+        double totalBits = 0.0;
+        double firstRx = -1.0;
+        double lastRx = -1.0;
+    };
+    std::vector<TermStats> perTerm(terms.size());
+
+    for (const auto& kv : stats)
+    {
+        const FlowId flowId = kv.first;
+        const FlowMonitor::FlowStats& fs = kv.second;
+        if (fs.rxPackets == 0)
         {
             continue;
         }
+
+        Ipv4FlowClassifier::FiveTuple tuple =
+            m_termFlowClassifier->FindFlow(flowId);
+
+        double start = fs.timeFirstRxPacket.GetSeconds();
+        double end = fs.timeLastRxPacket.GetSeconds();
+        if (end <= start)
+        {
+            continue;
+        }
+
+        double bits = static_cast<double>(fs.rxBytes) * 8.0;
+
+        // フローの宛先が端末であればその端末のTPに加算
+        for (uint32_t i = 0; i < m_terminalIpAddresses.size(); ++i)
+        {
+            if (m_terminalIpAddresses[i] == Ipv4Address("0.0.0.0"))
+            {
+                continue;
+            }
+            if (tuple.destinationAddress != m_terminalIpAddresses[i])
+            {
+                continue;
+            }
+
+            perTerm[i].totalBits += bits;
+            if (perTerm[i].firstRx < 0.0 || start < perTerm[i].firstRx)
+            {
+                perTerm[i].firstRx = start;
+            }
+            if (perTerm[i].lastRx < 0.0 || end > perTerm[i].lastRx)
+            {
+                perTerm[i].lastRx = end;
+            }
+            break;
+        }
+    }
+
+    // 各端末のTPを計算してサーバーに通知
+    for (uint32_t i = 0; i < perTerm.size(); ++i)
+    {
         if (i >= m_termData.size())
         {
             continue;
         }
-        int appType = m_termData[i].use_appli;
-        if (appType != 1 && appType != 2)
-        {
-            continue;
-        }
-
-        uint64_t currentBytes = m_terminalSinks[i]->GetTotalRx();
-        uint64_t deltaBytes = currentBytes - m_terminalRxBytesAtWindowStart[i];
-        double tpBps = static_cast<double>(deltaBytes) * 8.0 / windowSeconds;
+        double duration = (perTerm[i].lastRx > perTerm[i].firstRx &&
+                           perTerm[i].firstRx >= 0.0)
+                              ? (perTerm[i].lastRx - perTerm[i].firstRx)
+                              : 0.0;
+        double tpBps = (duration > 0.0 && perTerm[i].totalBits > 0.0)
+                           ? (perTerm[i].totalBits / duration)
+                           : 0.0;
         m_kamedaServer->SetTerminalTp(static_cast<int>(i), tpBps);
     }
 }

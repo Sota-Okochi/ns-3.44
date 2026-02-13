@@ -19,7 +19,6 @@
 #include "ns3/wifi-helper.h"
 #include "ns3/nr-module.h"
 #include "ns3/flow-monitor-module.h"
-#include "ns3/packet-sink.h"
 #include "RttForwarderApp.h"
 
 #include <sstream>
@@ -162,11 +161,13 @@ private:
     Time m_cycleDuration;
     std::vector<int> m_activeAssignment;
 
-    // 端末別TP計測用
-    std::vector<Ptr<PacketSink>> m_terminalSinks;
-    std::vector<uint64_t> m_terminalRxBytesAtWindowStart;
+    // 端末別TP計測用（FlowMonitor方式）
+    Ptr<FlowMonitor> m_termFlowMonitor;
+    Ptr<Ipv4FlowClassifier> m_termFlowClassifier;
+    std::vector<Ipv4Address> m_terminalIpAddresses;
     Ptr<KamedaAppServer> m_kamedaServer;
-    void SnapshotTerminalBytes();
+    void BuildTerminalIpMap();
+    void ResetTerminalFlowStats();
     void CollectTerminalThroughput();
 
     std::vector<std::string> split(const std::string& input, char delimiter)

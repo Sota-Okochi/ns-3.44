@@ -155,10 +155,10 @@ NetSim::NetSim()
     cerNode = nullptr;
     m_remoteHostAddress = Ipv4Address::GetZero();
     m_cycleCount = 2;
-    m_cycleDuration = Seconds(4.0);
+    m_cycleDuration = Seconds(6.7);
     m_simulationDuration = m_cycleDuration * m_cycleCount;
-    m_browserRequestInterval = Seconds(1.0);
-    m_browserRequestCount = 10;
+    m_browserRequestInterval = Seconds(1.5);
+    m_browserRequestCount = 4;
     m_enableWebmeetingTracing = true;
     m_goodputReportScheduled = false;
     m_currentCycle = 0;
@@ -428,9 +428,13 @@ void NetSim::RunSim(){
     ConfigureNetworkLayer();
 
     FlowMonitorHelper flowmonHelper;
-    flowmonHelper.SetMonitorAttribute("MaxPerHopDelay", TimeValue(MicroSeconds(200)));
     Ptr<FlowMonitor> flowMonitor = flowmonHelper.InstallAll();
     Ptr<Ipv4FlowClassifier> flowClassifier = DynamicCast<Ipv4FlowClassifier>(flowmonHelper.GetClassifier());
+
+    // 端末別TP計測用にFlowMonitor/Classifierを保持
+    m_termFlowMonitor = flowMonitor;
+    m_termFlowClassifier = flowClassifier;
+    BuildTerminalIpMap();
 
     SetAppLayer(); // 各種アプリケーションの設定
 

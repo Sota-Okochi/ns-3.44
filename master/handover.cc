@@ -25,24 +25,28 @@ void NetSim::ScheduleMonitorWindows()
         return;
     }
 
-    const Time startOffset = Seconds(1.5);
-    const Time stopOffset = Seconds(3.6);
+    const Time rttStartOffset = Seconds(1.5);
+    const Time rttStopOffset = Seconds(5.4);
+    const Time tpStartOffset = Seconds(1.5);
+    const Time tpStopOffset = Seconds(6.2);
     for (uint32_t cycle = 0; cycle < m_cycleCount; ++cycle)
     {
-        Time start = m_cycleDuration * cycle + startOffset;
-        Time stop = m_cycleDuration * cycle + stopOffset;
+        Time rttStart = m_cycleDuration * cycle + rttStartOffset;
+        Time rttStop = m_cycleDuration * cycle + rttStopOffset;
+        Time tpStart = m_cycleDuration * cycle + tpStartOffset;
+        Time tpStop = m_cycleDuration * cycle + tpStopOffset;
         for (const auto& monitor : m_monitorApps)
         {
             if (monitor == nullptr)
             {
                 continue;
             }
-            Simulator::Schedule(start, &APMonitorTerminal::StartContinuousMonitoring, monitor);
-            Simulator::Schedule(stop, &APMonitorTerminal::StopMonitoring, monitor);
+            Simulator::Schedule(rttStart, &APMonitorTerminal::StartContinuousMonitoring, monitor);
+            Simulator::Schedule(rttStop, &APMonitorTerminal::StopMonitoring, monitor);
         }
-        // 端末別TP計測: ウィンドウ開始時にスナップショット、終了時に収集
-        Simulator::Schedule(start, &NetSim::SnapshotTerminalBytes, this);
-        Simulator::Schedule(stop, &NetSim::CollectTerminalThroughput, this);
+        // 端末別TP計測: ウィンドウ開始時にFlowMonitor統計リセット、終了時に収集
+        Simulator::Schedule(tpStart, &NetSim::ResetTerminalFlowStats, this);
+        Simulator::Schedule(tpStop, &NetSim::CollectTerminalThroughput, this);
     }
 }
 
@@ -97,4 +101,3 @@ void NetSim::PrintAssignmentSummary(const std::vector<int>& assignment) const
 }
 
 } // namespace ns3
-
