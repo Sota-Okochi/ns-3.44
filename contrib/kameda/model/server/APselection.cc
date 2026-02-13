@@ -196,22 +196,24 @@ void APselection::cal_traffic_request(){
 
 void APselection::cal_initial_harmonic_mean(){
     double initial_harmonic_mean = 0.0;
-    double sum_satisfaction = 0.0;
+    double sum_inverse_satisfaction = 0.0;
 
     for(int i=0;i<terms;i++){
         int term_index = i;
         int ap_index = initial_AP[term_index] - 1;
         double satisfaction = calculate_satisfaction(term_index, ap_index);
-        sum_satisfaction += satisfaction;
+        double effectiveSatisfaction =
+            std::max(satisfaction, APConstants::MIN_SATISFACTION_THRESHOLD);
+        sum_inverse_satisfaction += 1.0 / effectiveSatisfaction;
     }
-    if (sum_satisfaction <= 0.0)
+    if (sum_inverse_satisfaction <= 0.0)
     {
         std::cout << "割り当て前端末満足度の調和平均：計測値が不足しているため 0 として扱います" << std::endl;
         initial_harmonic_mean = 0.0;
     }
     else
     {
-        initial_harmonic_mean = terms / sum_satisfaction;
+        initial_harmonic_mean = terms / sum_inverse_satisfaction;
     }
     std::cout << std::fixed << std::setprecision(6)
               << "端末満足度の調和平均：" << initial_harmonic_mean << std::endl;
@@ -237,13 +239,31 @@ double APselection::calculate_satisfaction(int terminal_idx, int ap_idx) {
             double measuredTpMbps = 0.0;
             if (terminal_idx >= 0 &&
                 terminal_idx < static_cast<int>(m_has_terminal_tp.size()) &&
-                m_has_terminal_tp[terminal_idx])
+                m_has_terminal_tp[terminal_idx] &&
+                terminal_idx < static_cast<int>(m_terminal_tp.size()) &&
+                m_terminal_tp[terminal_idx] > 0.0)
             {
                 measuredTpMbps = m_terminal_tp[terminal_idx] * APConstants::BPS_TO_MBPS;
             }
-            else if (m_has_tp[ap_idx])
+            else if (m_has_tp[ap_idx] && m_monitor_tp[ap_idx] > 0.0)
             {
-                measuredTpMbps = m_monitor_tp[ap_idx] * APConstants::BPS_TO_MBPS;
+                uint32_t terminalsOnAp = 0;
+                const int apNo = ap_idx + 1; // initial_AP は 1 ベース
+                for (size_t i = 0; i < initial_AP.size(); ++i)
+                {
+                    if (initial_AP[i] == apNo)
+                    {
+                        ++terminalsOnAp;
+                    }
+                }
+                if (terminalsOnAp == 0)
+                {
+                    terminalsOnAp = 1;
+                }
+                // AP全体TPを接続台数で按分した推定値を使用
+                measuredTpMbps =
+                    (m_monitor_tp[ap_idx] / static_cast<double>(terminalsOnAp)) *
+                    APConstants::BPS_TO_MBPS;
             }
             if (measuredTpMbps <= 0.0)
             {
@@ -335,8 +355,21 @@ void APselection::setTerminalTp(int termIdx, double tpBps)
     }
     m_terminal_tp[termIdx] = tpBps;
     m_has_terminal_tp[termIdx] = true;
-    std::cout << "Terminal TP stored: term=" << termIdx
-              << ", TP=" << (tpBps * APConstants::BPS_TO_MBPS) << "Mbps" << std::endl;
+
+    bool isTpApp = false;
+    if (termIdx < static_cast<int>(initial_app.size()))
+    {
+        const int app = initial_app[termIdx];
+        isTpApp =
+            (app == static_cast<int>(APConstants::AppType::BROWSER)) ||
+            (app == static_cast<int>(APConstants::AppType::VIDEO));
+    }
+
+    if (isTpApp)
+    {
+        std::cout << "Terminal TP stored: term=" << termIdx
+                  << ", TP=" << (tpBps * APConstants::BPS_TO_MBPS) << "Mbps" << std::endl;
+    }
 }
 
 void APselection::RecordHarmonicMean(double value)
