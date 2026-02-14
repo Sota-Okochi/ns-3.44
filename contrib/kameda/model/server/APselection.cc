@@ -22,6 +22,8 @@
 
 namespace ns3{
 
+extern int G_nth;
+
 NS_LOG_COMPONENT_DEFINE("APselection");
 
 // split関数の定義
@@ -129,6 +131,7 @@ void APselection::setData(std::string senderIpAddress, std::string recvMessage){
         std::cout << "Monitor TP stored: AP=" << apNo << ", Goodput=" << tpBps << "bps" << std::endl;
     }
 
+    // デバッグ用（各端末のTPの表示）
     std::cout << "Monitor data stored: AP=" << apNo << ", RTT=" << d
               << "ms, AVG=" << m_monitor_rtt[apNo] << "ms" << std::endl;
 }
@@ -166,7 +169,14 @@ void APselection::tmain(){
     // master_log.csv に割り当て前の状態を記録
     WriteMasterLog();
 
-    random_assignment();
+    if (G_nth == 5)
+    {
+        policy_assignment1();
+    }
+    else
+    {
+        random_assignment();
+    }
 
     // 現在までのサイクルの調和平均を即時表示
     PrintCycleHarmonicMeans();
@@ -322,6 +332,97 @@ void APselection::random_assignment() {
     }
 }
 
+// 方策による割り当て（不満足端末のみ再割り当て）
+void APselection::policy_assignment1() {
+    std::cout << "=== APselection::policy_assignment1() ===" << std::endl;
+
+    // master_log.csv を読み込み、現在サイクルの端末満足度を取得
+    const std::string filePath = "OUTPUT/master_log.csv";
+    std::ifstream ifs(filePath);
+    if (!ifs.is_open())
+    {
+        std::cerr << "policy_assignment1: master_log.csv を開けません" << std::endl;
+        return;
+    }
+
+    // 端末ごとの満足度を格納（0ベースインデックス）
+    std::vector<double> satisfactionPerTerm(terms, -1.0);
+
+    std::string line;
+    // ヘッダー行をスキップ
+    std::getline(ifs, line);
+
+    while (std::getline(ifs, line))
+    {
+        std::vector<std::string> cols = splitString(line, ",");
+        if (cols.size() < 7)
+        {
+            continue;
+        }
+        // CSVカラム: サイクル, 端末, AP, アプリ, ネットワーク指標, 通信品質, 端末満足度
+        int cycle = std::stoi(cols[0]);
+        if (cycle != static_cast<int>(m_cycleIndex))
+        {
+            continue;
+        }
+        int termNo = std::stoi(cols[1]);    // 1ベース
+        double satisfaction = std::stod(cols[6]);
+        int termIdx = termNo - 1;           // 0ベースに変換
+        if (termIdx >= 0 && termIdx < terms)
+        {
+            satisfactionPerTerm[termIdx] = satisfaction;
+        }
+    }
+    ifs.close();
+
+    // 割り当て結果（初期値は現在のAP）
+    std::vector<int> assignment = initial_AP;
+
+    std::random_device rd;
+    std::mt19937 gen(rd());
+
+    int unsatisfiedCount = 0;
+    for (int i = 0; i < terms; ++i)
+    {
+        if (satisfactionPerTerm[i] < 1.0)
+        {
+            unsatisfiedCount++;
+            // 現在のAP以外からランダムに選択
+            int currentAp = initial_AP[i]; // 1ベース
+            std::vector<int> candidates;
+            for (int ap = 1; ap <= aps; ++ap)
+            {
+                if (ap != currentAp)
+                {
+                    candidates.push_back(ap);
+                }
+            }
+            if (!candidates.empty())
+            {
+                std::uniform_int_distribution<> dist(0, static_cast<int>(candidates.size()) - 1);
+                assignment[i] = candidates[dist(gen)];
+            }
+        }
+        // 満足度 >= 1.0 の端末は assignment[i] = initial_AP[i] のまま維持
+    }
+
+    std::cout << "不満足端末数: " << unsatisfiedCount << " / " << terms << std::endl;
+    std::cout << "割り当て結果: [";
+    for (size_t i = 0; i < assignment.size(); ++i) {
+        std::cout << assignment[i];
+        if (i + 1 != assignment.size()) {
+            std::cout << ", ";
+        }
+    }
+    std::cout << "]" << std::endl;
+
+    m_lastAssignment = assignment;
+    if (m_handoverCallback)
+    {
+        m_handoverCallback(assignment);
+    }
+}
+
 void APselection::StartNewCycle(uint32_t cycleIndex)
 {
     std::cout << "=== APselection::StartNewCycle(" << cycleIndex << ") ===" << std::endl;
@@ -368,11 +469,12 @@ void APselection::setTerminalTp(int termIdx, double tpBps)
             (app == static_cast<int>(APConstants::AppType::VIDEO));
     }
 
-    if (isTpApp)
-    {
-        std::cout << "Terminal TP stored: term=" << termIdx
-                  << ", TP=" << (tpBps * APConstants::BPS_TO_MBPS) << "Mbps" << std::endl;
-    }
+    //デバッグ用（各端末のTPの表示）
+    // if (isTpApp)
+    // {
+    //     std::cout << "Terminal TP stored: term=" << termIdx
+    //               << ", TP=" << (tpBps * APConstants::BPS_TO_MBPS) << "Mbps" << std::endl;
+    // }
 }
 
 void APselection::RecordHarmonicMean(double value)

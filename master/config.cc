@@ -197,7 +197,7 @@ void NetSim::Init(int argc, char *argv[]){
     m_apSelectionInput.useAppli.clear();
     m_apSelectionInput.initialAp.clear();
 
-    if (m_nth == 4)
+    if (m_nth == 4 || m_nth == 5)
     {
         Ptr<UniformRandomVariable> apRand = CreateObject<UniformRandomVariable>();
         Ptr<UniformRandomVariable> appRand = CreateObject<UniformRandomVariable>();

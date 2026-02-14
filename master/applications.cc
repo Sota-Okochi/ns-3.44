@@ -41,6 +41,8 @@ void PingRtt (uint16_t seq, Time rtt)
         filename = std::string(OUTPUT_DIR) + "outputData_hungarian.txt";
     }else if(G_nth == 4){
         filename = std::string(OUTPUT_DIR) + "outputData_random_init.txt";
+    }else if(G_nth == 5){
+        filename = std::string(OUTPUT_DIR) + "outputData_policy1.txt";
     }else{
         std::cerr << "nth error in PingRtt" << std::endl;
     }
