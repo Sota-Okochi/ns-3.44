@@ -269,7 +269,7 @@ void NetSim::ConfigurePgwCerLink()
     }
     PointToPointHelper pointToPoint;
     pointToPoint.SetDeviceAttribute("DataRate", StringValue("1Gbps"));
-    pointToPoint.SetChannelAttribute("Delay", StringValue("1ms"));
+    pointToPoint.SetChannelAttribute("Delay", StringValue("0.1ms"));
     pointToPoint.SetQueue("ns3::DropTailQueue<Packet>", "MaxSize", StringValue("10000p"));
     m_pgwCerDevices = pointToPoint.Install(m_pgwCerNodes);
 }

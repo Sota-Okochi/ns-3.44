@@ -207,15 +207,15 @@ void NetSim::Init(int argc, char *argv[]){
         {
             TermData data;
             const double appDraw = appRand->GetValue(0.0, 1.0);
-            if (appDraw < 0.30)
+            if (appDraw < 0.40)
             {
                 data.use_appli = 1;
             }
-            else if (appDraw < 0.60)
+            else if (appDraw < 0.80)
             {
                 data.use_appli = 2;
             }
-            else if (appDraw < 0.70)
+            else if (appDraw < 0.86)
             {
                 data.use_appli = 3;
             }
