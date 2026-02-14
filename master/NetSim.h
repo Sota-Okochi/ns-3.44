@@ -106,7 +106,6 @@ private:
     void ConfigureRouterCerLinks();
     void ConfigureServerCerLinks();
     void ConfigurePgwCerLink();
-    void EnsureMonitorVideoTerminals(uint32_t minVideoPerAp);
     void InstallMonitorCompetitionTraffic();
 
     int m_nth;

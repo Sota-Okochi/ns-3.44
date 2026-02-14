@@ -31,9 +31,9 @@ namespace APConstants {
     
     // アプリケーションのトラフィック要求（必要TP, RTT）
     constexpr double BROWSER_REQUIRED_TP = 8.0;      // Mbps（ブラウザ）
-    constexpr double VIDEO_REQUIRED_TP = 5.0;       // Mbps（動画ストリーミング）
+    constexpr double VIDEO_REQUIRED_TP = 12.0;       // Mbps（動画ストリーミング）
     constexpr double VOICE_CALL_REQUIRED_RTT = 100.0; // ms（通話アプリケーション）
-    constexpr double ONLINE_GAME_REQUIRED_RTT = 50.0; // ms（オンラインゲーム）
+    constexpr double ONLINE_GAME_REQUIRED_RTT = 30.0; // ms（オンラインゲーム）
     
     // 桁合わせ
     constexpr double MIN_SATISFACTION_THRESHOLD = 1e-6;
@@ -71,6 +71,7 @@ private:
     void ResetMonitorStats();
     void RecordHarmonicMean(double value);
     void PrintCycleHarmonicMeans();
+    void WriteMasterLog();
     
     std::vector<double> m_monitor_rtt;   // 各基地局ごとの平均RTT
     std::vector<double> m_rtt_sum;       // 平均算出用の合計値
@@ -92,7 +93,8 @@ private:
     std::vector<double> m_cycleHarmonicMeans; // サイクルごとの調和平均
     
     std::vector<double> traffic_request;      //必要TP, RTT
-    
+    bool m_masterLogInitialized = false;       // master_log.csv ヘッダー書き込み済みフラグ
+
 };
 
 }

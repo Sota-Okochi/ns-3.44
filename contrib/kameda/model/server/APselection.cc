@@ -71,6 +71,7 @@ void APselection::init(const ApSelectionInput& input){
 
     m_lastAssignment = initial_AP;
     m_cycleIndex = 1;
+    m_masterLogInitialized = false;
 
     // --------各端末の初期接続先と初期アプリ種別の表示-----------
     /*if (!initial_AP.empty() && !initial_app.empty()){
@@ -162,7 +163,9 @@ void APselection::tmain(){
     cal_traffic_request();
     // 割り当て前端末満足度の調和平均の計算
     cal_initial_harmonic_mean();
-    
+    // master_log.csv に割り当て前の状態を記録
+    WriteMasterLog();
+
     random_assignment();
 
     // 現在までのサイクルの調和平均を即時表示
@@ -392,5 +395,92 @@ void APselection::PrintCycleHarmonicMeans()
     {
         std::cout << "  Cycle " << (i + 1) << ": " << m_cycleHarmonicMeans[i] << std::endl;
     }
+}
+
+void APselection::WriteMasterLog()
+{
+    const std::string filePath = "OUTPUT/master_log.csv";
+
+    // 初回呼び出し時にヘッダーを書き込む
+    if (!m_masterLogInitialized)
+    {
+        std::ofstream ofs(filePath, std::ios::trunc);
+        ofs << "サイクル, 端末, AP, アプリ, ネットワーク指標, 通信品質, 端末満足度" << std::endl;
+        ofs.close();
+        m_masterLogInitialized = true;
+    }
+
+    std::ofstream ofs(filePath, std::ios::app);
+    ofs << std::fixed << std::setprecision(2);
+
+    for (int i = 0; i < terms; ++i)
+    {
+        int ap_1based = initial_AP[i];
+        int ap_idx = ap_1based - 1;
+        int appNum = initial_app[i];
+
+        // TP系(1,2) か RTT系(3,4) か判定
+        bool isTpApp = (appNum == static_cast<int>(APConstants::AppType::BROWSER) ||
+                        appNum == static_cast<int>(APConstants::AppType::VIDEO));
+
+        std::string metricLabel = isTpApp ? "TP" : "RTT";
+
+        // 通信品質の値を算出
+        std::string qualityStr;
+        if (isTpApp)
+        {
+            double measuredTpMbps = 0.0;
+            if (i >= 0 &&
+                i < static_cast<int>(m_has_terminal_tp.size()) &&
+                m_has_terminal_tp[i] &&
+                m_terminal_tp[i] > 0.0)
+            {
+                measuredTpMbps = m_terminal_tp[i] * APConstants::BPS_TO_MBPS;
+            }
+            else if (ap_idx >= 0 &&
+                     ap_idx < static_cast<int>(m_has_tp.size()) &&
+                     m_has_tp[ap_idx] &&
+                     m_monitor_tp[ap_idx] > 0.0)
+            {
+                uint32_t terminalsOnAp = 0;
+                for (size_t j = 0; j < initial_AP.size(); ++j)
+                {
+                    if (initial_AP[j] == ap_1based)
+                    {
+                        ++terminalsOnAp;
+                    }
+                }
+                if (terminalsOnAp == 0) terminalsOnAp = 1;
+                measuredTpMbps = (m_monitor_tp[ap_idx] / static_cast<double>(terminalsOnAp)) *
+                                 APConstants::BPS_TO_MBPS;
+            }
+            std::ostringstream ss;
+            ss << std::fixed << std::setprecision(2) << measuredTpMbps << "Mbps";
+            qualityStr = ss.str();
+        }
+        else
+        {
+            double rttVal = (ap_idx >= 0 &&
+                             ap_idx < static_cast<int>(m_has_rtt.size()) &&
+                             m_has_rtt[ap_idx])
+                                ? m_monitor_rtt[ap_idx]
+                                : 0.0;
+            std::ostringstream ss;
+            ss << std::fixed << std::setprecision(2) << rttVal << "ms";
+            qualityStr = ss.str();
+        }
+
+        double satisfaction = calculate_satisfaction(i, ap_idx);
+
+        ofs << m_cycleIndex << ", "
+            << (i + 1) << ", "
+            << ap_1based << ", "
+            << appNum << ", "
+            << metricLabel << ", "
+            << qualityStr << ", "
+            << satisfaction << std::endl;
+    }
+
+    ofs.close();
 }
 }
