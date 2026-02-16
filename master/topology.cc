@@ -175,6 +175,21 @@ void NetSim::CreateServerNodes()
 
 Vector NetSim::GetMonitorPosition(uint32_t apId) const
 {
+    if (m_nth == 5)
+    {
+        switch (apId)
+        {
+        case 0:
+            return Vector(0.0, 0.0, 1.5);
+        case 1:
+            return Vector(5.0, 0.0, 1.5);
+        case 2:
+            return Vector(-5.0, 0.0, 1.5);
+        default:
+            return Vector(0.0, 0.0, 1.5);
+        }
+    }
+
     switch (apId)
     {
     case 0:
@@ -406,14 +421,39 @@ void NetSim::ConfigureApMobility()
         mobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
         Ptr<ListPositionAllocator> posList = CreateObject<ListPositionAllocator>();
 
-        if (i == 0)
+        if (m_nth == 5)
         {
-            posList->Add(Vector(0.0, -10.0, 10.0));
+            if (i == 0)
+            {
+                posList->Add(Vector(0.0, 0.0, 10.0));
+            }
+            else if (i == 1)
+            {
+                posList->Add(Vector(5.0, 0.0, 3.0));
+            }
+            else if (i == 2)
+            {
+                posList->Add(Vector(-5.0, 0.0, 3.0));
+            }
+            else
+            {
+                const int* offset = kOffsets[(i - 1) % 4];
+                const int ring = static_cast<int>((i - 1) / 4) + 1;
+                posList->Add(Vector(kBase * ring * offset[0], kBase * ring * offset[1], 3.0));
+            }
         }
         else
         {
-            const int* offset = kOffsets[i - 1];
-            posList->Add(Vector(kBase * offset[0], kBase * offset[1], 3.0));
+            if (i == 0)
+            {
+                posList->Add(Vector(0.0, -10.0, 10.0));
+            }
+            else
+            {
+                const int* offset = kOffsets[(i - 1) % 4];
+                const int ring = static_cast<int>((i - 1) / 4) + 1;
+                posList->Add(Vector(kBase * ring * offset[0], kBase * ring * offset[1], 3.0));
+            }
         }
 
         mobility.SetPositionAllocator(posList);
@@ -444,6 +484,8 @@ void NetSim::ConfigureTermMobility()
     // 端末をAPの近く（半径 radius メートル以内）にランダム配置
     const double radius = 10.0;
     Ptr<UniformRandomVariable> rng = CreateObject<UniformRandomVariable>();
+    const Vector ap0Center =
+        (!apPositions.empty()) ? apPositions[0] : Vector(0.0, 0.0, 10.0);
 
     for (uint32_t idx = 0; idx < terms.size(); ++idx)
     {
@@ -453,18 +495,26 @@ void NetSim::ConfigureTermMobility()
             continue;
         }
 
-        // 端末の割り当てAP (1ベース → 0ベース)
-        uint32_t apIdx = 0;
-        if (idx < m_termData.size() && m_termData[idx].apNo > 0)
+        Vector apPos;
+        if (m_nth == 5)
         {
-            apIdx = static_cast<uint32_t>(m_termData[idx].apNo - 1);
+            // nth==5: AP0 を中心に半径10m以内へ配置
+            apPos = ap0Center;
         }
-        if (apIdx >= APnum)
+        else
         {
-            apIdx = 0;
+            // 端末の割り当てAP (1ベース → 0ベース)
+            uint32_t apIdx = 0;
+            if (idx < m_termData.size() && m_termData[idx].apNo > 0)
+            {
+                apIdx = static_cast<uint32_t>(m_termData[idx].apNo - 1);
+            }
+            if (apIdx >= APnum)
+            {
+                apIdx = 0;
+            }
+            apPos = apPositions[apIdx];
         }
-
-        Vector apPos = apPositions[apIdx];
 
         // AP周囲に一様ランダム配置（円形）
         double angle = rng->GetValue(0.0, 2.0 * M_PI);
