@@ -69,6 +69,17 @@ Application::SetStopTime(Time stop)
 {
     NS_LOG_FUNCTION(this << stop);
     m_stopTime = stop;
+
+    // Applications may adjust StopTime at runtime (e.g., handover/rebind cases).
+    // If the app is already initialized, re-arm the stop event from "now".
+    if (IsInitialized())
+    {
+        m_stopEvent.Cancel();
+        if (m_stopTime != TimeStep(0))
+        {
+            m_stopEvent = Simulator::Schedule(m_stopTime, &Application::StopApplication, this);
+        }
+    }
 }
 
 void

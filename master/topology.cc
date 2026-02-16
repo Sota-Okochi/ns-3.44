@@ -104,16 +104,33 @@ void NetSim::CreateMonitorNodes()
 
 void NetSim::CreateTerminalNodes()
 {
-    for (uint32_t i = 0; i < termNum; ++i)
+    if (m_nth == 5)
     {
-        Ptr<Node> term = CreateObject<Node>();
-        uint32_t apIndex = static_cast<uint32_t>(std::max(0, m_termData[i].apNo - 1));
-        if (apIndex >= wifiNodes.size())
+        // nth==5: 全端末を全APのコンテナに追加 → 全RATのデバイスが付く
+        for (uint32_t i = 0; i < termNum; ++i)
         {
-            apIndex = 0;
+            Ptr<Node> term = CreateObject<Node>();
+            for (uint32_t ap = 0; ap < APnum; ++ap)
+            {
+                wifiNodes[ap].Add(term);
+            }
+            terms.push_back(term);
         }
-        wifiNodes[apIndex].Add(term);
-        terms.push_back(term);
+    }
+    else
+    {
+        // 既存ロジック（単一APコンテナ）
+        for (uint32_t i = 0; i < termNum; ++i)
+        {
+            Ptr<Node> term = CreateObject<Node>();
+            uint32_t apIndex = static_cast<uint32_t>(std::max(0, m_termData[i].apNo - 1));
+            if (apIndex >= wifiNodes.size())
+            {
+                apIndex = 0;
+            }
+            wifiNodes[apIndex].Add(term);
+            terms.push_back(term);
+        }
     }
 }
 
@@ -379,7 +396,7 @@ void NetSim::ConfigureMobility(){
 void NetSim::ConfigureApMobility()
 {
     static const int kOffsets[4][2] = {{1, 1}, {-1, 1}, {1, -1}, {-1, -1}};
-    static const int kBase = 25;
+    static const int kBase = 10;
 
     NS_LOG_LOGIC("set mobility");
     uint32_t apCount = std::min<uint32_t>(APnum, static_cast<uint32_t>(wifiAPs.size()));
@@ -391,7 +408,7 @@ void NetSim::ConfigureApMobility()
 
         if (i == 0)
         {
-            posList->Add(Vector(0.0, -25.0, 10.0));
+            posList->Add(Vector(0.0, -10.0, 10.0));
         }
         else
         {
@@ -425,7 +442,7 @@ void NetSim::ConfigureTermMobility()
     }
 
     // 端末をAPの近く（半径 radius メートル以内）にランダム配置
-    const double radius = 20.0;
+    const double radius = 10.0;
     Ptr<UniformRandomVariable> rng = CreateObject<UniformRandomVariable>();
 
     for (uint32_t idx = 0; idx < terms.size(); ++idx)
@@ -787,6 +804,44 @@ void NetSim::ConfigureNetworkLayer(){
             DumpIpv4Info("PGW", m_nrEpcHelper->GetPgwNode());
         }
     }
+
+    // nth==5: マルチRAT端末のアクセス状態を初期化
+    if (m_nth == 5)
+    {
+        // Wi-Fi APゲートウェイIPを記録
+        m_wifiApGatewayIps.resize(APnum, Ipv4Address("0.0.0.0"));
+        for (uint32_t i = 0; i < APnum; ++i)
+        {
+            if (i < wifiAPs.size() && wifiAPs[i] != nullptr)
+            {
+                Ptr<Ipv4> apIpv4 = wifiAPs[i]->GetObject<Ipv4>();
+                if (apIpv4)
+                {
+                    // Wi-Fi AP側のIPを探す (10.1.{i}.x)
+                    std::stringstream wifiBase;
+                    wifiBase << "10.1." << i << ".";
+                    std::string prefix = wifiBase.str();
+                    for (uint32_t ifIdx = 0; ifIdx < apIpv4->GetNInterfaces(); ++ifIdx)
+                    {
+                        for (uint32_t a = 0; a < apIpv4->GetNAddresses(ifIdx); ++a)
+                        {
+                            std::ostringstream addrStr;
+                            addrStr << apIpv4->GetAddress(ifIdx, a).GetLocal();
+                            if (addrStr.str().substr(0, prefix.size()) == prefix)
+                            {
+                                m_wifiApGatewayIps[i] = apIpv4->GetAddress(ifIdx, a).GetLocal();
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // NRゲートウェイIPを記録
+        m_nrGateway = m_nrEpcHelper ? m_nrEpcHelper->GetUeDefaultGatewayAddress() : Ipv4Address("0.0.0.0");
+
+        InitializeTermAccessState();
+    }
 }
 
 void NetSim::ConfigureNrForAp0()
@@ -899,6 +954,184 @@ void NetSim::ConfigureNrIpAfterNetwork()
     {
         m_nrHelper->AttachToClosestGnb(m_nrUeDevs, m_nrGnbDevs);
     }
+}
+
+void NetSim::InitializeTermAccessState()
+{
+    Ipv4StaticRoutingHelper rh;
+    m_termAccessState.resize(termNum);
+    m_termAppStates.resize(termNum);
+
+    for (uint32_t i = 0; i < termNum; ++i)
+    {
+        Ptr<Node> term = terms[i];
+        if (term == nullptr)
+        {
+            continue;
+        }
+
+        TermAccessState& state = m_termAccessState[i];
+        state.currentAp = m_termData[i].apNo;
+        state.currentRat = (state.currentAp == 1) ? RatType::NR : RatType::WIFI;
+        state.nrIpv4 = Ipv4Address("0.0.0.0");
+        state.nrIfIndex = 0;
+        state.wifiIpv4.resize(APnum, Ipv4Address("0.0.0.0"));
+        state.wifiIfIndex.resize(APnum, 0);
+        state.lastSwitchTime = Seconds(0.0);
+        state.switchInProgress = false;
+
+        // TermAppState初期化
+        m_termAppStates[i].appType = m_termData[i].use_appli;
+        m_termAppStates[i].primaryPort = 0;
+        m_termAppStates[i].secondaryPort = 0;
+
+        Ptr<Ipv4> ipv4 = term->GetObject<Ipv4>();
+        if (!ipv4)
+        {
+            continue;
+        }
+
+        // 全インターフェースをスキャンしてNR/Wi-Fiを分類
+        for (uint32_t ifIdx = 0; ifIdx < ipv4->GetNInterfaces(); ++ifIdx)
+        {
+            for (uint32_t a = 0; a < ipv4->GetNAddresses(ifIdx); ++a)
+            {
+                Ipv4Address addr = ipv4->GetAddress(ifIdx, a).GetLocal();
+                if (addr == Ipv4Address("127.0.0.1"))
+                {
+                    continue;
+                }
+
+                std::ostringstream addrStr;
+                addrStr << addr;
+                std::string addrS = addrStr.str();
+
+                // NR: 7.x.x.x
+                if (addrS.substr(0, 2) == "7.")
+                {
+                    state.nrIpv4 = addr;
+                    state.nrIfIndex = ifIdx;
+                }
+                else
+                {
+                    // Wi-Fi: 10.1.{apIdx}.x
+                    for (uint32_t ap = 0; ap < APnum; ++ap)
+                    {
+                        std::ostringstream prefix;
+                        prefix << "10.1." << ap << ".";
+                        if (addrS.substr(0, prefix.str().size()) == prefix.str())
+                        {
+                            state.wifiIpv4[ap] = addr;
+                            state.wifiIfIndex[ap] = ifIdx;
+                        }
+                    }
+                }
+            }
+        }
+
+        // デフォルトルートを全削除してアクティブなものだけ再設定
+        Ptr<Ipv4StaticRouting> rt = rh.GetStaticRouting(ipv4);
+        // 既存のデフォルトルートを削除（後ろから削除）
+        for (int32_t r = static_cast<int32_t>(rt->GetNRoutes()) - 1; r >= 0; --r)
+        {
+            Ipv4RoutingTableEntry entry = rt->GetRoute(static_cast<uint32_t>(r));
+            if (entry.GetDest() == Ipv4Address("0.0.0.0") &&
+                entry.GetDestNetworkMask() == Ipv4Mask("0.0.0.0"))
+            {
+                rt->RemoveRoute(static_cast<uint32_t>(r));
+            }
+        }
+
+        // アクティブインターフェースのデフォルトルートを設定、他はSetDown
+        if (state.currentRat == RatType::NR)
+        {
+            // NRがアクティブ
+            rt->SetDefaultRoute(m_nrGateway, state.nrIfIndex);
+            // Wi-Fiインターフェースを無効化
+            for (uint32_t ap = 1; ap < APnum; ++ap)
+            {
+                if (state.wifiIfIndex[ap] > 0)
+                {
+                    ipv4->SetDown(state.wifiIfIndex[ap]);
+                }
+            }
+        }
+        else
+        {
+            // Wi-Fiがアクティブ
+            uint32_t apIdx = static_cast<uint32_t>(state.currentAp - 1);
+            if (apIdx < APnum && state.wifiIfIndex[apIdx] > 0 &&
+                m_wifiApGatewayIps[apIdx] != Ipv4Address("0.0.0.0"))
+            {
+                rt->SetDefaultRoute(m_wifiApGatewayIps[apIdx], state.wifiIfIndex[apIdx]);
+            }
+            // NRインターフェースを無効化
+            if (state.nrIfIndex > 0)
+            {
+                ipv4->SetDown(state.nrIfIndex);
+            }
+            // 他のWi-Fiインターフェースを無効化
+            for (uint32_t ap = 1; ap < APnum; ++ap)
+            {
+                uint32_t apI = ap;
+                if (apI != apIdx && state.wifiIfIndex[apI] > 0)
+                {
+                    ipv4->SetDown(state.wifiIfIndex[apI]);
+                }
+            }
+        }
+
+        std::cout << "[InitTermAccess] term=" << i
+                  << " ap=" << state.currentAp
+                  << " rat=" << (state.currentRat == RatType::NR ? "NR" : "WIFI")
+                  << " nrIP=" << state.nrIpv4
+                  << " nrIF=" << state.nrIfIndex;
+        for (uint32_t ap = 1; ap < APnum; ++ap)
+        {
+            std::cout << " wifiIP[" << ap << "]=" << state.wifiIpv4[ap]
+                      << " wifiIF[" << ap << "]=" << state.wifiIfIndex[ap];
+        }
+        std::cout << std::endl;
+    }
+}
+
+Ipv4Address NetSim::GetActiveIpv4(uint32_t termIdx) const
+{
+    if (m_nth != 5 || termIdx >= m_termAccessState.size())
+    {
+        // nth!=5の場合は従来のGetPrimaryIpv4相当
+        if (termIdx < terms.size() && terms[termIdx] != nullptr)
+        {
+            Ptr<Ipv4> ipv4 = terms[termIdx]->GetObject<Ipv4>();
+            if (ipv4)
+            {
+                for (uint32_t ifIdx = 0; ifIdx < ipv4->GetNInterfaces(); ++ifIdx)
+                {
+                    for (uint32_t a = 0; a < ipv4->GetNAddresses(ifIdx); ++a)
+                    {
+                        Ipv4Address addr = ipv4->GetAddress(ifIdx, a).GetLocal();
+                        if (addr != Ipv4Address("127.0.0.1"))
+                        {
+                            return addr;
+                        }
+                    }
+                }
+            }
+        }
+        return Ipv4Address("0.0.0.0");
+    }
+
+    const auto& state = m_termAccessState[termIdx];
+    if (state.currentRat == RatType::NR)
+    {
+        return state.nrIpv4;
+    }
+    uint32_t apIdx = static_cast<uint32_t>(state.currentAp - 1);
+    if (apIdx < state.wifiIpv4.size())
+    {
+        return state.wifiIpv4[apIdx];
+    }
+    return Ipv4Address("0.0.0.0");
 }
 
 } // namespace ns3

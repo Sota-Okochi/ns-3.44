@@ -44,6 +44,27 @@ enum APID{
     wifi4,
 };
 
+enum class RatType { NR, WIFI };
+
+struct TermAccessState {
+    int currentAp;              // 1-based
+    RatType currentRat;         // NR or WIFI
+    Ipv4Address nrIpv4;         // 7.x.x.x
+    std::vector<Ipv4Address> wifiIpv4; // index=apIdx (0-based), Wi-Fi AP毎のIP
+    uint32_t nrIfIndex;         // NRデバイスのIpv4インターフェース番号
+    std::vector<uint32_t> wifiIfIndex; // Wi-Fi AP毎のインターフェース番号
+    Time lastSwitchTime;
+    bool switchInProgress;
+};
+
+struct TermAppState {
+    int appType;                // 1=browser, 2=video, 3=voice, 4=game
+    uint16_t primaryPort;
+    uint16_t secondaryPort;     // voice/game downlink用
+    std::vector<Ptr<Application>> clientApps;
+    std::vector<Ptr<Application>> serverApps;
+};
+
 struct TermData
 {
     int use_appli;
@@ -140,6 +161,10 @@ private:
     std::vector<Ptr<APMonitorTerminal> > m_monitorApps;
 
     std::vector<TermData> m_termData;
+    std::vector<TermAccessState> m_termAccessState;
+    std::vector<TermAppState> m_termAppStates;
+    std::vector<Ipv4Address> m_wifiApGatewayIps;  // 各Wi-Fi APのゲートウェイIP
+    Ipv4Address m_nrGateway;                       // NR EPCゲートウェイIP
     ApSelectionInput m_apSelectionInput;
     std::vector<NodeContainer> m_routerCerNodes;
     std::vector<NetDeviceContainer> m_routerCerDevices;
@@ -185,6 +210,24 @@ private:
     void HandleHandoverRequest(const std::vector<int>& assignment);
     void ConfigureCycleParameters();
     void PrintAssignmentSummary(const std::vector<int>& assignment) const;
+
+    // 擬似ハンドオーバ関連
+    void ExecutePseudoHandoverBatch(const std::vector<std::pair<uint32_t, int>>& switchList);
+    void ExecuteWifiHandover(uint32_t termIdx, int oldAp, int newAp);
+    void ExecuteNrToWifiHandover(uint32_t termIdx, int newAp);
+    void ExecuteWifiToNrHandover(uint32_t termIdx);
+    void SwitchDefaultRoute(Ptr<Node> termNode, uint32_t newIfIndex, Ipv4Address newGateway);
+    void RebindTerminalApps(uint32_t termIdx, Ipv4Address newIp);
+    void ReinstallBrowserApp(uint32_t termIdx, Ipv4Address newIp, Time startTime, Time stopTime);
+    void ReinstallVideoApp(uint32_t termIdx, Ipv4Address newIp, Time startTime, Time stopTime);
+    void ReinstallVoiceApp(uint32_t termIdx, Ipv4Address newIp, Time startTime, Time stopTime);
+    void ReinstallOnlineGameApp(uint32_t termIdx, Ipv4Address newIp, Time startTime, Time stopTime);
+    void InitializeTermAccessState();
+    Ipv4Address GetActiveIpv4(uint32_t termIdx) const;
+    void LogHandoverEvent(double timeSec, uint32_t termId, int oldAp, int newAp,
+                          RatType oldRat, RatType newRat,
+                          Ipv4Address oldIp, Ipv4Address newIp,
+                          const std::string& result);
 
 };  //class
 

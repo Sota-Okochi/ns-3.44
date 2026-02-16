@@ -256,7 +256,7 @@ void NetSim::SetBrowserApp()
         {
             continue;
         }
-        Ipv4Address clientAddress = GetPrimaryIpv4(client);
+        Ipv4Address clientAddress = (m_nth == 5) ? GetActiveIpv4(i) : GetPrimaryIpv4(client);
         if (clientAddress == Ipv4Address("0.0.0.0"))
         {
             NS_LOG_WARN("Browser terminal " << i << " has no IPv4 address");
@@ -285,6 +285,18 @@ void NetSim::SetBrowserApp()
                                 requestDuration,
                                 requestBytes);
         }
+
+        // アプリ追跡（nth==5用）
+        if (m_nth == 5 && i < m_termAppStates.size())
+        {
+            m_termAppStates[i].appType = 1;
+            m_termAppStates[i].primaryPort = port;
+            if (sinkApps.GetN() > 0)
+            {
+                m_termAppStates[i].clientApps.push_back(sinkApps.Get(0));
+            }
+        }
+
         installedAny = true;
         NS_LOG_LOGIC("browser download configured for terminal " << i << " port " << port);
     }
@@ -331,7 +343,7 @@ void NetSim::SetVideoApp(void){
             continue;
         }
 
-        Ipv4Address clientAddress = GetPrimaryIpv4(client);
+        Ipv4Address clientAddress = (m_nth == 5) ? GetActiveIpv4(i) : GetPrimaryIpv4(client);
         if (clientAddress == Ipv4Address("0.0.0.0"))
         {
             NS_LOG_WARN("Video terminal " << i << " has no IPv4 address");
@@ -350,6 +362,22 @@ void NetSim::SetVideoApp(void){
         sinkApps.Stop(sinkStop);
         serverApps.Start(serverStart);
         serverApps.Stop(sinkStop);
+
+        // アプリ追跡（nth==5用）
+        if (m_nth == 5 && i < m_termAppStates.size())
+        {
+            m_termAppStates[i].appType = 2;
+            m_termAppStates[i].primaryPort = streamPort;
+            if (sinkApps.GetN() > 0)
+            {
+                m_termAppStates[i].clientApps.push_back(sinkApps.Get(0));
+            }
+            if (serverApps.GetN() > 0)
+            {
+                m_termAppStates[i].serverApps.push_back(serverApps.Get(0));
+            }
+        }
+
         installedAny = true;
         NS_LOG_LOGIC("video download configured for terminal " << i << " port " << streamPort);
         streamPort++;
@@ -462,7 +490,7 @@ void NetSim::SetVoiceApp(void){
             continue;
         }
 
-        Ipv4Address clientAddress = GetPrimaryIpv4(client);
+        Ipv4Address clientAddress = (m_nth == 5) ? GetActiveIpv4(i) : GetPrimaryIpv4(client);
         if (clientAddress == Ipv4Address("0.0.0.0"))
         {
             NS_LOG_WARN("Voice terminal " << i << " has no IPv4 address");
@@ -498,6 +526,30 @@ void NetSim::SetVoiceApp(void){
         ApplicationContainer downlinkSrcApps = downlinkSrc.Install(server_udpVoice);
         downlinkApps.Start(Seconds(1.0));
         downlinkSrcApps.Start(Seconds(1.0));
+
+        // アプリ追跡（nth==5用）
+        if (m_nth == 5 && i < m_termAppStates.size())
+        {
+            m_termAppStates[i].appType = 3;
+            m_termAppStates[i].primaryPort = port;
+            m_termAppStates[i].secondaryPort = downlinkPort;
+            if (clientApps.GetN() > 0)
+            {
+                m_termAppStates[i].clientApps.push_back(clientApps.Get(0));
+            }
+            if (serverApps.GetN() > 0)
+            {
+                m_termAppStates[i].serverApps.push_back(serverApps.Get(0));
+            }
+            if (downlinkSrcApps.GetN() > 0)
+            {
+                m_termAppStates[i].serverApps.push_back(downlinkSrcApps.Get(0));
+            }
+            if (downlinkApps.GetN() > 0)
+            {
+                m_termAppStates[i].clientApps.push_back(downlinkApps.Get(0));
+            }
+        }
 
         port++;
         downlinkPort++;
@@ -547,7 +599,7 @@ void NetSim::SetOnlineGameApp()
             continue;
         }
 
-        Ipv4Address clientAddress = GetPrimaryIpv4(client);
+        Ipv4Address clientAddress = (m_nth == 5) ? GetActiveIpv4(i) : GetPrimaryIpv4(client);
         if (clientAddress == Ipv4Address("0.0.0.0"))
         {
             NS_LOG_WARN("Online game terminal " << i << " has no IPv4 address");
@@ -594,6 +646,30 @@ void NetSim::SetOnlineGameApp()
         ApplicationContainer downlinkSrcApps = downlinkSrc.Install(server_onlineGame);
         downlinkSrcApps.Start(startTime);
         downlinkSrcApps.Stop(stopTime);
+
+        // アプリ追跡（nth==5用）
+        if (m_nth == 5 && i < m_termAppStates.size())
+        {
+            m_termAppStates[i].appType = 4;
+            m_termAppStates[i].primaryPort = uplinkPort;
+            m_termAppStates[i].secondaryPort = downlinkPort;
+            if (uplinkSrcApps.GetN() > 0)
+            {
+                m_termAppStates[i].clientApps.push_back(uplinkSrcApps.Get(0));
+            }
+            if (uplinkSinkApps.GetN() > 0)
+            {
+                m_termAppStates[i].serverApps.push_back(uplinkSinkApps.Get(0));
+            }
+            if (downlinkSrcApps.GetN() > 0)
+            {
+                m_termAppStates[i].serverApps.push_back(downlinkSrcApps.Get(0));
+            }
+            if (downlinkSinkApps.GetN() > 0)
+            {
+                m_termAppStates[i].clientApps.push_back(downlinkSinkApps.Get(0));
+            }
+        }
 
         installedAny = true;
         NS_LOG_LOGIC("online-game configured for terminal " << i);
@@ -678,6 +754,11 @@ void NetSim::BuildTerminalIpMap()
     m_terminalIpAddresses.resize(terms.size(), Ipv4Address("0.0.0.0"));
     for (uint32_t i = 0; i < terms.size(); ++i)
     {
+        if (m_nth == 5 && i < m_termAccessState.size())
+        {
+            m_terminalIpAddresses[i] = GetActiveIpv4(i);
+            continue;
+        }
         Ptr<Node> node = terms[i];
         if (node == nullptr)
         {
@@ -789,11 +870,363 @@ void NetSim::CollectTerminalThroughput()
                            perTerm[i].firstRx >= 0.0)
                               ? (perTerm[i].lastRx - perTerm[i].firstRx)
                               : 0.0;
+        // nth==5: 切替直後の端末はTP計測をスキップ
+        if (m_nth == 5 && i < m_termAccessState.size())
+        {
+            Time elapsed = Simulator::Now() - m_termAccessState[i].lastSwitchTime;
+            if (m_termAccessState[i].lastSwitchTime.IsPositive() && elapsed < Seconds(0.5))
+            {
+                continue;
+            }
+        }
+
         double tpBps = (duration > 0.0 && perTerm[i].totalBits > 0.0)
                            ? (perTerm[i].totalBits / duration)
                            : 0.0;
         m_kamedaServer->SetTerminalTp(static_cast<int>(i), tpBps);
     }
+}
+
+void NetSim::RebindTerminalApps(uint32_t termIdx, Ipv4Address newIp)
+{
+    if (termIdx >= m_termAppStates.size() || termIdx >= terms.size())
+    {
+        return;
+    }
+
+    TermAppState& appState = m_termAppStates[termIdx];
+
+    // 旧アプリを停止（実行中アプリに効かせるため SetStopTime を直接使用）
+    const Time stopDelay = MilliSeconds(1);
+    for (auto& app : appState.clientApps)
+    {
+        if (app)
+        {
+            app->SetStopTime(stopDelay);
+        }
+    }
+    for (auto& app : appState.serverApps)
+    {
+        if (app)
+        {
+            app->SetStopTime(stopDelay);
+        }
+    }
+    appState.clientApps.clear();
+    appState.serverApps.clear();
+
+    // 新アプリを再インストール（Start/Stop は再インストール時点からの相対時刻）
+    Time now = Simulator::Now();
+    Time startDelay = MilliSeconds(50);
+    Time remaining = m_simulationDuration - now;
+    if (remaining <= startDelay)
+    {
+        return;
+    }
+    Time runDuration = remaining;
+
+    switch (appState.appType)
+    {
+    case 1:
+        ReinstallBrowserApp(termIdx, newIp, startDelay, runDuration);
+        break;
+    case 2:
+        ReinstallVideoApp(termIdx, newIp, startDelay, runDuration);
+        break;
+    case 3:
+        ReinstallVoiceApp(termIdx, newIp, startDelay, runDuration);
+        break;
+    case 4:
+        ReinstallOnlineGameApp(termIdx, newIp, startDelay, runDuration);
+        break;
+    default:
+        break;
+    }
+}
+
+void NetSim::ReinstallBrowserApp(uint32_t termIdx, Ipv4Address newIp, Time startTime, Time stopTime)
+{
+    if (termIdx >= terms.size() || server_browser == nullptr)
+    {
+        return;
+    }
+
+    Ptr<Node> client = terms[termIdx];
+    if (client == nullptr || newIp == Ipv4Address("0.0.0.0"))
+    {
+        return;
+    }
+
+    uint16_t port = m_termAppStates[termIdx].primaryPort;
+
+    PacketSinkHelper sinkHelper("ns3::TcpSocketFactory",
+                                InetSocketAddress(Ipv4Address::GetAny(), port));
+    ApplicationContainer sinkApps = sinkHelper.Install(client);
+    sinkApps.Start(startTime);
+    sinkApps.Stop(stopTime);
+
+    const uint32_t requestBytes = 512u * 1024u;
+    const Time requestDuration = Seconds(0.5);
+    const Time interval =
+        m_browserRequestInterval.IsZero() ? Seconds(1.0) : m_browserRequestInterval;
+    const uint32_t requestCount = std::max<uint32_t>(1, m_browserRequestCount);
+
+    // 残りサイクル分のブラウザリクエストをスケジュール
+    uint32_t remainingCycles = 0;
+    Time now = Simulator::Now();
+    for (uint32_t c = 0; c < m_cycleCount; ++c)
+    {
+        Time cycleStart = m_cycleDuration * c + Seconds(1.0);
+        if (cycleStart > now)
+        {
+            remainingCycles++;
+            Simulator::Schedule(cycleStart - now,
+                                &ScheduleBrowserDownload,
+                                server_browser,
+                                newIp,
+                                port,
+                                0,
+                                requestCount,
+                                interval,
+                                requestDuration,
+                                requestBytes);
+        }
+    }
+
+    // 直近のリクエストも投入
+    if (remainingCycles == 0)
+    {
+        Simulator::Schedule(startTime,
+                            &ScheduleBrowserDownload,
+                            server_browser,
+                            newIp,
+                            port,
+                            0,
+                            requestCount,
+                            interval,
+                            requestDuration,
+                            requestBytes);
+    }
+
+    if (sinkApps.GetN() > 0)
+    {
+        m_termAppStates[termIdx].clientApps.push_back(sinkApps.Get(0));
+    }
+
+    std::cout << "[ReinstallBrowser] term=" << termIdx << " newIP=" << newIp
+              << " port=" << port
+              << " startDelay=" << startTime.GetSeconds()
+              << " stopDelay=" << stopTime.GetSeconds()
+              << " now=" << Simulator::Now().GetSeconds()
+              << std::endl;
+}
+
+void NetSim::ReinstallVideoApp(uint32_t termIdx, Ipv4Address newIp, Time startTime, Time stopTime)
+{
+    if (termIdx >= terms.size() || server_udpVideo == nullptr)
+    {
+        return;
+    }
+
+    Ptr<Node> client = terms[termIdx];
+    if (client == nullptr || newIp == Ipv4Address("0.0.0.0"))
+    {
+        return;
+    }
+
+    uint16_t port = m_termAppStates[termIdx].primaryPort;
+
+    PacketSinkHelper sinkHelper("ns3::UdpSocketFactory",
+                                InetSocketAddress(Ipv4Address::GetAny(), port));
+    ApplicationContainer sinkApps = sinkHelper.Install(client);
+    sinkApps.Start(startTime);
+    sinkApps.Stop(stopTime);
+
+    std::string traceFile = std::string(INPUT_DIR) + "YouTube1080p_2min.dat";
+    UdpTraceClientHelper udpClient(newIp, port, traceFile);
+    ApplicationContainer serverApps = udpClient.Install(server_udpVideo);
+    serverApps.Start(startTime);
+    serverApps.Stop(stopTime);
+
+    if (sinkApps.GetN() > 0)
+    {
+        m_termAppStates[termIdx].clientApps.push_back(sinkApps.Get(0));
+    }
+    if (serverApps.GetN() > 0)
+    {
+        m_termAppStates[termIdx].serverApps.push_back(serverApps.Get(0));
+    }
+
+    std::cout << "[ReinstallVideo] term=" << termIdx << " newIP=" << newIp
+              << " port=" << port
+              << " startDelay=" << startTime.GetSeconds()
+              << " stopDelay=" << stopTime.GetSeconds()
+              << " now=" << Simulator::Now().GetSeconds()
+              << std::endl;
+}
+
+void NetSim::ReinstallVoiceApp(uint32_t termIdx, Ipv4Address newIp, Time startTime, Time stopTime)
+{
+    if (termIdx >= terms.size() || server_udpVoice == nullptr)
+    {
+        return;
+    }
+
+    Ptr<Node> client = terms[termIdx];
+    if (client == nullptr || newIp == Ipv4Address("0.0.0.0"))
+    {
+        return;
+    }
+
+    uint16_t port = m_termAppStates[termIdx].primaryPort;
+    uint16_t downlinkPort = m_termAppStates[termIdx].secondaryPort;
+
+    Ipv4Address voiceServerAddress = GetPrimaryIpv4(server_udpVoice);
+    if (voiceServerAddress == Ipv4Address("0.0.0.0"))
+    {
+        return;
+    }
+
+    const int phoneINTERVAL = 20;
+    const int phoneMAXPACKETS = 1000000;
+    const int phonePACKETSIZE = 60;
+
+    // Uplink: Echo client -> server
+    PacketSinkHelper packetsh("ns3::UdpSocketFactory",
+                              InetSocketAddress(Ipv4Address::GetAny(), port));
+    ApplicationContainer serverApps = packetsh.Install(server_udpVoice);
+    UdpEchoClientHelper udpClient(voiceServerAddress, port);
+    udpClient.SetAttribute("Interval", TimeValue(MilliSeconds(phoneINTERVAL)));
+    udpClient.SetAttribute("MaxPackets", UintegerValue(phoneMAXPACKETS));
+    udpClient.SetAttribute("PacketSize", UintegerValue(phonePACKETSIZE));
+    ApplicationContainer clientApps = udpClient.Install(client);
+    serverApps.Start(startTime);
+    clientApps.Start(startTime);
+
+    // Downlink: server -> client
+    PacketSinkHelper downlinkSink("ns3::UdpSocketFactory",
+                                  InetSocketAddress(Ipv4Address::GetAny(), downlinkPort));
+    ApplicationContainer downlinkApps = downlinkSink.Install(client);
+    OnOffHelper downlinkSrc("ns3::UdpSocketFactory",
+                            InetSocketAddress(newIp, downlinkPort));
+    downlinkSrc.SetAttribute("PacketSize", UintegerValue(phonePACKETSIZE));
+    downlinkSrc.SetAttribute("DataRate", DataRateValue(DataRate("24000bps")));
+    downlinkSrc.SetAttribute("OnTime",
+                             StringValue("ns3::ConstantRandomVariable[Constant=1.0]"));
+    downlinkSrc.SetAttribute("OffTime",
+                             StringValue("ns3::ConstantRandomVariable[Constant=0.0]"));
+    downlinkSrc.SetAttribute("MaxBytes", UintegerValue(0));
+    ApplicationContainer downlinkSrcApps = downlinkSrc.Install(server_udpVoice);
+    downlinkApps.Start(startTime);
+    downlinkSrcApps.Start(startTime);
+
+    if (clientApps.GetN() > 0)
+    {
+        m_termAppStates[termIdx].clientApps.push_back(clientApps.Get(0));
+    }
+    if (serverApps.GetN() > 0)
+    {
+        m_termAppStates[termIdx].serverApps.push_back(serverApps.Get(0));
+    }
+    if (downlinkSrcApps.GetN() > 0)
+    {
+        m_termAppStates[termIdx].serverApps.push_back(downlinkSrcApps.Get(0));
+    }
+    if (downlinkApps.GetN() > 0)
+    {
+        m_termAppStates[termIdx].clientApps.push_back(downlinkApps.Get(0));
+    }
+
+    std::cout << "[ReinstallVoice] term=" << termIdx << " newIP=" << newIp
+              << " port=" << port << "/" << downlinkPort << std::endl;
+}
+
+void NetSim::ReinstallOnlineGameApp(uint32_t termIdx, Ipv4Address newIp, Time startTime, Time stopTime)
+{
+    if (termIdx >= terms.size() || server_onlineGame == nullptr)
+    {
+        return;
+    }
+
+    Ptr<Node> client = terms[termIdx];
+    if (client == nullptr || newIp == Ipv4Address("0.0.0.0"))
+    {
+        return;
+    }
+
+    uint16_t uplinkPort = m_termAppStates[termIdx].primaryPort;
+    uint16_t downlinkPort = m_termAppStates[termIdx].secondaryPort;
+
+    Ipv4Address serverAddress = GetPrimaryIpv4(server_onlineGame);
+    if (serverAddress == Ipv4Address("0.0.0.0"))
+    {
+        return;
+    }
+
+    const uint32_t packetSizeBytes = 200;
+    const Time tickInterval = MilliSeconds(33);
+    const uint64_t dataRateBps =
+        static_cast<uint64_t>((static_cast<double>(packetSizeBytes) * 8.0) / tickInterval.GetSeconds());
+
+    // Uplink: client -> server
+    PacketSinkHelper uplinkSink("ns3::UdpSocketFactory",
+                                InetSocketAddress(Ipv4Address::GetAny(), uplinkPort));
+    ApplicationContainer uplinkSinkApps = uplinkSink.Install(server_onlineGame);
+    uplinkSinkApps.Start(startTime);
+    uplinkSinkApps.Stop(stopTime);
+
+    OnOffHelper uplinkSrc("ns3::UdpSocketFactory",
+                          InetSocketAddress(serverAddress, uplinkPort));
+    uplinkSrc.SetAttribute("PacketSize", UintegerValue(packetSizeBytes));
+    uplinkSrc.SetAttribute("DataRate", DataRateValue(DataRate(dataRateBps)));
+    uplinkSrc.SetAttribute("OnTime",
+                           StringValue("ns3::ConstantRandomVariable[Constant=1.0]"));
+    uplinkSrc.SetAttribute("OffTime",
+                           StringValue("ns3::ConstantRandomVariable[Constant=0.0]"));
+    uplinkSrc.SetAttribute("MaxBytes", UintegerValue(0));
+    ApplicationContainer uplinkSrcApps = uplinkSrc.Install(client);
+    uplinkSrcApps.Start(startTime);
+    uplinkSrcApps.Stop(stopTime);
+
+    // Downlink: server -> client
+    PacketSinkHelper downlinkSink("ns3::UdpSocketFactory",
+                                  InetSocketAddress(Ipv4Address::GetAny(), downlinkPort));
+    ApplicationContainer downlinkSinkApps = downlinkSink.Install(client);
+    downlinkSinkApps.Start(startTime);
+    downlinkSinkApps.Stop(stopTime);
+
+    OnOffHelper downlinkSrc("ns3::UdpSocketFactory",
+                            InetSocketAddress(newIp, downlinkPort));
+    downlinkSrc.SetAttribute("PacketSize", UintegerValue(packetSizeBytes));
+    downlinkSrc.SetAttribute("DataRate", DataRateValue(DataRate(dataRateBps)));
+    downlinkSrc.SetAttribute("OnTime",
+                             StringValue("ns3::ConstantRandomVariable[Constant=1.0]"));
+    downlinkSrc.SetAttribute("OffTime",
+                             StringValue("ns3::ConstantRandomVariable[Constant=0.0]"));
+    downlinkSrc.SetAttribute("MaxBytes", UintegerValue(0));
+    ApplicationContainer downlinkSrcApps = downlinkSrc.Install(server_onlineGame);
+    downlinkSrcApps.Start(startTime);
+    downlinkSrcApps.Stop(stopTime);
+
+    if (uplinkSrcApps.GetN() > 0)
+    {
+        m_termAppStates[termIdx].clientApps.push_back(uplinkSrcApps.Get(0));
+    }
+    if (uplinkSinkApps.GetN() > 0)
+    {
+        m_termAppStates[termIdx].serverApps.push_back(uplinkSinkApps.Get(0));
+    }
+    if (downlinkSrcApps.GetN() > 0)
+    {
+        m_termAppStates[termIdx].serverApps.push_back(downlinkSrcApps.Get(0));
+    }
+    if (downlinkSinkApps.GetN() > 0)
+    {
+        m_termAppStates[termIdx].clientApps.push_back(downlinkSinkApps.Get(0));
+    }
+
+    std::cout << "[ReinstallOnlineGame] term=" << termIdx << " newIP=" << newIp
+              << " port=" << uplinkPort << "/" << downlinkPort << std::endl;
 }
 
 } // namespace ns3

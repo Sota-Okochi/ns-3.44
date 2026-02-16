@@ -144,7 +144,9 @@ PacketSink::StartApplication() // Called at time specified by Start
         }
         if (m_socket->Bind(local) == -1)
         {
-            NS_FATAL_ERROR("Failed to bind socket");
+            NS_FATAL_ERROR("Failed to bind socket at t=" << Simulator::Now().GetSeconds()
+                                                         << "s node=" << GetNode()->GetId()
+                                                         << " local=" << local);
         }
         m_socket->Listen();
         m_socket->ShutdownSend();
@@ -176,7 +178,9 @@ PacketSink::StartApplication() // Called at time specified by Start
         auto local = Inet6SocketAddress(Ipv6Address::GetAny(), m_port);
         if (m_socket6->Bind(local) == -1)
         {
-            NS_FATAL_ERROR("Failed to bind socket");
+            NS_FATAL_ERROR("Failed to bind socket at t=" << Simulator::Now().GetSeconds()
+                                                         << "s node=" << GetNode()->GetId()
+                                                         << " local=" << local);
         }
         m_socket6->Listen();
         m_socket6->ShutdownSend();

@@ -58,6 +58,33 @@ void NetSim::HandleHandoverRequest(const std::vector<int>& assignment)
         return;
     }
 
+    // nth==5:
+    if (m_nth == 5 && !m_termAccessState.empty())
+    {
+        // 差分抽出
+        std::vector<std::pair<uint32_t, int>> switchList;
+        size_t termCount = std::min<size_t>(assignment.size(), m_termAccessState.size());
+        for (size_t i = 0; i < termCount; ++i)
+        {
+            if (assignment[i] != m_termAccessState[i].currentAp)
+            {
+                switchList.push_back({static_cast<uint32_t>(i), assignment[i]});
+            }
+        }
+
+        if (!switchList.empty())
+        {
+            std::cout << "[Handover] " << switchList.size()
+                      << " terminals need handover at t="
+                      << Simulator::Now().GetSeconds() << "s" << std::endl;
+            ExecutePseudoHandoverBatch(switchList);
+        }
+        else
+        {
+            std::cout << "[Handover] No AP changes detected" << std::endl;
+        }
+    }
+
     m_activeAssignment = assignment;
 
     size_t termCount = std::min<size_t>(assignment.size(), m_termData.size());
@@ -98,6 +125,230 @@ void NetSim::PrintAssignmentSummary(const std::vector<int>& assignment) const
     {
         std::cout << "  AP" << (i + 1) << ": " << counts[i] << " terminals" << std::endl;
     }
+}
+
+void NetSim::ExecutePseudoHandoverBatch(const std::vector<std::pair<uint32_t, int>>& switchList)
+{
+    for (const auto& entry : switchList)
+    {
+        uint32_t termIdx = entry.first;
+        int newAp = entry.second;
+
+        if (termIdx >= m_termAccessState.size())
+        {
+            continue;
+        }
+
+        int oldAp = m_termAccessState[termIdx].currentAp;
+        RatType oldRat = m_termAccessState[termIdx].currentRat;
+        RatType newRat = (newAp == 1) ? RatType::NR : RatType::WIFI;
+
+        Ipv4Address oldIp = GetActiveIpv4(termIdx);
+
+        if (oldRat == RatType::NR && newRat == RatType::NR)
+        {
+            // NR→NR: gNBが1台のためno-op
+            continue;
+        }
+        else if (oldRat == RatType::WIFI && newRat == RatType::WIFI)
+        {
+            ExecuteWifiHandover(termIdx, oldAp, newAp);
+        }
+        else if (oldRat == RatType::NR && newRat == RatType::WIFI)
+        {
+            ExecuteNrToWifiHandover(termIdx, newAp);
+        }
+        else if (oldRat == RatType::WIFI && newRat == RatType::NR)
+        {
+            ExecuteWifiToNrHandover(termIdx);
+        }
+
+        Ipv4Address newIp = GetActiveIpv4(termIdx);
+        LogHandoverEvent(Simulator::Now().GetSeconds(), termIdx, oldAp, newAp,
+                         oldRat, newRat, oldIp, newIp, "OK");
+    }
+
+    // ハンドオーバ後にIPマップを再構築
+    BuildTerminalIpMap();
+
+    // FlowMonitor統計リセット
+    if (m_termFlowMonitor != nullptr)
+    {
+        m_termFlowMonitor->ResetAllStats();
+    }
+}
+
+void NetSim::SwitchDefaultRoute(Ptr<Node> termNode, uint32_t newIfIndex, Ipv4Address newGateway)
+{
+    if (termNode == nullptr)
+    {
+        return;
+    }
+
+    Ptr<Ipv4> ipv4 = termNode->GetObject<Ipv4>();
+    if (!ipv4)
+    {
+        return;
+    }
+
+    Ipv4StaticRoutingHelper rh;
+    Ptr<Ipv4StaticRouting> rt = rh.GetStaticRouting(ipv4);
+
+    // 既存のデフォルトルートを全削除（後ろから）
+    for (int32_t r = static_cast<int32_t>(rt->GetNRoutes()) - 1; r >= 0; --r)
+    {
+        Ipv4RoutingTableEntry entry = rt->GetRoute(static_cast<uint32_t>(r));
+        if (entry.GetDest() == Ipv4Address("0.0.0.0") &&
+            entry.GetDestNetworkMask() == Ipv4Mask("0.0.0.0"))
+        {
+            rt->RemoveRoute(static_cast<uint32_t>(r));
+        }
+    }
+
+    // 新インターフェースをUpにしてデフォルトルートを設定
+    if (!ipv4->IsUp(newIfIndex))
+    {
+        ipv4->SetUp(newIfIndex);
+    }
+    rt->SetDefaultRoute(newGateway, newIfIndex);
+}
+
+void NetSim::ExecuteWifiHandover(uint32_t termIdx, int oldAp, int newAp)
+{
+    Ptr<Node> term = terms[termIdx];
+    TermAccessState& state = m_termAccessState[termIdx];
+
+    uint32_t oldApIdx = static_cast<uint32_t>(oldAp - 1);
+    uint32_t newApIdx = static_cast<uint32_t>(newAp - 1);
+
+    Ptr<Ipv4> ipv4 = term->GetObject<Ipv4>();
+
+    // 旧Wi-Fiインターフェースを無効化
+    if (oldApIdx < state.wifiIfIndex.size() && state.wifiIfIndex[oldApIdx] > 0)
+    {
+        ipv4->SetDown(state.wifiIfIndex[oldApIdx]);
+    }
+
+    // 新Wi-Fiインターフェースを有効化してルート設定
+    if (newApIdx < state.wifiIfIndex.size() && newApIdx < m_wifiApGatewayIps.size())
+    {
+        SwitchDefaultRoute(term, state.wifiIfIndex[newApIdx], m_wifiApGatewayIps[newApIdx]);
+    }
+
+    // アプリ再バインド
+    Ipv4Address newIp = state.wifiIpv4[newApIdx];
+    RebindTerminalApps(termIdx, newIp);
+
+    // 状態更新
+    state.currentAp = newAp;
+    state.currentRat = RatType::WIFI;
+    state.lastSwitchTime = Simulator::Now();
+
+    std::cout << "[WiFi→WiFi] term=" << termIdx
+              << " AP" << oldAp << "→AP" << newAp
+              << " IP=" << newIp << std::endl;
+}
+
+void NetSim::ExecuteNrToWifiHandover(uint32_t termIdx, int newAp)
+{
+    Ptr<Node> term = terms[termIdx];
+    TermAccessState& state = m_termAccessState[termIdx];
+
+    uint32_t newApIdx = static_cast<uint32_t>(newAp - 1);
+
+    Ptr<Ipv4> ipv4 = term->GetObject<Ipv4>();
+
+    // NRインターフェースを無効化
+    if (state.nrIfIndex > 0)
+    {
+        ipv4->SetDown(state.nrIfIndex);
+    }
+
+    // Wi-Fiインターフェースを有効化してルート設定
+    if (newApIdx < state.wifiIfIndex.size() && newApIdx < m_wifiApGatewayIps.size())
+    {
+        SwitchDefaultRoute(term, state.wifiIfIndex[newApIdx], m_wifiApGatewayIps[newApIdx]);
+    }
+
+    // アプリ再バインド
+    Ipv4Address newIp = state.wifiIpv4[newApIdx];
+    RebindTerminalApps(termIdx, newIp);
+
+    // 状態更新
+    state.currentAp = newAp;
+    state.currentRat = RatType::WIFI;
+    state.lastSwitchTime = Simulator::Now();
+
+    std::cout << "[NR→WiFi] term=" << termIdx
+              << " AP1→AP" << newAp
+              << " IP=" << newIp << std::endl;
+}
+
+void NetSim::ExecuteWifiToNrHandover(uint32_t termIdx)
+{
+    Ptr<Node> term = terms[termIdx];
+    TermAccessState& state = m_termAccessState[termIdx];
+
+    uint32_t oldApIdx = static_cast<uint32_t>(state.currentAp - 1);
+
+    Ptr<Ipv4> ipv4 = term->GetObject<Ipv4>();
+
+    // 旧Wi-Fiインターフェースを無効化
+    if (oldApIdx < state.wifiIfIndex.size() && state.wifiIfIndex[oldApIdx] > 0)
+    {
+        ipv4->SetDown(state.wifiIfIndex[oldApIdx]);
+    }
+
+    // NRインターフェースを有効化してルート設定
+    SwitchDefaultRoute(term, state.nrIfIndex, m_nrGateway);
+
+    // アプリ再バインド
+    RebindTerminalApps(termIdx, state.nrIpv4);
+
+    // 状態更新
+    int oldAp = state.currentAp;
+    state.currentAp = 1;
+    state.currentRat = RatType::NR;
+    state.lastSwitchTime = Simulator::Now();
+
+    std::cout << "[WiFi→NR] term=" << termIdx
+              << " AP" << oldAp << "→AP1"
+              << " IP=" << state.nrIpv4 << std::endl;
+}
+
+void NetSim::LogHandoverEvent(double timeSec, uint32_t termId, int oldAp, int newAp,
+                               RatType oldRat, RatType newRat,
+                               Ipv4Address oldIp, Ipv4Address newIp,
+                               const std::string& result)
+{
+    static bool headerWritten = false;
+    const std::string filePath = std::string(OUTPUT_DIR) + "handover-events.csv";
+
+    std::ofstream ofs(filePath, std::ios::app);
+    if (!ofs.good())
+    {
+        return;
+    }
+
+    if (!headerWritten)
+    {
+        ofs << "time_s,term_id,old_ap,new_ap,old_rat,new_rat,old_ip,new_ip,result\n";
+        headerWritten = true;
+    }
+
+    auto ratStr = [](RatType r) -> std::string {
+        return (r == RatType::NR) ? "NR" : "WIFI";
+    };
+
+    ofs << timeSec << ","
+        << termId << ","
+        << oldAp << ","
+        << newAp << ","
+        << ratStr(oldRat) << ","
+        << ratStr(newRat) << ","
+        << oldIp << ","
+        << newIp << ","
+        << result << "\n";
 }
 
 } // namespace ns3
