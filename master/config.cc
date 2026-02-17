@@ -162,6 +162,7 @@ NetSim::NetSim()
     m_enableOnlineGameTracing = true;
     m_goodputReportScheduled = false;
     m_currentCycle = 0;
+    m_terminalTpWindowStart = Seconds(0.0);
 
     // Ensure OUTPUT directory exists before writing trace or log files
     SystemPath::MakeDirectories(OUTPUT_DIR);

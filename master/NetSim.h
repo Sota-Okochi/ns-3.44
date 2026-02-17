@@ -189,6 +189,7 @@ private:
     Ptr<FlowMonitor> m_termFlowMonitor;
     Ptr<Ipv4FlowClassifier> m_termFlowClassifier;
     std::vector<Ipv4Address> m_terminalIpAddresses;
+    Time m_terminalTpWindowStart;
     Ptr<KamedaAppServer> m_kamedaServer;
     void BuildTerminalIpMap();
     void ResetTerminalFlowStats();

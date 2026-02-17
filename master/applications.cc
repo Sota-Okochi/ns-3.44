@@ -787,6 +787,8 @@ void NetSim::BuildTerminalIpMap()
 
 void NetSim::ResetTerminalFlowStats()
 {
+    // TPは「サイクル固定窓」平均で評価するため、窓開始時刻を保持する。
+    m_terminalTpWindowStart = Simulator::Now();
     if (m_termFlowMonitor != nullptr)
     {
         m_termFlowMonitor->ResetAllStats();
@@ -804,14 +806,18 @@ void NetSim::CollectTerminalThroughput()
     m_termFlowMonitor->CheckForLostPackets();
     auto stats = m_termFlowMonitor->GetFlowStats();
 
-    // 各端末宛の受信ビット数と時間範囲を集計
+    // 各端末宛の受信ビット数を集計
     struct TermStats
     {
         double totalBits = 0.0;
-        double firstRx = -1.0;
-        double lastRx = -1.0;
     };
     std::vector<TermStats> perTerm(terms.size());
+
+    const double fixedWindowSec = (Simulator::Now() - m_terminalTpWindowStart).GetSeconds();
+    if (fixedWindowSec <= 0.0)
+    {
+        return;
+    }
 
     for (const auto& kv : stats)
     {
@@ -824,13 +830,6 @@ void NetSim::CollectTerminalThroughput()
 
         Ipv4FlowClassifier::FiveTuple tuple =
             m_termFlowClassifier->FindFlow(flowId);
-
-        double start = fs.timeFirstRxPacket.GetSeconds();
-        double end = fs.timeLastRxPacket.GetSeconds();
-        if (end <= start)
-        {
-            continue;
-        }
 
         double bits = static_cast<double>(fs.rxBytes) * 8.0;
 
@@ -847,14 +846,6 @@ void NetSim::CollectTerminalThroughput()
             }
 
             perTerm[i].totalBits += bits;
-            if (perTerm[i].firstRx < 0.0 || start < perTerm[i].firstRx)
-            {
-                perTerm[i].firstRx = start;
-            }
-            if (perTerm[i].lastRx < 0.0 || end > perTerm[i].lastRx)
-            {
-                perTerm[i].lastRx = end;
-            }
             break;
         }
     }
@@ -866,10 +857,6 @@ void NetSim::CollectTerminalThroughput()
         {
             continue;
         }
-        double duration = (perTerm[i].lastRx > perTerm[i].firstRx &&
-                           perTerm[i].firstRx >= 0.0)
-                              ? (perTerm[i].lastRx - perTerm[i].firstRx)
-                              : 0.0;
         // nth==5: 切替直後の端末はTP計測をスキップ
         if (m_nth == 5 && i < m_termAccessState.size())
         {
@@ -880,8 +867,8 @@ void NetSim::CollectTerminalThroughput()
             }
         }
 
-        double tpBps = (duration > 0.0 && perTerm[i].totalBits > 0.0)
-                           ? (perTerm[i].totalBits / duration)
+        double tpBps = (perTerm[i].totalBits > 0.0)
+                           ? (perTerm[i].totalBits / fixedWindowSec)
                            : 0.0;
         m_kamedaServer->SetTerminalTp(static_cast<int>(i), tpBps);
     }
