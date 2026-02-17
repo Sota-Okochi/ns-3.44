@@ -332,7 +332,7 @@ void APselection::random_assignment() {
     }
 }
 
-// 方策による割り当て（不満足端末のみ再割り当て）
+// 方策による割り当て（3分類し、不満足端末のみ再割り当て）
 void APselection::policy_assignment1() {
     std::cout << "=== APselection::policy_assignment1() ===" << std::endl;
 
@@ -347,6 +347,7 @@ void APselection::policy_assignment1() {
 
     // 端末ごとの満足度を格納（0ベースインデックス）
     std::vector<double> satisfactionPerTerm(terms, -1.0);
+    std::vector<bool> hasSatisfaction(terms, false);
 
     std::string line;
     // ヘッダー行をスキップ
@@ -371,9 +372,21 @@ void APselection::policy_assignment1() {
         if (termIdx >= 0 && termIdx < terms)
         {
             satisfactionPerTerm[termIdx] = satisfaction;
+            hasSatisfaction[termIdx] = true;
         }
     }
     ifs.close();
+
+    // 当該サイクル行が欠損していた端末は、現在のTP/RTTとアプリ情報から満足度を再計算
+    for (int i = 0; i < terms; ++i)
+    {
+        if (hasSatisfaction[i])
+        {
+            continue;
+        }
+        int apIdx = initial_AP[i] - 1;
+        satisfactionPerTerm[i] = calculate_satisfaction(i, apIdx);
+    }
 
     // 割り当て結果（初期値は現在のAP）
     std::vector<int> assignment = initial_AP;
@@ -381,31 +394,45 @@ void APselection::policy_assignment1() {
     std::random_device rd;
     std::mt19937 gen(rd());
 
+    int superSatisfiedCount = 0;
+    int satisfiedCount = 0;
     int unsatisfiedCount = 0;
     for (int i = 0; i < terms; ++i)
     {
-        if (satisfactionPerTerm[i] < 1.0)
+        const double satisfaction = satisfactionPerTerm[i];
+
+        if (satisfaction > 1.2)
         {
-            unsatisfiedCount++;
-            // 現在のAP以外からランダムに選択
-            int currentAp = initial_AP[i]; // 1ベース
-            std::vector<int> candidates;
-            for (int ap = 1; ap <= aps; ++ap)
+            superSatisfiedCount++;
+            continue;
+        }
+
+        if (satisfaction >= 0.8)
+        {
+            satisfiedCount++;
+            continue;
+        }
+
+        // 不満足端末（<0.8）のみ切り替え対象
+        unsatisfiedCount++;
+        int currentAp = initial_AP[i]; // 1ベース
+        std::vector<int> candidates;
+        for (int ap = 1; ap <= aps; ++ap)
+        {
+            if (ap != currentAp)
             {
-                if (ap != currentAp)
-                {
-                    candidates.push_back(ap);
-                }
-            }
-            if (!candidates.empty())
-            {
-                std::uniform_int_distribution<> dist(0, static_cast<int>(candidates.size()) - 1);
-                assignment[i] = candidates[dist(gen)];
+                candidates.push_back(ap);
             }
         }
-        // 満足度 >= 1.0 の端末は assignment[i] = initial_AP[i] のまま維持
+        if (!candidates.empty())
+        {
+            std::uniform_int_distribution<> dist(0, static_cast<int>(candidates.size()) - 1);
+            assignment[i] = candidates[dist(gen)];
+        }
     }
 
+    std::cout << "超満足端末数: " << superSatisfiedCount << " / " << terms << std::endl;
+    std::cout << "満足端末数: " << satisfiedCount << " / " << terms << std::endl;
     std::cout << "不満足端末数: " << unsatisfiedCount << " / " << terms << std::endl;
     std::cout << "割り当て結果: [";
     for (size_t i = 0; i < assignment.size(); ++i) {

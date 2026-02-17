@@ -917,6 +917,11 @@ void NetSim::ConfigureNrForAp0()
     // Use finer scheduling granularity to improve per-UE allocation under load.
     m_nrHelper->SetGnbMacAttribute("NumRbPerRbg", UintegerValue(2));
 
+    // 100 MHz @ 3.5 GHz requires numerology 1 (30 kHz SCS).
+    // Default numerology 0 (15 kHz SCS) only supports up to 50 MHz,
+    // causing severe RB limitation and extremely low throughput.
+    m_nrHelper->SetGnbPhyAttribute("Numerology", UintegerValue(1));
+
     // Align PHY capabilities with the wider resource budget
     m_nrHelper->SetGnbPhyAttribute("TxPower", DoubleValue(40.0));
     m_nrHelper->SetUePhyAttribute("TxPower", DoubleValue(26.0));
@@ -929,7 +934,7 @@ void NetSim::ConfigureNrForAp0()
                                                    nrChannelBwHz,
                                                    nrNumComponentCarriers);
     std::vector<CcBwpCreator::SimpleOperationBandConf> bandConfs = {wideBand};
-    auto bwpsPair = m_nrHelper->CreateBandwidthParts(bandConfs, "UMa", "Default", "ThreeGpp");
+    auto bwpsPair = m_nrHelper->CreateBandwidthParts(bandConfs, "UMi", "Default", "ThreeGpp");
     auto allBwps = bwpsPair.second;
 
     NodeContainer gnb;
