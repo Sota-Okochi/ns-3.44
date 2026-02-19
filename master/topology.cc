@@ -905,6 +905,10 @@ void NetSim::ConfigureNrForAp0()
     const double nrChannelBwHz = 100e6;
     const uint8_t nrNumComponentCarriers = 1;
 
+    // RLC/UM バッファを拡大し、PDCP破棄を無効化（デフォルト10KBでは即オーバーフロー）
+    Config::SetDefault("ns3::NrRlcUm::MaxTxBufferSize", UintegerValue(999999999));
+    Config::SetDefault("ns3::NrRlcUm::EnablePdcpDiscarding", BooleanValue(false));
+
     m_nrHelper = CreateObject<NrHelper>();
     m_nrEpcHelper = CreateObject<NrPointToPointEpcHelper>();
     m_nrHelper->SetEpcHelper(m_nrEpcHelper);
@@ -934,7 +938,7 @@ void NetSim::ConfigureNrForAp0()
                                                    nrChannelBwHz,
                                                    nrNumComponentCarriers);
     std::vector<CcBwpCreator::SimpleOperationBandConf> bandConfs = {wideBand};
-    auto bwpsPair = m_nrHelper->CreateBandwidthParts(bandConfs, "UMi", "Default", "ThreeGpp");
+    auto bwpsPair = m_nrHelper->CreateBandwidthParts(bandConfs, "UMi", "LOS", "ThreeGpp");
     auto allBwps = bwpsPair.second;
 
     NodeContainer gnb;
