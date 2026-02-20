@@ -13,7 +13,7 @@ void NetSim::ConfigureCycleParameters()
     }
     if (m_cycleCount == 0)
     {
-        m_cycleCount = 2;
+        m_cycleCount = 5;
     }
     m_simulationDuration = m_cycleDuration * m_cycleCount;
 }

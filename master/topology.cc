@@ -482,7 +482,7 @@ void NetSim::ConfigureTermMobility()
     }
 
     // 端末をAPの近く（半径 radius メートル以内）にランダム配置
-    const double radius = 10.0;
+    const double radius = (m_nth == 5) ? 20.0 : 10.0;
     Ptr<UniformRandomVariable> rng = CreateObject<UniformRandomVariable>();
     const Vector ap0Center =
         (!apPositions.empty()) ? apPositions[0] : Vector(0.0, 0.0, 10.0);
@@ -498,7 +498,7 @@ void NetSim::ConfigureTermMobility()
         Vector apPos;
         if (m_nth == 5)
         {
-            // nth==5: AP0 を中心に半径10m以内へ配置
+            // nth==5: AP0 を中心に半径20m以内へ配置
             apPos = ap0Center;
         }
         else

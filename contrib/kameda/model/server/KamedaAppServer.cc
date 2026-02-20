@@ -28,7 +28,7 @@ KamedaAppServer::KamedaAppServer(const ApSelectionInput& input)
     m_listeningPort = 8080;
     m_socket = NULL;
     m_file_out = false; // ファイル出力を無効化
-    m_cycleCount = 2;
+    m_cycleCount = 5;
     m_cycleDuration = Seconds(7.0);
     m_cycleIndex = 0;
     // APselectionを有効化（外部から渡された設定を利用）

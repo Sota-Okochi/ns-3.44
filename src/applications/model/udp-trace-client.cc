@@ -24,6 +24,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>
+#include <sstream>
 
 namespace ns3
 {
@@ -215,22 +216,46 @@ UdpTraceClient::LoadTrace()
     ifTraceFile.open(m_traceFile, std::ifstream::in);
     if (!ifTraceFile.good())
     {
+        NS_LOG_WARN("Unable to open trace file '" << m_traceFile
+                                                   << "'. Falling back to default trace.");
         LoadDefaultTrace();
         return;
     }
 
     uint32_t oldIndex = 0;
+    bool hasOldIndex = false;
     uint32_t prevTime = 0;
-    while (ifTraceFile.good())
+    bool hasTimedFrame = false;
+    bool hasValidEntry = false;
+
+    std::string line;
+    while (std::getline(ifTraceFile, line))
     {
         uint32_t index = 0;
-        char frameType;
+        char frameType = 0;
         uint32_t time = 0;
         uint32_t size = 0;
-        ifTraceFile >> index >> frameType >> time >> size;
-
-        if (index == oldIndex)
+        if (line.empty() || line[0] == '#')
         {
+            continue;
+        }
+
+        std::istringstream lineStream(line);
+        if (!(lineStream >> index >> frameType >> time >> size))
+        {
+            NS_LOG_WARN("Skipping malformed trace line: '" << line << "'");
+            continue;
+        }
+
+        if (hasOldIndex && index == oldIndex)
+        {
+            continue;
+        }
+
+        if (frameType != 'I' && frameType != 'P' && frameType != 'B')
+        {
+            NS_LOG_WARN("Skipping unsupported frame type '" << frameType
+                                                             << "' in line: '" << line << "'");
             continue;
         }
 
@@ -241,17 +266,28 @@ UdpTraceClient::LoadTrace()
         }
         else
         {
-            entry.timeToSend = time - prevTime;
+            hasTimedFrame = true;
+            entry.timeToSend = (time >= prevTime) ? (time - prevTime) : 0;
             prevTime = time;
         }
         entry.packetSize = size;
         entry.frameType = frameType;
         m_entries.push_back(entry);
+        hasValidEntry = true;
         oldIndex = index;
+        hasOldIndex = true;
     }
 
     ifTraceFile.close();
-    NS_ASSERT_MSG(prevTime != 0, "A trace file can not contain B frames only.");
+
+    if (!hasValidEntry || !hasTimedFrame)
+    {
+        NS_LOG_WARN("Trace file '" << m_traceFile
+                                    << "' has no usable timed frames. Falling back to default "
+                                       "trace.");
+        m_entries.clear();
+        LoadDefaultTrace();
+    }
 }
 
 void
