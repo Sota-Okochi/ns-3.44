@@ -25,9 +25,9 @@ APMonitorTerminal::APMonitorTerminal(uint32_t apId, Ipv4Address targetAP, Ipv4Ad
       m_targetAP(targetAP),
       m_serverAddress(serverAddress),
       m_serverPort(8080),
-      m_measureInterval(0.5),
-      m_samplesPerReport(10),
-      m_pingInterval(0.2),
+      m_measureInterval(100.0),
+      m_samplesPerReport(20),
+      m_pingInterval(1.4),
       m_pingPayloadSize(1200),        // Pingペイロードサイズ（バイト）
       m_socket(nullptr),
       m_isMonitoring(false),

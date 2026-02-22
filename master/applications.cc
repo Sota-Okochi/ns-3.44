@@ -84,7 +84,10 @@ void ScheduleBrowserDownload(Ptr<Node> server,
     ApplicationContainer apps = bulk.Install(server);
     Time now = Simulator::Now();
     apps.Start(now);
-    apps.Stop(now + duration);
+    // BulkSend has finite MaxBytes, so forcing an early Stop can close TCP with
+    // unsent data and leave internal timers firing on an empty tx item.
+    // Let the app/socket finish naturally when MaxBytes is sent.
+    (void)duration;
 
     if (requestIndex + 1 < totalRequests)
     {

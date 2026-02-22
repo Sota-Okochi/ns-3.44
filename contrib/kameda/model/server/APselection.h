@@ -30,7 +30,7 @@ namespace APConstants {
     };
     
     // アプリケーションのトラフィック要求（必要TP, RTT）
-    constexpr double BROWSER_REQUIRED_TP = 2.0;      // Mbps（ブラウザ）
+    constexpr double BROWSER_REQUIRED_TP = 2.8;      // Mbps（ブラウザ）
     constexpr double VIDEO_REQUIRED_TP = 7.51;       // Mbps（動画ストリーミング）, 720/60fps
     constexpr double VOICE_CALL_REQUIRED_RTT = 60.0; // ms（通話アプリケーション）
     constexpr double ONLINE_GAME_REQUIRED_RTT = 20.0; // ms（オンラインゲーム）
@@ -95,6 +95,7 @@ private:
     
     std::vector<double> traffic_request;      //必要TP, RTT
     bool m_masterLogInitialized = false;       // master_log.csv ヘッダー書き込み済みフラグ
+    std::string m_masterLogPath;               // 実行ごとのmaster_logファイルパス
 
 };
 

@@ -354,8 +354,7 @@ void KamedaAppServer::Ending(){
     }
     else
     {
-        std::cout << "=== All cycles completed; stopping simulator ===" << std::endl;
-        Simulator::Stop(m_cycleDuration * m_cycleCount);
+        std::cout << "=== All " << m_cycleCount << " cycles completed ===" << std::endl;
     }
 }
 
@@ -397,16 +396,10 @@ void KamedaAppServer::SetHandoverCallback(const std::function<void(const std::ve
 
 void KamedaAppServer::ScheduleCycleEnd(uint32_t cycleIndex)
 {
-    // Move the optimization close to the terminal TP window end (6.2s) with a small guard
-    const Time monitorWindowStop = Seconds(6.2);
-    const Time guard = Seconds(0.2);
+    const Time guard = Seconds(0.5);
 
     Time cycleStart = m_cycleDuration * cycleIndex;
-    Time preferred = cycleStart + monitorWindowStop + guard;
-    Time cycleBoundary = m_cycleDuration * (cycleIndex + 1);
-
-    // Do not let the end event slip past the cycle boundary
-    Time when = std::min(preferred, cycleBoundary);
+    Time when = cycleStart + m_cycleDuration + guard;
     if (when < Simulator::Now())
     {
         when = Simulator::Now();
@@ -414,7 +407,7 @@ void KamedaAppServer::ScheduleCycleEnd(uint32_t cycleIndex)
 
     Simulator::Schedule(when - Simulator::Now(), &KamedaAppServer::Ending, this);
     std::cout << "=== Cycle " << (cycleIndex + 1) << " end scheduled at "
-              << when.GetSeconds() << "s (after monitor window) ===" << std::endl;
+              << when.GetSeconds() << "s ===" << std::endl;
 }
 
 }

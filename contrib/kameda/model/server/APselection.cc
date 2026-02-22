@@ -13,6 +13,7 @@
 #include "ns3/APselection.h"
 
 #include <cstdlib>
+#include <ctime>
 #include <algorithm>
 #include <cmath>
 #include <climits>
@@ -74,6 +75,15 @@ void APselection::init(const ApSelectionInput& input){
     m_lastAssignment = initial_AP;
     m_cycleIndex = 1;
     m_masterLogInitialized = false;
+
+    {
+        std::time_t t = std::time(nullptr);
+        std::tm *tm_local = std::localtime(&t);
+        char dateBuf[32];
+        std::strftime(dateBuf, sizeof(dateBuf), "%Y%m%d_%H%M%S", tm_local);
+        m_masterLogPath = "OUTPUT/master_log_" + std::to_string(terms) + "_" + dateBuf + ".csv";
+    }
+    std::cout << "master_log path: " << m_masterLogPath << std::endl;
 
     // --------各端末の初期接続先と初期アプリ種別の表示-----------
     /*if (!initial_AP.empty() && !initial_app.empty()){
@@ -336,12 +346,12 @@ void APselection::random_assignment() {
 void APselection::policy_assignment1() {
     std::cout << "=== APselection::policy_assignment1() ===" << std::endl;
 
-    // master_log.csv を読み込み、現在サイクルの端末満足度を取得
-    const std::string filePath = "OUTPUT/master_log.csv";
+    // master_log を読み込み、現在サイクルの端末満足度を取得
+    const std::string filePath = m_masterLogPath;
     std::ifstream ifs(filePath);
     if (!ifs.is_open())
     {
-        std::cerr << "policy_assignment1: master_log.csv を開けません" << std::endl;
+        std::cerr << "policy_assignment1: " << filePath << " を開けません" << std::endl;
         return;
     }
 
@@ -528,7 +538,7 @@ void APselection::PrintCycleHarmonicMeans()
 
 void APselection::WriteMasterLog()
 {
-    const std::string filePath = "OUTPUT/master_log.csv";
+    const std::string filePath = m_masterLogPath;
 
     // 初回呼び出し時にヘッダーを書き込む
     if (!m_masterLogInitialized)

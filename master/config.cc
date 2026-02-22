@@ -154,11 +154,11 @@ NetSim::NetSim()
     remote_host = nullptr;
     cerNode = nullptr;
     m_remoteHostAddress = Ipv4Address::GetZero();
-    m_cycleCount = 5;
-    m_cycleDuration = Seconds(6.7);
+    m_cycleCount = 10;
+    m_cycleDuration = Seconds(30.0);
     m_simulationDuration = m_cycleDuration * m_cycleCount;
-    m_browserRequestInterval = Seconds(1.5);
-    m_browserRequestCount = 4;
+    m_browserRequestInterval = Seconds(4.0);
+    m_browserRequestCount = 8;
     m_enableOnlineGameTracing = true;
     m_goodputReportScheduled = false;
     m_currentCycle = 0;
