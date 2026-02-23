@@ -555,9 +555,9 @@ void NetSim::ConfigureP2P(uint32_t count){
     pointToPoint.SetChannelAttribute ("Delay", StringValue ("0.1ms"));
     pointToPoint.SetQueue ("ns3::DropTailQueue<Packet>", "MaxSize", StringValue ("10000p"));
     p2pDevices[count] = pointToPoint.Install (p2pNodes[count]);
-    std::stringstream ss;
-    ss << OUTPUT_DIR << "pointToPoint" << count;
-    pointToPoint.EnablePcapAll(ss.str());
+    // std::stringstream ss;
+    // ss << OUTPUT_DIR << "pointToPoint" << count;
+    // pointToPoint.EnablePcapAll(ss.str());
 }
 
 void NetSim::ConfigureNetworkLayer(){
