@@ -50,7 +50,7 @@ flowchart LR
         RTT["RTT Server"]
         VID["Video Server"]
         VOI["Voice Server"]
-        STR["Streaming Server"]
+        GAM["Game Server"]
         BRW["Browser Server"]
     end
 
@@ -65,7 +65,7 @@ flowchart LR
     CER --> RTT
     CER --> VID
     CER --> VOI
-    CER --> STR
+    CER --> GAM
     CER --> BRW
 ```
 ### 各ノードの概要
@@ -83,7 +83,7 @@ flowchart LR
 | コア | CER | 共通エッジルータ | EPC / L3R1 / L3R2 / 各サーバ |
 | サーバ | RemoteHost | 動的割り当て手法の計算 | CER |
 | サーバ | RTT Server | RTT計測 | CER |
-| サーバ | Video/Voice/Streaming/Browser | 各アプリケーションの配信 | CER |
+| サーバ | Video/Voice/Game/Browser | 各アプリケーションの配信 | CER |
 
 
 ### ノード間接続
@@ -165,7 +165,7 @@ cd ~/ns-3.44
 | ✅ 完了 | ランダム法による割り当て結果を元にハンドオーバ |
 | ✅ 完了 | 連続に端末満足度の調和平均の計測 |
 | ✅ 完了 | TPは各端末で取得 |
-| ▶️ 進行中 | 各アプリケーションのデータ量を設定 |
+| ✅ 完了 | 各アプリケーションのデータ量を設定 |
 | ▶️ 進行中 | 強化学習を実装する上での学習データの収集 |
 | ⬜ 未着手 | 強化学習ベースの手法の検討と実装 |
 | ⬜ 未着手 | ns-3とPythonのソケット通信 |
