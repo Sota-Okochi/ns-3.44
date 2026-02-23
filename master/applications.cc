@@ -237,7 +237,7 @@ void NetSim::SetBrowserApp()
     const Time interval =
         m_browserRequestInterval.IsZero() ? Seconds(1.0) : m_browserRequestInterval;
     const uint32_t requestCount = std::max<uint32_t>(1, m_browserRequestCount);
-    const uint32_t requestBytes = 1500u * 1024u;
+    const uint32_t requestBytes = 600u * 1024u;
     const Time requestDuration = Seconds(0.5);
     const Time firstRequest = Seconds(1.0);
     const uint32_t cycles = std::max<uint32_t>(1, m_cycleCount);
@@ -277,13 +277,25 @@ void NetSim::SetBrowserApp()
         for (uint32_t cycle = 0; cycle < cycles; ++cycle)
         {
             Time offset = m_cycleDuration * cycle;
+            // Batch A: 1st request at t=1.0+offset
             Simulator::Schedule(firstRequest + offset,
                                 &ScheduleBrowserDownload,
                                 server_browser,
                                 clientAddress,
                                 port,
                                 0,
-                                requestCount,
+                                1,
+                                interval,
+                                requestDuration,
+                                requestBytes);
+            // Batch B: 4 additional requests at t=2.5+offset, 1.0s interval
+            Simulator::Schedule(Seconds(2.5) + offset,
+                                &ScheduleBrowserDownload,
+                                server_browser,
+                                clientAddress,
+                                port,
+                                0,
+                                requestCount - 1,
                                 interval,
                                 requestDuration,
                                 requestBytes);
@@ -955,7 +967,7 @@ void NetSim::ReinstallBrowserApp(uint32_t termIdx, Ipv4Address newIp, Time start
     sinkApps.Start(startTime);
     sinkApps.Stop(stopTime);
 
-    const uint32_t requestBytes = 1500u * 1024u;
+    const uint32_t requestBytes = 600u * 1024u;
     const Time requestDuration = Seconds(0.5);
     const Time interval =
         m_browserRequestInterval.IsZero() ? Seconds(1.0) : m_browserRequestInterval;
