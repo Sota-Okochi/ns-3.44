@@ -399,7 +399,7 @@ void KamedaAppServer::ScheduleCycleEnd(uint32_t cycleIndex)
     const Time guard = Seconds(0.5);
 
     Time cycleStart = m_cycleDuration * cycleIndex;
-    Time when = cycleStart + m_cycleDuration + guard;
+    Time when = cycleStart + Seconds(4.0) + guard;
     if (when < Simulator::Now())
     {
         when = Simulator::Now();

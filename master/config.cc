@@ -155,7 +155,7 @@ NetSim::NetSim()
     cerNode = nullptr;
     m_remoteHostAddress = Ipv4Address::GetZero();
     m_cycleCount = 10;
-    m_cycleDuration = Seconds(6.0);
+    m_cycleDuration = Seconds(3.5);
     m_simulationDuration = m_cycleDuration * m_cycleCount;
     m_browserRequestInterval = Seconds(1.0);
     m_browserRequestCount = 5;

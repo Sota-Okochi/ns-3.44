@@ -278,9 +278,9 @@ void NetSim::ConfigureServerCerLinks()
 {
     NS_LOG_LOGIC("set server<->cer links");
     PointToPointHelper pointToPoint;
-    pointToPoint.SetDeviceAttribute("DataRate", StringValue("1Gbps"));
+    pointToPoint.SetDeviceAttribute("DataRate", StringValue("400Mbps"));
     pointToPoint.SetChannelAttribute("Delay", StringValue("0.5ms"));
-    pointToPoint.SetQueue("ns3::DropTailQueue<Packet>", "MaxSize", StringValue("10000p"));
+    pointToPoint.SetQueue("ns3::DropTailQueue<Packet>", "MaxSize", StringValue("300p"));
 
     m_serverCerDevices.resize(m_serverCerNodes.size());
     for (uint32_t i = 0; i < m_serverCerNodes.size(); ++i)
@@ -300,9 +300,9 @@ void NetSim::ConfigurePgwCerLink()
         return;
     }
     PointToPointHelper pointToPoint;
-    pointToPoint.SetDeviceAttribute("DataRate", StringValue("1Gbps"));
+    pointToPoint.SetDeviceAttribute("DataRate", StringValue("100Mbps"));
     pointToPoint.SetChannelAttribute("Delay", StringValue("0.1ms"));
-    pointToPoint.SetQueue("ns3::DropTailQueue<Packet>", "MaxSize", StringValue("10000p"));
+    pointToPoint.SetQueue("ns3::DropTailQueue<Packet>", "MaxSize", StringValue("230p"));
     m_pgwCerDevices = pointToPoint.Install(m_pgwCerNodes);
 }
 
@@ -551,9 +551,9 @@ void NetSim::ConfigureP2P(uint32_t count){
     NS_LOG_FUNCTION(this);
 
     PointToPointHelper pointToPoint;
-    pointToPoint.SetDeviceAttribute  ("DataRate", StringValue ("1Gbps"));
+    pointToPoint.SetDeviceAttribute  ("DataRate", StringValue ("40Mbps"));
     pointToPoint.SetChannelAttribute ("Delay", StringValue ("0.1ms"));
-    pointToPoint.SetQueue ("ns3::DropTailQueue<Packet>", "MaxSize", StringValue ("10000p"));
+    pointToPoint.SetQueue ("ns3::DropTailQueue<Packet>", "MaxSize", StringValue ("150p"));
     p2pDevices[count] = pointToPoint.Install (p2pNodes[count]);
     // std::stringstream ss;
     // ss << OUTPUT_DIR << "pointToPoint" << count;

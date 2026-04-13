@@ -181,7 +181,8 @@ void APselection::tmain(){
 
     if (G_nth == 5)
     {
-        policy_assignment1();
+        // policy_assignment1();
+        random_assignment();
     }
     else
     {
