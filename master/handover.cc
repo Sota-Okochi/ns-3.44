@@ -5,6 +5,14 @@
 
 namespace ns3 {
 
+namespace {
+
+// 監視ウィンドウのサイクル内オフセット
+const Time kMonitorStartOffset = Seconds(1.5);
+const Time kMonitorStopOffset  = Seconds(4.0);
+
+} // namespace
+
 void NetSim::ConfigureCycleParameters()
 {
     if (!m_cycleDuration.IsPositive())
@@ -25,16 +33,12 @@ void NetSim::ScheduleMonitorWindows()
         return;
     }
 
-    const Time rttStartOffset = Seconds(1.5);
-    const Time rttStopOffset = Seconds(4.0);
-    const Time tpStartOffset = Seconds(1.5);
-    const Time tpStopOffset = Seconds(4.0);
     for (uint32_t cycle = 0; cycle < m_cycleCount; ++cycle)
     {
-        Time rttStart = m_cycleDuration * cycle + rttStartOffset;
-        Time rttStop = m_cycleDuration * cycle + rttStopOffset;
-        Time tpStart = m_cycleDuration * cycle + tpStartOffset;
-        Time tpStop = m_cycleDuration * cycle + tpStopOffset;
+        Time rttStart = m_cycleDuration * cycle + kMonitorStartOffset;
+        Time rttStop  = m_cycleDuration * cycle + kMonitorStopOffset;
+        Time tpStart  = m_cycleDuration * cycle + kMonitorStartOffset;
+        Time tpStop   = m_cycleDuration * cycle + kMonitorStopOffset;
         for (const auto& monitor : m_monitorApps)
         {
             if (monitor == nullptr)
@@ -213,6 +217,15 @@ void NetSim::SwitchDefaultRoute(Ptr<Node> termNode, uint32_t newIfIndex, Ipv4Add
     rt->SetDefaultRoute(newGateway, newIfIndex);
 }
 
+void NetSim::ApplyHandoverState(uint32_t termIdx, int newAp, RatType newRat, Ipv4Address newIp)
+{
+    TermAccessState& state = m_termAccessState[termIdx];
+    RebindTerminalApps(termIdx, newIp);
+    state.currentAp = newAp;
+    state.currentRat = newRat;
+    state.lastSwitchTime = Simulator::Now();
+}
+
 void NetSim::ExecuteWifiHandover(uint32_t termIdx, int oldAp, int newAp)
 {
     Ptr<Node> term = terms[termIdx];
@@ -235,14 +248,8 @@ void NetSim::ExecuteWifiHandover(uint32_t termIdx, int oldAp, int newAp)
         SwitchDefaultRoute(term, state.wifiIfIndex[newApIdx], m_wifiApGatewayIps[newApIdx]);
     }
 
-    // アプリ再バインド
     Ipv4Address newIp = state.wifiIpv4[newApIdx];
-    RebindTerminalApps(termIdx, newIp);
-
-    // 状態更新
-    state.currentAp = newAp;
-    state.currentRat = RatType::WIFI;
-    state.lastSwitchTime = Simulator::Now();
+    ApplyHandoverState(termIdx, newAp, RatType::WIFI, newIp);
 
     std::cout << "[WiFi→WiFi] term=" << termIdx
               << " AP" << oldAp << "→AP" << newAp
@@ -270,14 +277,8 @@ void NetSim::ExecuteNrToWifiHandover(uint32_t termIdx, int newAp)
         SwitchDefaultRoute(term, state.wifiIfIndex[newApIdx], m_wifiApGatewayIps[newApIdx]);
     }
 
-    // アプリ再バインド
     Ipv4Address newIp = state.wifiIpv4[newApIdx];
-    RebindTerminalApps(termIdx, newIp);
-
-    // 状態更新
-    state.currentAp = newAp;
-    state.currentRat = RatType::WIFI;
-    state.lastSwitchTime = Simulator::Now();
+    ApplyHandoverState(termIdx, newAp, RatType::WIFI, newIp);
 
     std::cout << "[NR→WiFi] term=" << termIdx
               << " AP1→AP" << newAp
@@ -302,18 +303,13 @@ void NetSim::ExecuteWifiToNrHandover(uint32_t termIdx)
     // NRインターフェースを有効化してルート設定
     SwitchDefaultRoute(term, state.nrIfIndex, m_nrGateway);
 
-    // アプリ再バインド
-    RebindTerminalApps(termIdx, state.nrIpv4);
-
-    // 状態更新
     int oldAp = state.currentAp;
-    state.currentAp = 1;
-    state.currentRat = RatType::NR;
-    state.lastSwitchTime = Simulator::Now();
+    Ipv4Address newIp = state.nrIpv4;
+    ApplyHandoverState(termIdx, 1, RatType::NR, newIp);
 
     std::cout << "[WiFi→NR] term=" << termIdx
               << " AP" << oldAp << "→AP1"
-              << " IP=" << state.nrIpv4 << std::endl;
+              << " IP=" << newIp << std::endl;
 }
 
 void NetSim::LogHandoverEvent(double timeSec, uint32_t termId, int oldAp, int newAp,

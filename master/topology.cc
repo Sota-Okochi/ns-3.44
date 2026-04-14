@@ -86,7 +86,7 @@ void NetSim::CreateWifiApNodes()
 
 void NetSim::CreateMonitorNodes()
 {
-    monitorTerminals.assign(3, nullptr);
+    monitorTerminals.assign(kMaxMonitorTerminals, nullptr);
     uint32_t monitorCount = std::min<uint32_t>(monitorTerminals.size(), APnum);
 
     for (uint32_t apId = 0; apId < monitorCount; ++apId)

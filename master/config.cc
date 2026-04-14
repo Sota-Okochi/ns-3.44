@@ -1,5 +1,6 @@
 #include "NetSim.h"
 #include "ns3/system-path.h"
+#include <unordered_map>
 
 NS_LOG_COMPONENT_DEFINE("researchMain");
 
@@ -122,21 +123,18 @@ bool LoadBaselineSetting(const std::string& path, BaselineSetting& setting)
 
 namespace ns3 {
 
-int G_nth = 0;
-
 namespace {
 
-std::vector<std::string> split2(const std::string& input, char delimiter)
+std::vector<std::string> Split(const std::string& input, char delimiter)
 {
     std::istringstream stream(input);
-
     std::string field;
     std::vector<std::string> result;
     while (std::getline(stream, field, delimiter)) {
         result.push_back(field);
     }
     return result;
-}   //split
+}
 
 } // namespace
 
@@ -178,7 +176,6 @@ void NetSim::Init(int argc, char *argv[]){
     cmd.AddValue("nth", " 3(rd) is static app, 4(th) is random app", m_nth);
     cmd.AddValue("mob", "1 is constant, 2 is randomwalk", m_mob);
     cmd.Parse(argc, argv);
-    G_nth = m_nth;
 
     BaselineSetting setting;
     const std::string settingPath = std::string(INPUT_DIR) + "setting.json";
@@ -254,24 +251,25 @@ void NetSim::Init(int argc, char *argv[]){
     }
     else
     {
-        std::string filename2;
-        if(m_nth == 1){
-            filename2 = std::string(INPUT_DIR) + "termData_1st.txt";
-        }else if(m_nth == 2){
-            filename2 = std::string(INPUT_DIR) + "termData_2nd.txt";
-        }else if(m_nth == 3){
-            filename2 = std::string(INPUT_DIR) + "reconnect_hungarian.txt";
-        }else{
+        static const std::unordered_map<int, std::string> kNthToInputFile = {
+            {1, "termData_1st.txt"},
+            {2, "termData_2nd.txt"},
+            {3, "reconnect_hungarian.txt"},
+        };
+        auto it = kNthToInputFile.find(m_nth);
+        if (it == kNthToInputFile.end())
+        {
             std::cerr << "nth error" << std::endl;
             return;
         }
+        std::string filename2 = std::string(INPUT_DIR) + it->second;
         std::ifstream ifs2(filename2);
         if(ifs2.fail()){
             std::cerr << "No Input File 2" << std::endl;
             return;
         }
         for(std::string line; std::getline(ifs2, line); ){
-            std::vector<std::string> ret = split(line, ' ');
+            std::vector<std::string> ret = Split(line, ' ');
             std::stringstream ss1, ss2, ss3, ss4;
             TermData data;
             if(m_nth == 1 || m_nth ==2){
@@ -475,9 +473,9 @@ void NetSim::CheckFlowMonitor(Ptr<FlowMonitor> monitor, Ptr<Ipv4FlowClassifier> 
 
     std::ostringstream filename;
     filename << OUTPUT_DIR << "monitor-flow";
-    if (G_nth > 0)
+    if (m_nth > 0)
     {
-        filename << "_G" << G_nth;
+        filename << "_G" << m_nth;
     }
     filename << ".xml";
 

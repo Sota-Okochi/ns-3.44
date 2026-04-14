@@ -32,9 +32,11 @@
 
 namespace ns3 {
 
-extern int G_nth;
 const std::string INPUT_DIR = std::string(PROJECT_SOURCE_PATH) + "/data/";
 const std::string OUTPUT_DIR = std::string(PROJECT_SOURCE_PATH) + "/OUTPUT/";
+
+// 監視端末の最大数（Wi-Fi AP 数と合わせて使用）
+constexpr uint32_t kMaxMonitorTerminals = 3;
 
 enum APID{
     LTE = 0,
@@ -195,18 +197,6 @@ private:
     void ResetTerminalFlowStats();
     void CollectTerminalThroughput();
 
-    std::vector<std::string> split(const std::string& input, char delimiter)
-{
-    std::istringstream stream(input);
-
-    std::string field;
-    std::vector<std::string> result;
-    while (std::getline(stream, field, delimiter)) {
-        result.push_back(field);
-    }
-    return result;
-}   //split
-
     void ScheduleMonitorWindows();
     void HandleHandoverRequest(const std::vector<int>& assignment);
     void ConfigureCycleParameters();
@@ -225,6 +215,7 @@ private:
     void ReinstallOnlineGameApp(uint32_t termIdx, Ipv4Address newIp, Time startTime, Time stopTime);
     void InitializeTermAccessState();
     Ipv4Address GetActiveIpv4(uint32_t termIdx) const;
+    void ApplyHandoverState(uint32_t termIdx, int newAp, RatType newRat, Ipv4Address newIp);
     void LogHandoverEvent(double timeSec, uint32_t termId, int oldAp, int newAp,
                           RatType oldRat, RatType newRat,
                           Ipv4Address oldIp, Ipv4Address newIp,

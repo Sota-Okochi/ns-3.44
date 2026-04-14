@@ -5,6 +5,11 @@ NS_LOG_COMPONENT_DEFINE("NetSimApplications");
 namespace ns3 {
 namespace {
 
+// ポート番号の定数
+constexpr uint16_t kRttForwarderListenPort = 9000;
+constexpr uint16_t kRttForwarderRemotePort = 8080;
+constexpr uint16_t kBrowserBasePort        = 15000;
+
 Ipv4Address GetPrimaryIpv4(Ptr<Node> node)
 {
     if (!node)
@@ -28,27 +33,6 @@ Ipv4Address GetPrimaryIpv4(Ptr<Node> node)
         }
     }
     return Ipv4Address("0.0.0.0");
-}
-
-void PingRtt (uint16_t seq, Time rtt)
-{
-    std::string filename;
-    if(G_nth == 1){
-        filename = std::string(OUTPUT_DIR) + "outputData_1st.txt";
-    }else if(G_nth == 2){
-        filename = std::string(OUTPUT_DIR) + "outputData_2nd.txt";
-    }else if(G_nth == 3){
-        filename = std::string(OUTPUT_DIR) + "outputData_hungarian.txt";
-    }else if(G_nth == 4){
-        filename = std::string(OUTPUT_DIR) + "outputData_random_init.txt";
-    }else if(G_nth == 5){
-        filename = std::string(OUTPUT_DIR) + "outputData_policy1.txt";
-    }else{
-        std::cerr << "nth error in PingRtt" << std::endl;
-    }
-
-    std::ofstream ofs(filename, std::ios::app);
-    ofs << seq << " " << rtt.GetMilliSeconds() << std::endl;
 }
 
 void TracePacketToAscii(Ptr<OutputStreamWrapper> stream, Ptr<const Packet> packet)
@@ -198,15 +182,15 @@ void NetSim::SetKamedaModule(void){
     Ptr<RttForwarderApp> forwarder = CreateObject<RttForwarderApp>();
     if (m_remoteHostAddress != Ipv4Address("0.0.0.0"))
     {
-        forwarder->SetRemote(m_remoteHostAddress, 8080);
+        forwarder->SetRemote(m_remoteHostAddress, kRttForwarderRemotePort);
     }
-    forwarder->SetListeningPort(9000);
+    forwarder->SetListeningPort(kRttForwarderListenPort);
     server_rtt->AddApplication(forwarder);
     forwarder->SetStartTime(Seconds(0.9));
     forwarder->SetStopTime(m_simulationDuration);
 
-    if (monitorTerminals.size() < 3) {
-        monitorTerminals.resize(3, nullptr);
+    if (monitorTerminals.size() < kMaxMonitorTerminals) {
+        monitorTerminals.resize(kMaxMonitorTerminals, nullptr);
     }
 
     for(uint32_t apId = 0; apId < monitorTerminals.size(); apId++) {
@@ -244,7 +228,7 @@ void NetSim::SetBrowserApp()
     const Time sinkStop = m_simulationDuration.IsZero()
                               ? (firstRequest + interval * requestCount + requestDuration)
                               : m_simulationDuration;
-    const uint16_t basePort = 15000;
+    const uint16_t basePort = kBrowserBasePort;
     bool installedAny = false;
 
     for (uint32_t i = 0; i < terms.size(); ++i)
