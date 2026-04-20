@@ -45,6 +45,8 @@ void DumpIpv4Info(const std::string& title, Ptr<Node> node)
 
 } // namespace
 
+// ------------------------------------------------------------
+// ネットワークトポロジーの作成
 void NetSim::CreateNetworkTopology(){
     std::cout << "==== CreateNetworkTopology ====" << std::endl;
     NS_LOG_FUNCTION(this);
@@ -172,184 +174,26 @@ void NetSim::CreateServerNodes()
         m_serverCerNodes.push_back(NodeContainer(remote_host, cerNode));
     }
 }
+// ------------------------------------------------------------
 
-Vector NetSim::GetMonitorPosition(uint32_t apId) const
-{
-    if (m_nth == 5)
-    {
-        switch (apId)
-        {
-        case 0:
-            return Vector(0.0, 0.0, 1.5);
-        case 1:
-            return Vector(5.0, 0.0, 1.5);
-        case 2:
-            return Vector(-5.0, 0.0, 1.5);
-        default:
-            return Vector(0.0, 0.0, 1.5);
-        }
-    }
 
-    switch (apId)
-    {
-    case 0:
-        return Vector(0.0, -25.0, 1.5);
-    case 1:
-        return Vector(25.0, 25.0, 1.5);
-    case 2:
-        return Vector(-25.0, 25.0, 1.5);
-    default:
-        return Vector(0.0, 0.0, 1.5);
-    }
-}
-
+// ------------------------------------------------------------
+// データリンク層の設定
+// ------------------------------------------------------------
 void NetSim::ConfigureDataLinkLayer(){
     std::cout << "==== ConfigureDataLinkLayer ====" << std::endl;
     NS_LOG_FUNCTION(this);
 
     ConfigureMobility(); // モビリティ設定
     ConfigureMonitorPlacement(); // 検査用端末の配置
-    ConfigureNrForAp0(); // AP0のNR設定
-    ConfigureLteForAp1(); // AP1のLTE設定
-    ConfigureWifiForAP2(); // AP2のWi-Fi設定
+    ConfigureNrForAp0(); // AP0: NR
+    ConfigureLteForAp1(); // AP1: LTE
+    ConfigureWifiForAP2(); // AP2: Wi-Fi
     ConfigureP2PDevices(); // P2Pのデバイス設定
     ConfigureRouterCerLinks(); // ルータとCERのリンク設定
     ConfigureServerCerLinks(); // サーバとCERのリンク設定
     ConfigurePgwCerLink(); // NR PgwとCERのリンク設定
     ConfigureLtePgwCerLink(); // LTE PgwとCERのリンク設定
-}
-
-void NetSim::ConfigureMonitorPlacement()
-{
-    for (uint32_t apId = 0; apId < monitorTerminals.size(); ++apId)
-    {
-        Ptr<Node> monitor = monitorTerminals[apId];
-        MobilityHelper mobility;
-        mobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
-        Ptr<ListPositionAllocator> posList = CreateObject<ListPositionAllocator>();
-        posList->Add(GetMonitorPosition(apId));
-        mobility.SetPositionAllocator(posList);
-        if (monitor)
-        {
-            mobility.Install(monitor);
-        }
-    }
-}
-
-void NetSim::ConfigureP2PDevices()
-{
-    NS_LOG_LOGIC("set p2p devices");
-    for (uint32_t i = 0; i < p2pNodes.size(); ++i)
-    {
-        ConfigureP2P(i);
-    }
-}
-
-void NetSim::ConfigureRouterCerLinks()
-{
-    NS_LOG_LOGIC("set router<->cer links");
-    PointToPointHelper pointToPoint;
-    pointToPoint.SetDeviceAttribute("DataRate", StringValue("1Gbps"));
-    pointToPoint.SetChannelAttribute("Delay", StringValue("0.5ms"));
-    pointToPoint.SetQueue("ns3::DropTailQueue<Packet>", "MaxSize", StringValue("10000p"));
-
-    for (uint32_t i = 0; i < m_routerCerNodes.size(); ++i)
-    {
-        if (m_routerCerNodes[i].GetN() != 2)
-        {
-            continue;
-        }
-        m_routerCerDevices[i] = pointToPoint.Install(m_routerCerNodes[i]);
-    }
-}
-
-void NetSim::ConfigureServerCerLinks()
-{
-    NS_LOG_LOGIC("set server<->cer links");
-    PointToPointHelper pointToPoint;
-    pointToPoint.SetDeviceAttribute("DataRate", StringValue("400Mbps"));
-    pointToPoint.SetChannelAttribute("Delay", StringValue("0.5ms"));
-    pointToPoint.SetQueue("ns3::DropTailQueue<Packet>", "MaxSize", StringValue("300p"));
-
-    m_serverCerDevices.resize(m_serverCerNodes.size());
-    for (uint32_t i = 0; i < m_serverCerNodes.size(); ++i)
-    {
-        if (m_serverCerNodes[i].GetN() != 2)
-        {
-            continue;
-        }
-        m_serverCerDevices[i] = pointToPoint.Install(m_serverCerNodes[i]);
-    }
-}
-
-void NetSim::ConfigurePgwCerLink()
-{
-    if (m_pgwCerNodes.GetN() != 2)
-    {
-        return;
-    }
-    PointToPointHelper pointToPoint;
-    pointToPoint.SetDeviceAttribute("DataRate", StringValue("100Mbps"));
-    pointToPoint.SetChannelAttribute("Delay", StringValue("0.1ms"));
-    pointToPoint.SetQueue("ns3::DropTailQueue<Packet>", "MaxSize", StringValue("230p"));
-    m_pgwCerDevices = pointToPoint.Install(m_pgwCerNodes);
-}
-
-void NetSim::ConfigureWifiForAP2(){
-    std::cout << "==== ConfigureWifiForAP2 ====" << std::endl;
-    NS_LOG_FUNCTION(this);
-
-    constexpr uint32_t apIndex = 2;
-    if (APnum <= apIndex || wifiNodes.size() <= apIndex || wifiDevices.size() <= apIndex ||
-        wifiNodes[apIndex].GetN() == 0)
-    {
-        std::cout << "[Wi-Fi] AP2 is not available; skipping Wi-Fi setup" << std::endl;
-        return;
-    }
-
-    SpectrumWifiPhyHelper phy;
-    Ptr<MultiModelSpectrumChannel> spectrumChannel = CreateObject<MultiModelSpectrumChannel>();
-    Ptr<ConstantSpeedPropagationDelayModel> delay = CreateObject<ConstantSpeedPropagationDelayModel>();
-    spectrumChannel->SetPropagationDelayModel(delay);
-    Ptr<LogDistancePropagationLossModel> loss = CreateObject<LogDistancePropagationLossModel>();
-    spectrumChannel->AddPropagationLossModel(loss);
-    phy.SetChannel(spectrumChannel);
-    phy.Set("RxGain", DoubleValue(0));
-    phy.Set("Antennas", UintegerValue(1));
-    phy.Set("MaxSupportedTxSpatialStreams", UintegerValue(1));
-    phy.Set("MaxSupportedRxSpatialStreams", UintegerValue(1));
-    phy.SetPcapDataLinkType(WifiPhyHelper::DLT_IEEE802_11_RADIO);
-
-    WifiHelper wifi;
-    wifi.SetStandard(WIFI_STANDARD_80211ax);
-    Config::SetDefault("ns3::WifiPhy::ChannelWidth", UintegerValue(40));
-    wifi.SetRemoteStationManager("ns3::IdealWifiManager");
-    Config::SetDefault ("ns3::WifiRemoteStationManager::RtsCtsThreshold", UintegerValue (2200));
-    wifi.ConfigHeOptions("BssColor", UintegerValue((apIndex % 63) + 1));
-
-    WifiMacHelper mac;
-    std::stringstream ssidss;
-    ssidss << "main-SSID-" << apIndex;
-    Ssid ssid = Ssid (ssidss.str());
-
-    mac.SetType("ns3::ApWifiMac",
-                "Ssid", SsidValue(ssid),
-                "QosSupported", BooleanValue(true),
-                "BeaconInterval", TimeValue(MicroSeconds(52224)));
-
-    wifiDevices[apIndex] = wifi.Install(phy, mac, wifiNodes[apIndex].Get(0));
-
-    mac.SetType("ns3::StaWifiMac",
-                "Ssid", SsidValue(ssid),
-                "ActiveProbing", BooleanValue(true),
-                "QosSupported", BooleanValue(true));
-
-    for(uint32_t i=1; i<wifiNodes[apIndex].GetN(); i++){
-        NetDeviceContainer temp = wifi.Install(phy, mac, wifiNodes[apIndex].Get(i));
-        wifiDevices[apIndex].Add(temp);
-    }
-    std::stringstream ss;
-    ss << OUTPUT_DIR << "wifi" << apIndex;
 }
 
 void NetSim::ConfigureMobility(){
@@ -496,6 +340,312 @@ void NetSim::ConfigureTermMobility()
 
         mobility.Install(term);
     }
+}
+
+void NetSim::ConfigureMonitorPlacement()
+{
+    for (uint32_t apId = 0; apId < monitorTerminals.size(); ++apId)
+    {
+        Ptr<Node> monitor = monitorTerminals[apId];
+        MobilityHelper mobility;
+        mobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
+        Ptr<ListPositionAllocator> posList = CreateObject<ListPositionAllocator>();
+        posList->Add(GetMonitorPosition(apId));
+        mobility.SetPositionAllocator(posList);
+        if (monitor)
+        {
+            mobility.Install(monitor);
+        }
+    }
+}
+
+Vector NetSim::GetMonitorPosition(uint32_t apId) const
+{
+    if (m_nth == 5)
+    {
+        switch (apId)
+        {
+        case 0:
+            return Vector(0.0, 0.0, 1.5);
+        case 1:
+            return Vector(5.0, 0.0, 1.5);
+        case 2:
+            return Vector(-5.0, 0.0, 1.5);
+        default:
+            return Vector(0.0, 0.0, 1.5);
+        }
+    }
+
+    switch (apId)
+    {
+    case 0:
+        return Vector(0.0, -25.0, 1.5);
+    case 1:
+        return Vector(25.0, 25.0, 1.5);
+    case 2:
+        return Vector(-25.0, 25.0, 1.5);
+    default:
+        return Vector(0.0, 0.0, 1.5);
+    }
+}
+
+// 5G基地局の設定
+void NetSim::ConfigureNrForAp0()
+{
+    if (APnum == 0 || wifiNodes.empty())
+    {
+        return;
+    }
+
+    const double nrCenterFreqHz = 3.5e9;   // 3.5 GHz mid-band
+    const double nrChannelBwHz = 100e6;
+    const uint8_t nrNumComponentCarriers = 1;
+
+    // RLC/UM バッファを拡大し、PDCP破棄を無効化（デフォルト10KBでは即オーバーフロー）
+    Config::SetDefault("ns3::NrRlcUm::MaxTxBufferSize", UintegerValue(999999999));
+    Config::SetDefault("ns3::NrRlcUm::EnablePdcpDiscarding", BooleanValue(false));
+
+    m_nrHelper = CreateObject<NrHelper>();
+    m_nrEpcHelper = CreateObject<NrPointToPointEpcHelper>();
+    m_nrHelper->SetEpcHelper(m_nrEpcHelper);
+
+    // Use a higher-capacity OFDMA scheduler and larger scheduling granularity
+    m_nrHelper->SetSchedulerTypeId(TypeId::LookupByName("ns3::NrMacSchedulerOfdmaPF"));
+    m_nrHelper->SetSchedulerAttribute("EnableSrsInUlSlots", BooleanValue(false));
+    m_nrHelper->SetSchedulerAttribute("EnableSrsInFSlots", BooleanValue(false));
+    m_nrHelper->SetSchedulerAttribute("DlCtrlSymbols", UintegerValue(1));
+    // Use finer scheduling granularity to improve per-UE allocation under load.
+    m_nrHelper->SetGnbMacAttribute("NumRbPerRbg", UintegerValue(2));
+
+    // 100 MHz @ 3.5 GHz requires numerology 1 (30 kHz SCS).
+    // Default numerology 0 (15 kHz SCS) only supports up to 50 MHz,
+    // causing severe RB limitation and extremely low throughput.
+    m_nrHelper->SetGnbPhyAttribute("Numerology", UintegerValue(1));
+
+    // Align PHY capabilities with the wider resource budget
+    m_nrHelper->SetGnbPhyAttribute("TxPower", DoubleValue(40.0));
+    m_nrHelper->SetUePhyAttribute("TxPower", DoubleValue(26.0));
+    m_nrHelper->SetGnbAntennaAttribute("NumRows", UintegerValue(8));
+    m_nrHelper->SetGnbAntennaAttribute("NumColumns", UintegerValue(4));
+    m_nrHelper->SetUeAntennaAttribute("NumRows", UintegerValue(2));
+    m_nrHelper->SetUeAntennaAttribute("NumColumns", UintegerValue(2));
+
+    CcBwpCreator::SimpleOperationBandConf wideBand(nrCenterFreqHz,
+                                                   nrChannelBwHz,
+                                                   nrNumComponentCarriers);
+    std::vector<CcBwpCreator::SimpleOperationBandConf> bandConfs = {wideBand};
+    auto bwpsPair = m_nrHelper->CreateBandwidthParts(bandConfs, "UMi", "LOS", "ThreeGpp");
+    auto allBwps = bwpsPair.second;
+
+    NodeContainer gnb;
+    if (wifiAPs.size() > 0 && wifiAPs[0] != nullptr)
+    {
+        gnb.Add(wifiAPs[0]);
+    }
+    if (gnb.GetN() == 0)
+    {
+        return;
+    }
+    m_nrGnbDevs = m_nrHelper->InstallGnbDevice(gnb, allBwps);
+
+    NodeContainer ue;
+    for (uint32_t i = 1; i < wifiNodes[0].GetN(); ++i)
+    {
+        Ptr<Node> n = wifiNodes[0].Get(i);
+        if (n)
+        {
+            ue.Add(n);
+        }
+    }
+    if (ue.GetN() == 0)
+    {
+        return;
+    }
+    m_nrUeDevs = m_nrHelper->InstallUeDevice(ue, allBwps);
+
+    Ptr<Node> pgw = m_nrEpcHelper->GetPgwNode();
+    if (pgw && cerNode != nullptr)
+    {
+        m_pgwCerNodes = NodeContainer(pgw, cerNode);
+    }
+}
+
+void NetSim::ConfigureLteForAp1()
+{
+    std::cout << "==== ConfigureLteForAp1 ====" << std::endl;
+    NS_LOG_FUNCTION(this);
+
+    if (APnum < 2 || wifiAPs.size() < 2 || wifiNodes.size() < 2)
+    {
+        std::cout << "[LTE] APnum<2 or wifiAPs/wifiNodes insufficient; skipping" << std::endl;
+        return;
+    }
+
+    // RLC バッファを拡大
+    Config::SetDefault("ns3::LteRlcUm::MaxTxBufferSize", UintegerValue(999999999));
+
+    // LTE EPC ヘルパーを生成（UEアドレスを 6.0.0.0/8 に設定）
+    m_lteEpcHelper = CreateObject<PointToPointEpcHelper>();
+    m_lteEpcHelper->SetAttribute("S1uLinkDataRate", DataRateValue(DataRate("10Gb/s")));
+    m_lteEpcHelper->SetAttribute("S1uLinkDelay", TimeValue(MilliSeconds(0)));
+
+    m_lteHelper = CreateObject<LteHelper>();
+    m_lteHelper->SetEpcHelper(m_lteEpcHelper);
+
+    // Band 1 (2.1 GHz), デフォルト EARFCN (DL:100, UL:18100), 20 MHz 帯域 (100 RBs)
+    m_lteHelper->SetEnbDeviceAttribute("DlBandwidth", UintegerValue(100));
+    m_lteHelper->SetEnbDeviceAttribute("UlBandwidth", UintegerValue(100));
+    Config::SetDefault("ns3::LteEnbPhy::TxPower", DoubleValue(43.0));
+    Config::SetDefault("ns3::LteUePhy::TxPower", DoubleValue(23.0));
+
+    // AP1 ノードに eNB デバイスをインストール
+    NodeContainer enb;
+    enb.Add(wifiAPs[1]);
+    m_lteEnbDevs = m_lteHelper->InstallEnbDevice(enb);
+
+    // wifiNodes[1] の端末（index 1以降）に UE デバイスをインストール
+    NodeContainer ue;
+    for (uint32_t i = 1; i < wifiNodes[1].GetN(); ++i)
+    {
+        Ptr<Node> n = wifiNodes[1].Get(i);
+        if (n)
+        {
+            ue.Add(n);
+        }
+    }
+
+    if (ue.GetN() == 0)
+    {
+        std::cout << "[LTE] No UE nodes found for AP1; skipping UE install" << std::endl;
+        return;
+    }
+    m_lteUeDevs = m_lteHelper->InstallUeDevice(ue);
+
+    // LTE PGW と CER のリンク設定用にノードを登録
+    Ptr<Node> ltePgw = m_lteEpcHelper->GetPgwNode();
+    if (ltePgw && cerNode != nullptr)
+    {
+        m_ltePgwCerNodes = NodeContainer(ltePgw, cerNode);
+    }
+
+    std::cout << "[LTE] Installed " << m_lteEnbDevs.GetN() << " eNB, "
+              << m_lteUeDevs.GetN() << " UE devices for AP1" << std::endl;
+}
+
+void NetSim::ConfigureWifiForAP2(){
+    std::cout << "==== ConfigureWifiForAP2 ====" << std::endl;
+    NS_LOG_FUNCTION(this);
+
+    constexpr uint32_t apIndex = 2;
+    if (APnum <= apIndex || wifiNodes.size() <= apIndex || wifiDevices.size() <= apIndex ||
+        wifiNodes[apIndex].GetN() == 0)
+    {
+        std::cout << "[Wi-Fi] AP2 is not available; skipping Wi-Fi setup" << std::endl;
+        return;
+    }
+
+    SpectrumWifiPhyHelper phy;
+    Ptr<MultiModelSpectrumChannel> spectrumChannel = CreateObject<MultiModelSpectrumChannel>();
+    Ptr<ConstantSpeedPropagationDelayModel> delay = CreateObject<ConstantSpeedPropagationDelayModel>();
+    spectrumChannel->SetPropagationDelayModel(delay);
+    Ptr<LogDistancePropagationLossModel> loss = CreateObject<LogDistancePropagationLossModel>();
+    spectrumChannel->AddPropagationLossModel(loss);
+    phy.SetChannel(spectrumChannel);
+    phy.Set("RxGain", DoubleValue(0));
+    phy.Set("Antennas", UintegerValue(1));
+    phy.Set("MaxSupportedTxSpatialStreams", UintegerValue(1));
+    phy.Set("MaxSupportedRxSpatialStreams", UintegerValue(1));
+    phy.SetPcapDataLinkType(WifiPhyHelper::DLT_IEEE802_11_RADIO);
+
+    WifiHelper wifi;
+    wifi.SetStandard(WIFI_STANDARD_80211ax);
+    Config::SetDefault("ns3::WifiPhy::ChannelWidth", UintegerValue(40));
+    wifi.SetRemoteStationManager("ns3::IdealWifiManager");
+    Config::SetDefault ("ns3::WifiRemoteStationManager::RtsCtsThreshold", UintegerValue (2200));
+    wifi.ConfigHeOptions("BssColor", UintegerValue((apIndex % 63) + 1));
+
+    WifiMacHelper mac;
+    std::stringstream ssidss;
+    ssidss << "main-SSID-" << apIndex;
+    Ssid ssid = Ssid (ssidss.str());
+
+    mac.SetType("ns3::ApWifiMac",
+                "Ssid", SsidValue(ssid),
+                "QosSupported", BooleanValue(true),
+                "BeaconInterval", TimeValue(MicroSeconds(52224)));
+
+    wifiDevices[apIndex] = wifi.Install(phy, mac, wifiNodes[apIndex].Get(0));
+
+    mac.SetType("ns3::StaWifiMac",
+                "Ssid", SsidValue(ssid),
+                "ActiveProbing", BooleanValue(true),
+                "QosSupported", BooleanValue(true));
+
+    for(uint32_t i=1; i<wifiNodes[apIndex].GetN(); i++){
+        NetDeviceContainer temp = wifi.Install(phy, mac, wifiNodes[apIndex].Get(i));
+        wifiDevices[apIndex].Add(temp);
+    }
+    std::stringstream ss;
+    ss << OUTPUT_DIR << "wifi" << apIndex;
+}
+
+void NetSim::ConfigureP2PDevices()
+{
+    NS_LOG_LOGIC("set p2p devices");
+    for (uint32_t i = 0; i < p2pNodes.size(); ++i)
+    {
+        ConfigureP2P(i);
+    }
+}
+
+void NetSim::ConfigureRouterCerLinks()
+{
+    NS_LOG_LOGIC("set router<->cer links");
+    PointToPointHelper pointToPoint;
+    pointToPoint.SetDeviceAttribute("DataRate", StringValue("1Gbps"));
+    pointToPoint.SetChannelAttribute("Delay", StringValue("0.5ms"));
+    pointToPoint.SetQueue("ns3::DropTailQueue<Packet>", "MaxSize", StringValue("10000p"));
+
+    for (uint32_t i = 0; i < m_routerCerNodes.size(); ++i)
+    {
+        if (m_routerCerNodes[i].GetN() != 2)
+        {
+            continue;
+        }
+        m_routerCerDevices[i] = pointToPoint.Install(m_routerCerNodes[i]);
+    }
+}
+
+void NetSim::ConfigureServerCerLinks()
+{
+    NS_LOG_LOGIC("set server<->cer links");
+    PointToPointHelper pointToPoint;
+    pointToPoint.SetDeviceAttribute("DataRate", StringValue("400Mbps"));
+    pointToPoint.SetChannelAttribute("Delay", StringValue("0.5ms"));
+    pointToPoint.SetQueue("ns3::DropTailQueue<Packet>", "MaxSize", StringValue("300p"));
+
+    m_serverCerDevices.resize(m_serverCerNodes.size());
+    for (uint32_t i = 0; i < m_serverCerNodes.size(); ++i)
+    {
+        if (m_serverCerNodes[i].GetN() != 2)
+        {
+            continue;
+        }
+        m_serverCerDevices[i] = pointToPoint.Install(m_serverCerNodes[i]);
+    }
+}
+
+void NetSim::ConfigurePgwCerLink()
+{
+    if (m_pgwCerNodes.GetN() != 2)
+    {
+        return;
+    }
+    PointToPointHelper pointToPoint;
+    pointToPoint.SetDeviceAttribute("DataRate", StringValue("100Mbps"));
+    pointToPoint.SetChannelAttribute("Delay", StringValue("0.1ms"));
+    pointToPoint.SetQueue("ns3::DropTailQueue<Packet>", "MaxSize", StringValue("230p"));
+    m_pgwCerDevices = pointToPoint.Install(m_pgwCerNodes);
 }
 
 void NetSim::ConfigureP2P(uint32_t count){
@@ -900,149 +1050,6 @@ void NetSim::ConfigureNetworkLayer(){
 
         InitializeTermAccessState();
     }
-}
-
-// 5G基地局の設定
-void NetSim::ConfigureNrForAp0()
-{
-    if (APnum == 0 || wifiNodes.empty())
-    {
-        return;
-    }
-
-    const double nrCenterFreqHz = 3.5e9;   // 3.5 GHz mid-band
-    const double nrChannelBwHz = 100e6;
-    const uint8_t nrNumComponentCarriers = 1;
-
-    // RLC/UM バッファを拡大し、PDCP破棄を無効化（デフォルト10KBでは即オーバーフロー）
-    Config::SetDefault("ns3::NrRlcUm::MaxTxBufferSize", UintegerValue(999999999));
-    Config::SetDefault("ns3::NrRlcUm::EnablePdcpDiscarding", BooleanValue(false));
-
-    m_nrHelper = CreateObject<NrHelper>();
-    m_nrEpcHelper = CreateObject<NrPointToPointEpcHelper>();
-    m_nrHelper->SetEpcHelper(m_nrEpcHelper);
-
-    // Use a higher-capacity OFDMA scheduler and larger scheduling granularity
-    m_nrHelper->SetSchedulerTypeId(TypeId::LookupByName("ns3::NrMacSchedulerOfdmaPF"));
-    m_nrHelper->SetSchedulerAttribute("EnableSrsInUlSlots", BooleanValue(false));
-    m_nrHelper->SetSchedulerAttribute("EnableSrsInFSlots", BooleanValue(false));
-    m_nrHelper->SetSchedulerAttribute("DlCtrlSymbols", UintegerValue(1));
-    // Use finer scheduling granularity to improve per-UE allocation under load.
-    m_nrHelper->SetGnbMacAttribute("NumRbPerRbg", UintegerValue(2));
-
-    // 100 MHz @ 3.5 GHz requires numerology 1 (30 kHz SCS).
-    // Default numerology 0 (15 kHz SCS) only supports up to 50 MHz,
-    // causing severe RB limitation and extremely low throughput.
-    m_nrHelper->SetGnbPhyAttribute("Numerology", UintegerValue(1));
-
-    // Align PHY capabilities with the wider resource budget
-    m_nrHelper->SetGnbPhyAttribute("TxPower", DoubleValue(40.0));
-    m_nrHelper->SetUePhyAttribute("TxPower", DoubleValue(26.0));
-    m_nrHelper->SetGnbAntennaAttribute("NumRows", UintegerValue(8));
-    m_nrHelper->SetGnbAntennaAttribute("NumColumns", UintegerValue(4));
-    m_nrHelper->SetUeAntennaAttribute("NumRows", UintegerValue(2));
-    m_nrHelper->SetUeAntennaAttribute("NumColumns", UintegerValue(2));
-
-    CcBwpCreator::SimpleOperationBandConf wideBand(nrCenterFreqHz,
-                                                   nrChannelBwHz,
-                                                   nrNumComponentCarriers);
-    std::vector<CcBwpCreator::SimpleOperationBandConf> bandConfs = {wideBand};
-    auto bwpsPair = m_nrHelper->CreateBandwidthParts(bandConfs, "UMi", "LOS", "ThreeGpp");
-    auto allBwps = bwpsPair.second;
-
-    NodeContainer gnb;
-    if (wifiAPs.size() > 0 && wifiAPs[0] != nullptr)
-    {
-        gnb.Add(wifiAPs[0]);
-    }
-    if (gnb.GetN() == 0)
-    {
-        return;
-    }
-    m_nrGnbDevs = m_nrHelper->InstallGnbDevice(gnb, allBwps);
-
-    NodeContainer ue;
-    for (uint32_t i = 1; i < wifiNodes[0].GetN(); ++i)
-    {
-        Ptr<Node> n = wifiNodes[0].Get(i);
-        if (n)
-        {
-            ue.Add(n);
-        }
-    }
-    if (ue.GetN() == 0)
-    {
-        return;
-    }
-    m_nrUeDevs = m_nrHelper->InstallUeDevice(ue, allBwps);
-
-    Ptr<Node> pgw = m_nrEpcHelper->GetPgwNode();
-    if (pgw && cerNode != nullptr)
-    {
-        m_pgwCerNodes = NodeContainer(pgw, cerNode);
-    }
-}
-
-void NetSim::ConfigureLteForAp1()
-{
-    std::cout << "==== ConfigureLteForAp1 ====" << std::endl;
-    NS_LOG_FUNCTION(this);
-
-    if (APnum < 2 || wifiAPs.size() < 2 || wifiNodes.size() < 2)
-    {
-        std::cout << "[LTE] APnum<2 or wifiAPs/wifiNodes insufficient; skipping" << std::endl;
-        return;
-    }
-
-    // RLC バッファを拡大
-    Config::SetDefault("ns3::LteRlcUm::MaxTxBufferSize", UintegerValue(999999999));
-
-    // LTE EPC ヘルパーを生成（UEアドレスを 6.0.0.0/8 に設定）
-    m_lteEpcHelper = CreateObject<PointToPointEpcHelper>();
-    m_lteEpcHelper->SetAttribute("S1uLinkDataRate", DataRateValue(DataRate("10Gb/s")));
-    m_lteEpcHelper->SetAttribute("S1uLinkDelay", TimeValue(MilliSeconds(0)));
-
-    m_lteHelper = CreateObject<LteHelper>();
-    m_lteHelper->SetEpcHelper(m_lteEpcHelper);
-
-    // Band 1 (2.1 GHz), デフォルト EARFCN (DL:100, UL:18100), 20 MHz 帯域 (100 RBs)
-    m_lteHelper->SetEnbDeviceAttribute("DlBandwidth", UintegerValue(100));
-    m_lteHelper->SetEnbDeviceAttribute("UlBandwidth", UintegerValue(100));
-    Config::SetDefault("ns3::LteEnbPhy::TxPower", DoubleValue(43.0));
-    Config::SetDefault("ns3::LteUePhy::TxPower", DoubleValue(23.0));
-
-    // AP1 ノードに eNB デバイスをインストール
-    NodeContainer enb;
-    enb.Add(wifiAPs[1]);
-    m_lteEnbDevs = m_lteHelper->InstallEnbDevice(enb);
-
-    // wifiNodes[1] の端末（index 1以降）に UE デバイスをインストール
-    NodeContainer ue;
-    for (uint32_t i = 1; i < wifiNodes[1].GetN(); ++i)
-    {
-        Ptr<Node> n = wifiNodes[1].Get(i);
-        if (n)
-        {
-            ue.Add(n);
-        }
-    }
-
-    if (ue.GetN() == 0)
-    {
-        std::cout << "[LTE] No UE nodes found for AP1; skipping UE install" << std::endl;
-        return;
-    }
-    m_lteUeDevs = m_lteHelper->InstallUeDevice(ue);
-
-    // LTE PGW と CER のリンク設定用にノードを登録
-    Ptr<Node> ltePgw = m_lteEpcHelper->GetPgwNode();
-    if (ltePgw && cerNode != nullptr)
-    {
-        m_ltePgwCerNodes = NodeContainer(ltePgw, cerNode);
-    }
-
-    std::cout << "[LTE] Installed " << m_lteEnbDevs.GetN() << " eNB, "
-              << m_lteUeDevs.GetN() << " UE devices for AP1" << std::endl;
 }
 
 void NetSim::ConfigureLtePgwCerLink()
