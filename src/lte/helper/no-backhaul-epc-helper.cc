@@ -53,12 +53,14 @@ NoBackhaulEpcHelper::NoBackhaulEpcHelper()
     // since we use point-to-point links for links between the core network nodes,
     // we use a /30 subnet which can hold exactly two addresses
     // (remember that net broadcast and null address are not valid)
-    m_x2Ipv4AddressHelper.SetBase("12.0.0.0", "255.255.255.252");
-    m_s11Ipv4AddressHelper.SetBase("13.0.0.0", "255.255.255.252");
-    m_s5Ipv4AddressHelper.SetBase("14.0.0.0", "255.255.255.252");
+    // Changed from 12.x/13.x/14.x to 17.x/18.x/19.x to avoid collision with NR EPC
+    m_x2Ipv4AddressHelper.SetBase("17.0.0.0", "255.255.255.252");
+    m_s11Ipv4AddressHelper.SetBase("18.0.0.0", "255.255.255.252");
+    m_s5Ipv4AddressHelper.SetBase("19.0.0.0", "255.255.255.252");
 
     // we use a /8 net for all UEs
-    m_uePgwAddressHelper.SetBase("7.0.0.0", "255.0.0.0");
+    // Note: Changed from 7.0.0.0 to 6.0.0.0 to avoid collision with NR UE addresses (7.x.x.x)
+    m_uePgwAddressHelper.SetBase("6.0.0.0", "255.0.0.0");
 
     // we use a /64 IPv6 net all UEs
     m_uePgwAddressHelper6.SetBase("7777:f00d::", Ipv6Prefix(64));

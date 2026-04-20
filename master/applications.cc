@@ -171,7 +171,7 @@ void NetSim::SetKamedaModule(void){
     Ptr<KamedaAppServer> appServer = CreateObject<KamedaAppServer>(m_apSelectionInput);
     appServer->ConfigureCycles(m_cycleCount, m_cycleDuration);
     appServer->SetHandoverCallback([this](const std::vector<int>& assignment) {
-        HandleHandoverRequest(assignment);
+        HandoverRequest(assignment);
     });
     remote_host->AddApplication(appServer);
     appServer->SetStartTime(Seconds(1.0));

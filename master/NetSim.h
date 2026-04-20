@@ -46,19 +46,23 @@ enum APID{
     wifi4,
 };
 
-enum class RatType { NR, WIFI };
+enum class RatType { NR, WIFI, LTE };
 
+// 各端末の接続状態（どのAP、どのRAT・IP）
 struct TermAccessState {
     int currentAp;              // 1-based
-    RatType currentRat;         // NR or WIFI
+    RatType currentRat;         // NR, WIFI, or LTE
     Ipv4Address nrIpv4;         // 7.x.x.x
+    Ipv4Address lteIpv4;        // 6.x.x.x (LTE UE IP)
     std::vector<Ipv4Address> wifiIpv4; // index=apIdx (0-based), Wi-Fi AP毎のIP
     uint32_t nrIfIndex;         // NRデバイスのIpv4インターフェース番号
+    uint32_t lteIfIndex;        // LTEデバイスのIpv4インターフェース番号
     std::vector<uint32_t> wifiIfIndex; // Wi-Fi AP毎のインターフェース番号
     Time lastSwitchTime;
     bool switchInProgress;
 };
 
+// 各端末のアプリケーション情報
 struct TermAppState {
     int appType;                // 1=browser, 2=video, 3=voice, 4=game
     uint16_t primaryPort;
@@ -67,6 +71,7 @@ struct TermAppState {
     std::vector<Ptr<Application>> serverApps;
 };
 
+// 各端末の初期設定
 struct TermData
 {
     int use_appli;
@@ -91,6 +96,9 @@ private:
     void ConfigureLTE(uint32_t count);
     void ConfigureNrForAp0();
     void ConfigureNrIpAfterNetwork();
+    void ConfigureLteForAp1();
+    void ConfigureLteIpAfterNetwork();
+    void ConfigureLtePgwCerLink();
     void ConfigureP2P(uint32_t count);
     void ConfigureMobility();
     void ConfigureNetworkLayer();
@@ -144,6 +152,14 @@ private:
     NetDeviceContainer m_nrUeDevs;
     Ptr<NrHelper> m_nrHelper;
     Ptr<NrPointToPointEpcHelper> m_nrEpcHelper;
+    // LTE devices (AP1専用)
+    NetDeviceContainer m_lteEnbDevs;
+    NetDeviceContainer m_lteUeDevs;
+    Ptr<LteHelper> m_lteHelper;
+    Ptr<PointToPointEpcHelper> m_lteEpcHelper;
+    Ipv4Address m_lteGateway;
+    NodeContainer m_ltePgwCerNodes;
+    NetDeviceContainer m_ltePgwCerDevices;
 
     uint32_t termNum;
     uint32_t APnum;
@@ -198,15 +214,20 @@ private:
     void CollectTerminalThroughput();
 
     void ScheduleMonitorWindows();
-    void HandleHandoverRequest(const std::vector<int>& assignment);
+    void HandoverRequest(const std::vector<int>& assignment);
     void ConfigureCycleParameters();
     void PrintAssignmentSummary(const std::vector<int>& assignment) const;
 
     // 擬似ハンドオーバ関連
-    void ExecutePseudoHandoverBatch(const std::vector<std::pair<uint32_t, int>>& switchList);
-    void ExecuteWifiHandover(uint32_t termIdx, int oldAp, int newAp);
-    void ExecuteNrToWifiHandover(uint32_t termIdx, int newAp);
-    void ExecuteWifiToNrHandover(uint32_t termIdx);
+    void ApplyHandoverBatch(const std::vector<std::pair<uint32_t, int>>& switchList);
+    void WifiToWifiHandover(uint32_t termIdx, int oldAp, int newAp);
+    void NrToWifiHandover(uint32_t termIdx, int newAp);
+    void WifiToNrHandover(uint32_t termIdx);
+    void LteToWifiHandover(uint32_t termIdx, int newAp);
+    void WifiToLteHandover(uint32_t termIdx);
+    void NrToLteHandover(uint32_t termIdx);
+    void LteToNrHandover(uint32_t termIdx);
+    RatType GetRatTypeForAp(int apNo) const;
     void SwitchDefaultRoute(Ptr<Node> termNode, uint32_t newIfIndex, Ipv4Address newGateway);
     void RebindTerminalApps(uint32_t termIdx, Ipv4Address newIp);
     void ReinstallBrowserApp(uint32_t termIdx, Ipv4Address newIp, Time startTime, Time stopTime);

@@ -21,44 +21,50 @@
 ```mermaid
 flowchart LR
     %% --- Groups ---
-    subgraph G5G["5G"]
-        UE[UE]
-        gNB[gNB]
-        EPC["EPC (UPF)"]
-        UE --> gNB
-        gNB --> EPC
+    subgraph GNR["AP0 / NR"]
+        NRUE["UE / Terminal"]
+        NRMON["Monitor Terminal"]
+        gNB["gNB"]
+        NREPC["NR EPC (PGW)"]
+        NRUE --> gNB
+        NRMON --> gNB
+        gNB --> NREPC
     end
 
-    subgraph GWiFi1["Wi-Fi1"]
-        STA1[STA1]
-        AP1[AP1]
-        L3R1["L3 Router1"]
-        STA1 --> AP1
-        AP1 --> L3R1
+    subgraph GLTE["AP1 / LTE"]
+        LTEUE["UE / Terminal"]
+        LTEMON["Monitor Terminal"]
+        eNB["eNB"]
+        LTEEPC["LTE EPC (PGW)"]
+        LTEUE --> eNB
+        LTEMON --> eNB
+        eNB --> LTEEPC
     end
 
-    subgraph GWiFi2["Wi-Fi2"]
-        STA2[STA2]
-        AP2[AP2]
-        L3R2["L3 Router2"]
-        STA2 --> AP2
-        AP2 --> L3R2
+    subgraph GWiFi["AP2 / Wi-Fi 6"]
+        STA["STA / Terminal"]
+        WIFIMON["Monitor Terminal"]
+        AP["Wi-Fi AP"]
+        L3R["L3 Router"]
+        STA --> AP
+        WIFIMON --> AP
+        AP --> L3R
     end
 
     subgraph Servers["Servers"]
-        RH[RemoteHost]
-        RTT["RTT Server"]
+        RH["RemoteHost / Kameda Server"]
+        RTT["RTT Server / Forwarder"]
         VID["Video Server"]
         VOI["Voice Server"]
-        GAM["Game Server"]
+        GAM["Online Game Server"]
         BRW["Browser Server"]
     end
 
     %% --- Core Edge ---
     CER["Common Internet<br/>Edge Router"]
-    EPC --> CER
-    L3R1 --> CER
-    L3R2 --> CER
+    NREPC --> CER
+    LTEEPC --> CER
+    L3R --> CER
 
     %% --- Fan-out to servers ---
     CER --> RH
@@ -71,19 +77,22 @@ flowchart LR
 ### 各ノードの概要
 | 種別 | 名称 | 役割 | 主な接続先 |
 |---|---|---|---|
-| 5G | UE | 端末 | gNB |
-| 5G | gNB | 5G基地局 | UE / EPC |
-| 5G | EPC (UPF) | 5Gコア | gNB / CER |
-| Wi‑Fi1 | STA1 | 端末 | AP1 |
-| Wi‑Fi1 | AP1 | Wi‑Fi AP | STA1 / L3 Router1 |
-| Wi‑Fi1 | L3 Router1 | ルータ | AP1 / CER |
-| Wi‑Fi2 | STA2 | 端末 | AP2 |
-| Wi‑Fi2 | AP2 | Wi‑Fi AP | STA2 / L3 Router2 |
-| Wi‑Fi2 | L3 Router2 | ルータ | AP2 / CER |
-| コア | CER | 共通エッジルータ | EPC / L3R1 / L3R2 / 各サーバ |
-| サーバ | RemoteHost | 動的割り当て手法の計算 | CER |
-| サーバ | RTT Server | RTT計測 | CER |
-| サーバ | Video/Voice/Game/Browser | 各アプリケーションの配信 | CER |
+| NR | UE / Terminal | AP0 配下の端末 | gNB |
+| NR | Monitor Terminal | AP0 の RTT/TP を測定する監視端末 | gNB / RTT Server / RemoteHost |
+| NR | gNB | AP0 に相当する NR 基地局 | UE / Monitor Terminal / NR EPC |
+| NR | NR EPC (PGW) | NR コアネットワーク | gNB / CER |
+| LTE | UE / Terminal | AP1 配下の端末 | eNB |
+| LTE | Monitor Terminal | AP1 の RTT/TP を測定する監視端末 | eNB / RTT Server / RemoteHost |
+| LTE | eNB | AP1 に相当する LTE 基地局 | UE / Monitor Terminal / LTE EPC |
+| LTE | LTE EPC (PGW) | LTE コアネットワーク | eNB / CER |
+| Wi-Fi | STA / Terminal | AP2 以降の Wi-Fi 接続端末 | Wi-Fi AP |
+| Wi-Fi | Monitor Terminal | Wi-Fi AP の RTT/TP を測定する監視端末 | Wi-Fi AP / RTT Server / RemoteHost |
+| Wi-Fi | Wi-Fi AP | AP2 以降に相当する Wi-Fi 6 AP | STA / Monitor Terminal / L3 Router |
+| Wi-Fi | L3 Router | Wi-Fi AP と CER を接続するルータ | Wi-Fi AP / CER |
+| コア | CER | 共通エッジルータ | NR EPC / LTE EPC / L3 Router / 各サーバ |
+| サーバ | RemoteHost / Kameda Server | AP 選択，端末満足度計算，割り当て結果生成 | CER |
+| サーバ | RTT Server / Forwarder | 監視端末の RTT 測定結果を RemoteHost へ転送 | CER |
+| サーバ | Video/Voice/Online Game/Browser | 各アプリケーションのトラフィック送受信 | CER |
 
 
 ### ノード間接続
