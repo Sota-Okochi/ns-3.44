@@ -207,27 +207,16 @@ void NetSim::ConfigureDataLinkLayer(){
     std::cout << "==== ConfigureDataLinkLayer ====" << std::endl;
     NS_LOG_FUNCTION(this);
 
-    ConfigureWifiDevices(); // Wi-Fiのデバイス設定
     ConfigureMobility(); // モビリティ設定
     ConfigureMonitorPlacement(); // 検査用端末の配置
     ConfigureNrForAp0(); // AP0のNR設定
     ConfigureLteForAp1(); // AP1のLTE設定
+    ConfigureWifiForAP2(); // AP2のWi-Fi設定
     ConfigureP2PDevices(); // P2Pのデバイス設定
     ConfigureRouterCerLinks(); // ルータとCERのリンク設定
     ConfigureServerCerLinks(); // サーバとCERのリンク設定
     ConfigurePgwCerLink(); // NR PgwとCERのリンク設定
     ConfigureLtePgwCerLink(); // LTE PgwとCERのリンク設定
-}
-
-void NetSim::ConfigureWifiDevices()
-{
-    NS_LOG_LOGIC("set wifi devices");
-    for (uint32_t i = 0; i < APnum; ++i)
-    {
-        if (i == 0) continue;   // AP0: NR（ConfigureNrForAp0で処理）
-        if (i == 1) continue;   // AP1: LTE（ConfigureLteForAp1で処理）
-        ConfigureLTE(i);        // AP2以降: Wi-Fi 6
-    }
 }
 
 void NetSim::ConfigureMonitorPlacement()
@@ -306,55 +295,18 @@ void NetSim::ConfigurePgwCerLink()
     m_pgwCerDevices = pointToPoint.Install(m_pgwCerNodes);
 }
 
-void NetSim::ConfigureWifi(uint32_t count){
-    std::cout << "==== ConfigureWifi ====" << std::endl;
+void NetSim::ConfigureWifiForAP2(){
+    std::cout << "==== ConfigureWifiForAP2 ====" << std::endl;
     NS_LOG_FUNCTION(this);
-    YansWifiChannelHelper channel = YansWifiChannelHelper::Default();
-    channel.SetPropagationDelay("ns3::ConstantSpeedPropagationDelayModel");
-    channel.AddPropagationLoss("ns3::RandomPropagationLossModel");
 
-    YansWifiPhyHelper phy;
-    phy.SetChannel(channel.Create());
-    phy.Set("RxGain", DoubleValue(0));
-    phy.Set("ChannelNumber", UintegerValue(36));
-    phy.Set("ChannelWidth", UintegerValue(20));
-    phy.Set("Antennas", UintegerValue(1));
-    phy.Set("MaxSupportedTxSpatialStreams", UintegerValue(1));
-    phy.Set("MaxSupportedRxSpatialStreams", UintegerValue(1));
-    phy.SetPcapDataLinkType(WifiPhyHelper::DLT_IEEE802_11_RADIO);
-
-    WifiHelper wifi;
-    wifi.SetStandard(WIFI_STANDARD_80211ax);
-    wifi.SetRemoteStationManager(
-        "ns3::ConstantRateWifiManager",
-        "DataMode", StringValue("HeMcs7"),
-        "ControlMode", StringValue("HeMcs0")
-    );
-    wifi.ConfigHeOptions("BssColor", UintegerValue((count % 63) + 1));
-
-    WifiMacHelper mac;
-    std::stringstream ssidss;
-    ssidss << "main-SSID-" << count;
-    Ssid ssid = Ssid (ssidss.str());
-    mac.SetType ("ns3::ApWifiMac",
-                 "Ssid", SsidValue (ssid),
-                 "BeaconInterval", TimeValue(MicroSeconds(52224)));
-    wifiDevices[count] = wifi.Install (phy, mac, wifiNodes[count].Get(0));
-
-    for(uint32_t i=1; i<wifiNodes[count].GetN(); i++){
-        mac.SetType ("ns3::StaWifiMac",
-                     "Ssid", SsidValue (ssid),
-                     "ActiveProbing", BooleanValue(true));
-        NetDeviceContainer temp = wifi.Install (phy, mac, wifiNodes[count].Get(i));
-        wifiDevices[count].Add(temp);
+    constexpr uint32_t apIndex = 2;
+    if (APnum <= apIndex || wifiNodes.size() <= apIndex || wifiDevices.size() <= apIndex ||
+        wifiNodes[apIndex].GetN() == 0)
+    {
+        std::cout << "[Wi-Fi] AP2 is not available; skipping Wi-Fi setup" << std::endl;
+        return;
     }
-    std::stringstream ss;
-    ss << OUTPUT_DIR << "wifi" << count;
-}
 
-void NetSim::ConfigureLTE(uint32_t count){
-    std::cout << "==== ConfigureLTE ====" << std::endl;
-    NS_LOG_FUNCTION(this);
     SpectrumWifiPhyHelper phy;
     Ptr<MultiModelSpectrumChannel> spectrumChannel = CreateObject<MultiModelSpectrumChannel>();
     Ptr<ConstantSpeedPropagationDelayModel> delay = CreateObject<ConstantSpeedPropagationDelayModel>();
@@ -373,11 +325,11 @@ void NetSim::ConfigureLTE(uint32_t count){
     Config::SetDefault("ns3::WifiPhy::ChannelWidth", UintegerValue(40));
     wifi.SetRemoteStationManager("ns3::IdealWifiManager");
     Config::SetDefault ("ns3::WifiRemoteStationManager::RtsCtsThreshold", UintegerValue (2200));
-    wifi.ConfigHeOptions("BssColor", UintegerValue((count % 63) + 1));
+    wifi.ConfigHeOptions("BssColor", UintegerValue((apIndex % 63) + 1));
 
     WifiMacHelper mac;
     std::stringstream ssidss;
-    ssidss << "main-SSID-" << count;
+    ssidss << "main-SSID-" << apIndex;
     Ssid ssid = Ssid (ssidss.str());
 
     mac.SetType("ns3::ApWifiMac",
@@ -385,19 +337,19 @@ void NetSim::ConfigureLTE(uint32_t count){
                 "QosSupported", BooleanValue(true),
                 "BeaconInterval", TimeValue(MicroSeconds(52224)));
 
-    wifiDevices[count] = wifi.Install(phy, mac, wifiNodes[count].Get(0));
+    wifiDevices[apIndex] = wifi.Install(phy, mac, wifiNodes[apIndex].Get(0));
 
     mac.SetType("ns3::StaWifiMac",
                 "Ssid", SsidValue(ssid),
                 "ActiveProbing", BooleanValue(true),
                 "QosSupported", BooleanValue(true));
 
-    for(uint32_t i=1; i<wifiNodes[count].GetN(); i++){
-        NetDeviceContainer temp = wifi.Install(phy, mac, wifiNodes[count].Get(i));
-        wifiDevices[count].Add(temp);
+    for(uint32_t i=1; i<wifiNodes[apIndex].GetN(); i++){
+        NetDeviceContainer temp = wifi.Install(phy, mac, wifiNodes[apIndex].Get(i));
+        wifiDevices[apIndex].Add(temp);
     }
     std::stringstream ss;
-    ss << OUTPUT_DIR << "wifi" << count;
+    ss << OUTPUT_DIR << "wifi" << apIndex;
 }
 
 void NetSim::ConfigureMobility(){
@@ -950,6 +902,7 @@ void NetSim::ConfigureNetworkLayer(){
     }
 }
 
+// 5G基地局の設定
 void NetSim::ConfigureNrForAp0()
 {
     if (APnum == 0 || wifiNodes.empty())

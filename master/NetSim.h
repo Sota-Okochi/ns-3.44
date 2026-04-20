@@ -92,8 +92,7 @@ private:
     void Configure();
     void CreateNetworkTopology();
     void ConfigureDataLinkLayer();
-    void ConfigureWifi(uint32_t count);
-    void ConfigureLTE(uint32_t count);
+    void ConfigureWifiForAP2();
     void ConfigureNrForAp0();
     void ConfigureNrIpAfterNetwork();
     void ConfigureLteForAp1();
@@ -131,7 +130,6 @@ private:
     void ConfigureTermMobility();
     Vector GetMonitorPosition(uint32_t apId) const;
     void AttachMonitorApplication(uint32_t apId, Ptr<Node> monitor);
-    void ConfigureWifiDevices();
     void ConfigureMonitorPlacement();
     void ConfigureP2PDevices();
     void ConfigureRouterCerLinks();

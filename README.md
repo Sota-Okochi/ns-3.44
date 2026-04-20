@@ -96,10 +96,12 @@ flowchart LR
 
 
 ### ノード間接続
-- UE→gNB, STA→AP: Wireless
-- gNB → EPC(UPF) → CER : PointToPoint
-- AP1 → L3R1[L3 Router1] → CER : PointToPoint 
-- AP2 → L3R2[L3 Router2] → CER : PointToPoint 
+- UE/Monitor Terminal → gNB: NR Wireless
+- UE/Monitor Terminal → eNB: LTE Wireless
+- STA/Monitor Terminal → Wi-Fi AP: Wi-Fi 6 Wireless
+- gNB → NR EPC(PGW) → CER : PointToPoint
+- eNB → LTE EPC(PGW) → CER : PointToPoint
+- Wi-Fi AP → L3 Router → CER : PointToPoint
 - CER ↔ servers : PointToPoint
 
 ## 環境設定
