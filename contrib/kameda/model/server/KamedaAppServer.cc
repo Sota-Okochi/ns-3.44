@@ -338,7 +338,7 @@ void KamedaAppServer::Ending(){
         std::cout << "=== AP selection optimization completed ===" << std::endl;
     }
 
-    if (m_handoverCallback && apselect)
+    if (m_handoverCallback && apselect && m_cycleIndex < m_cycleCount - 1)
     {
         m_handoverCallback(apselect->GetLastAssignment());
     }
@@ -355,6 +355,10 @@ void KamedaAppServer::Ending(){
     else
     {
         std::cout << "=== All " << m_cycleCount << " cycles completed ===" << std::endl;
+        if (apselect)
+        {
+            apselect->PrintCycleHarmonicMeans();
+        }
     }
 }
 
@@ -375,6 +379,10 @@ void KamedaAppServer::ConfigureCycles(uint32_t count, Time duration)
 {
     m_cycleCount = std::max<uint32_t>(1, count);
     m_cycleDuration = duration.IsPositive() ? duration : Seconds(7.0);
+    if (apselect)
+    {
+        apselect->SetTotalCycles(m_cycleCount);
+    }
 }
 
 void KamedaAppServer::SetTerminalTp(int termIdx, double tpBps)

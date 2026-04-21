@@ -23,7 +23,7 @@ void NetSim::ConfigureCycleParameters()
     {
         m_cycleCount = 5;
     }
-    m_simulationDuration = m_cycleDuration * m_cycleCount + Seconds(2.0);
+    m_simulationDuration = m_cycleDuration * m_cycleCount + Seconds(5.0);
 }
 
 void NetSim::ScheduleMonitorWindows()

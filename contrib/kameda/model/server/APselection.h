@@ -62,7 +62,9 @@ public:
     void SetHandoverCallback(std::function<void(const std::vector<int>&)> cb);
     const std::vector<int>& GetLastAssignment() const { return m_lastAssignment; }
     void setTerminalTp(int termIdx, double tpBps);
-    
+    void PrintCycleHarmonicMeans();
+    void SetTotalCycles(uint32_t n);
+
 private:
     void cal_traffic_request(); // 必要TP, RTTの算出
     void cal_initial_harmonic_mean(); // 端末満足度の調和平均の計算
@@ -71,7 +73,6 @@ private:
     void policy_assignment1(); //方策による割り当て
     void ResetMonitorStats();
     void RecordHarmonicMean(double value);
-    void PrintCycleHarmonicMeans();
     void WriteMasterLog();
     
     std::vector<double> m_monitor_rtt;   // 各基地局ごとの平均RTT
@@ -90,6 +91,7 @@ private:
     std::vector<int> initial_AP;       //各端末の初期接続先
     std::vector<int> m_lastAssignment;  // 直近の割当結果（1ベース）
     uint32_t m_cycleIndex = 0;          // 現在のサイクル番号（1スタート）
+    uint32_t m_totalCycles = 0;         // 総サイクル数（0=制限なし）
     std::function<void(const std::vector<int>&)> m_handoverCallback;
     std::vector<double> m_cycleHarmonicMeans; // サイクルごとの調和平均
     

@@ -179,19 +179,19 @@ void APselection::tmain(){
     // master_log.csv に割り当て前の状態を記録
     WriteMasterLog();
 
-    if (G_nth == 5)
+    if (m_totalCycles == 0 || m_cycleIndex < m_totalCycles)
     {
-        // policy_assignment1();
-        random_assignment();
-    }
-    else
-    {
-        random_assignment();
+        if (G_nth == 5)
+        {
+            // policy_assignment1();
+            random_assignment();
+        }
+        else
+        {
+            random_assignment();
+        }
     }
 
-    // 現在までのサイクルの調和平均を即時表示
-    PrintCycleHarmonicMeans();
-    
     // std::cout << "=== APselection::tmain() END ===" << std::endl;
 }
 
@@ -475,6 +475,11 @@ void APselection::StartNewCycle(uint32_t cycleIndex)
 void APselection::SetHandoverCallback(std::function<void(const std::vector<int>&)> cb)
 {
     m_handoverCallback = std::move(cb);
+}
+
+void APselection::SetTotalCycles(uint32_t n)
+{
+    m_totalCycles = n;
 }
 
 void APselection::ResetMonitorStats()
