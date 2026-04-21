@@ -8,7 +8,6 @@
 #include "ns3/inet-socket-address.h"
 #include "ns3/config.h"
 #include "ns3/ping-helper.h"
-#include "ns3/flow-monitor-helper.h"
 
 #include <iostream>
 #include <sstream>
@@ -36,15 +35,7 @@ APMonitorTerminal::APMonitorTerminal(uint32_t apId, Ipv4Address targetAP, Ipv4Ad
       m_successfulPings(0),
       m_averageRtt(0.0),
       m_minRtt(std::numeric_limits<double>::max()),
-      m_maxRtt(0.0),
-      m_totalRxBytes(0),
-      m_measurementStartTime(Seconds(0.0)),
-      m_lastRxTime(Seconds(0.0)),
-      m_hasVideoTraffic(false),
-      m_lastGoodputBps(0.0),
-      m_hasGoodput(false),
-      m_lastThroughputBps(0.0),
-      m_hasThroughput(false)
+      m_maxRtt(0.0)
 {
     NS_LOG_FUNCTION(this);
     std::cout << "=== APMonitorTerminal created for AP" << m_apId << " ===" << std::endl;
@@ -60,23 +51,6 @@ void APMonitorTerminal::StartApplication()
     NS_LOG_FUNCTION(this);
     std::cout << "=== APMonitorTerminal::StartApplication() - AP" << m_apId << " ===" << std::endl;
     m_appStartTime = Simulator::Now();
-    ResetGoodputStats();
-
-    // FlowMonitor をインストール（初回のみ）
-    // InstallAll() で全ノードにプローブを設置する。
-    // Install(GetNode()) だと送信元ノードにプローブがないため
-    // FlowProbeTag が付加されず、受信パケットを追跡できない。
-    if (m_flowMonitor == nullptr)
-    {
-        m_flowMonitor = m_flowHelper.InstallAll();
-        Ptr<FlowClassifier> classifier = m_flowHelper.GetClassifier();
-        m_flowClassifier = DynamicCast<Ipv4FlowClassifier>(classifier);
-    }
-    else
-    {
-        m_flowMonitor->ResetAllStats();
-    }
-    
     Simulator::Schedule(Seconds(0.0), &APMonitorTerminal::StartContinuousMonitoring, this);
 }
 
@@ -99,12 +73,9 @@ void APMonitorTerminal::StartContinuousMonitoring()
         Simulator::Cancel(m_closeEvent);
     }
 
-    ResetGoodputStats();
-
     m_isMonitoring = true;
     std::cout << "=== Starting continuous monitoring for AP" << m_apId << " ===" << std::endl;
-    
-    // 統計情報をリセット
+
     m_totalPings = 0;
     m_successfulPings = 0;
     m_rttSamples.clear();
@@ -212,32 +183,6 @@ void APMonitorTerminal::HandlePingRtt(uint16_t /*seq*/, Time rtt)
     OnRttMeasured(rtt);
 }
 
-void APMonitorTerminal::NotifyVideoRx(uint32_t rxBytes, Time rxTime)
-{
-    if (rxTime < Seconds(1.0))
-    {
-        return;
-    }
-
-    if (!m_hasVideoTraffic)
-    {
-        m_hasVideoTraffic = true;
-        m_measurementStartTime = rxTime;
-    }
-
-    m_totalRxBytes += rxBytes;
-    m_lastRxTime = rxTime;
-}
-
-void APMonitorTerminal::HandleVideoSinkRx(Ptr<const Packet> packet, const Address& /*from*/)
-{
-    if (packet == nullptr)
-    {
-        return;
-    }
-    NotifyVideoRx(packet->GetSize(), Simulator::Now());
-}
-
 void APMonitorTerminal::OnRttMeasured(Time rtt)
 {
     NS_LOG_FUNCTION(this);
@@ -304,25 +249,6 @@ void APMonitorTerminal::ReportRTTToServer()
               << "ms, Moving Average (last " << windowSize << "): "
               << m_averageRtt << "ms" << std::endl;
 
-    // FlowMonitor で計測したスループット（IP 層バイト）
-    double throughputBps = ComputeThroughputBps();
-    m_lastThroughputBps = throughputBps;
-    m_hasThroughput = (throughputBps > 0.0);
-    std::cout << "FlowMonitor throughput (bps): " << throughputBps << std::endl;
-
-    // 参考用に従来の Goodput も計算（アプリ層バイト）
-    double goodputBps = 0.0;
-    if (m_hasVideoTraffic && m_lastRxTime > m_measurementStartTime)
-    {
-        double duration = (m_lastRxTime - m_measurementStartTime).GetSeconds();
-        if (duration > 0.0)
-        {
-            goodputBps = static_cast<double>(m_totalRxBytes) * 8.0 / duration;
-            SetLastGoodputBps(goodputBps);
-        }
-    }
-    std::cout << "Video goodput (bps): " << goodputBps << std::endl;
-    
     // TCP接続を作成してサーバーに送信
     m_socket = CreateTcpSocket();
     if (m_socket) {
@@ -379,19 +305,8 @@ void APMonitorTerminal::OnConnectionSucceeded(Ptr<Socket> socket)
 {
     NS_LOG_FUNCTION(this);
     
-    // メッセージを作成（監視端末専用フォーマット）
     std::stringstream message;
-    double reportBps = 0.0;
-    if (m_hasThroughput)
-    {
-        reportBps = m_lastThroughputBps;
-    }
-    else if (m_hasGoodput)
-    {
-        reportBps = m_lastGoodputBps;
-    }
-
-    message << "MONITOR_AP" << m_apId << "," << m_averageRtt << "," << reportBps;
+    message << "MONITOR_AP" << m_apId << "," << m_averageRtt;
     
     std::string msg = message.str();
     socket->Send(reinterpret_cast<const uint8_t*>(msg.c_str()), msg.length(), 0);
@@ -452,61 +367,9 @@ void APMonitorTerminal::FinalizeTransmission()
     std::cout << "=== Monitoring stopped for AP" << m_apId << " ===" << std::endl;
 }
 
-void APMonitorTerminal::ResetGoodputStats()
-{
-    m_totalRxBytes = 0;
-    m_measurementStartTime = Seconds(0.0);
-    m_lastRxTime = Seconds(0.0);
-    m_hasVideoTraffic = false;
-    m_lastGoodputBps = 0.0;
-    m_hasGoodput = false;
-    m_lastThroughputBps = 0.0;
-    m_hasThroughput = false;
-    if (m_flowMonitor)
-    {
-        m_flowMonitor->ResetAllStats();
-    }
-}
-
-double APMonitorTerminal::GetLastGoodputBps() const
-{
-    return m_lastGoodputBps;
-}
-
-bool APMonitorTerminal::HasGoodput() const
-{
-    return m_hasGoodput;
-}
-
-Time APMonitorTerminal::GetMeasurementStartTime() const
-{
-    return m_measurementStartTime;
-}
-
-Time APMonitorTerminal::GetLastRxTime() const
-{
-    return m_lastRxTime;
-}
-
-uint64_t APMonitorTerminal::GetTotalRxBytes() const
-{
-    return m_totalRxBytes;
-}
-
 Time APMonitorTerminal::GetApplicationStartTime() const
 {
     return m_appStartTime;
-}
-
-void APMonitorTerminal::SetLastGoodputBps(double goodputBps)
-{
-    m_lastGoodputBps = goodputBps;
-    m_hasGoodput = true;
-}
-
-bool APMonitorTerminal::HasVideoTraffic() const
-{
-    return m_hasVideoTraffic;
 }
 
 Ipv4Address APMonitorTerminal::GetPrimaryIpv4(Ptr<Node> node) const
@@ -532,63 +395,6 @@ Ipv4Address APMonitorTerminal::GetPrimaryIpv4(Ptr<Node> node) const
         }
     }
     return Ipv4Address("0.0.0.0");
-}
-
-double APMonitorTerminal::ComputeThroughputBps()
-{
-    if (m_flowMonitor == nullptr || m_flowClassifier == nullptr)
-    {
-        return 0.0;
-    }
-
-    m_flowMonitor->CheckForLostPackets();
-    auto stats = m_flowMonitor->GetFlowStats();
-
-    Ipv4Address myAddress = GetPrimaryIpv4(GetNode());
-    double totalBits = 0.0;
-    double firstRx = -1.0;
-    double lastRx = -1.0;
-
-    for (const auto& kv : stats)
-    {
-        const FlowId flowId = kv.first;
-        const FlowMonitor::FlowStats& fs = kv.second;
-        if (fs.rxPackets == 0)
-        {
-            continue;
-        }
-
-        Ipv4FlowClassifier::FiveTuple tuple = m_flowClassifier->FindFlow(flowId);
-        if (tuple.sourceAddress != myAddress && tuple.destinationAddress != myAddress)
-        {
-            continue;
-        }
-
-        double start = fs.timeFirstRxPacket.GetSeconds();
-        double end = fs.timeLastRxPacket.GetSeconds();
-        if (end <= start)
-        {
-            continue;
-        }
-
-        totalBits += static_cast<double>(fs.rxBytes) * 8.0;
-        if (firstRx < 0.0 || start < firstRx)
-        {
-            firstRx = start;
-        }
-        if (lastRx < 0.0 || end > lastRx)
-        {
-            lastRx = end;
-        }
-    }
-
-    double duration = (lastRx > firstRx && firstRx >= 0.0) ? (lastRx - firstRx) : 0.0;
-    double throughput = (duration > 0.0 && totalBits > 0.0) ? (totalBits / duration) : 0.0;
-
-    // 次の計測を新しいウィンドウで始めるため統計をリセット
-    m_flowMonitor->ResetAllStats();
-
-    return throughput;
 }
 
 void APMonitorTerminal::ForceReportToServer()

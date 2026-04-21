@@ -79,8 +79,6 @@ private:
     std::vector<double> m_rtt_sum;       // 平均算出用の合計値
     std::vector<uint32_t> m_rtt_count;   // 平均算出用のサンプル数
     std::vector<bool> m_has_rtt;         // RTT取得済みフラグ
-    std::vector<double> m_monitor_tp;    // 各基地局ごとの実測TP（bit/s）
-    std::vector<bool> m_has_tp;          // TP取得済みフラグ
     std::vector<double> m_terminal_tp;   // 端末ごとの実測TP (bit/s)
     std::vector<bool> m_has_terminal_tp; // 端末ごとのTP取得済みフラグ
     std::vector<double> m_link_rtt;                   //接続時のRTTデータ

@@ -67,8 +67,6 @@ void APselection::init(const ApSelectionInput& input){
     m_rtt_sum.assign(aps, 0.0);
     m_rtt_count.assign(aps, 0);
     m_has_rtt.assign(aps, false);
-    m_monitor_tp.assign(aps, 0.0);
-    m_has_tp.assign(aps, false);
     m_terminal_tp.assign(terms, 0.0);
     m_has_terminal_tp.assign(terms, false);
 
@@ -131,17 +129,6 @@ void APselection::setData(std::string senderIpAddress, std::string recvMessage){
     m_monitor_rtt[apNo] = m_rtt_sum[apNo] / static_cast<double>(m_rtt_count[apNo]);
     m_has_rtt[apNo] = true;
 
-    if (ret2.size() >= 3)
-    {
-        std::stringstream ssTp(ret2[2]);
-        double tpBps = 0.0;
-        ssTp >> tpBps;
-        m_monitor_tp[apNo] = tpBps;
-        m_has_tp[apNo] = true;
-        std::cout << "Monitor TP stored: AP=" << apNo << ", Goodput=" << tpBps << "bps" << std::endl;
-    }
-
-    // デバッグ用（各端末のTPの表示）
     std::cout << "Monitor data stored: AP=" << apNo << ", RTT=" << d
               << "ms, AVG=" << m_monitor_rtt[apNo] << "ms" << std::endl;
 }
@@ -155,19 +142,10 @@ void APselection::tmain(){
     
     for(int i=0; i<aps; i++){
         if(m_has_rtt[i]){
-            double ave_rtt = m_monitor_rtt[i];
-            double tpDisplayMbps = 0.0;
-            if (m_has_tp[i])
-            {
-                tpDisplayMbps = m_monitor_tp[i] * ns3::APConstants::BPS_TO_MBPS;
-            }
-
-        std::cout << std::fixed << std::setprecision(2);
-        std::cout << "AP:" << i << "\tRTT:" << ave_rtt << "ms"
-                << "\tTP:" << tpDisplayMbps << "Mbps" << std::endl;
-
+            std::cout << std::fixed << std::setprecision(2);
+            std::cout << "AP:" << i << "\tRTT:" << m_monitor_rtt[i] << "ms" << std::endl;
         } else {
-            std::cout << "実測のRTT値とTP値がありません" << std::endl;
+            std::cout << "実測のRTT値がありません" << std::endl;
         }
     }
 
@@ -247,7 +225,6 @@ void APselection::cal_initial_harmonic_mean(){
 // 端末満足度計算（共通ロジック）
 double APselection::calculate_satisfaction(int terminal_idx, int ap_idx) {
     if (ap_idx < 0 ||
-        ap_idx >= static_cast<int>(m_monitor_tp.size()) ||
         ap_idx >= static_cast<int>(m_monitor_rtt.size()))
     {
         return APConstants::MIN_SATISFACTION_THRESHOLD;
@@ -268,26 +245,6 @@ double APselection::calculate_satisfaction(int terminal_idx, int ap_idx) {
                 m_terminal_tp[terminal_idx] > 0.0)
             {
                 measuredTpMbps = m_terminal_tp[terminal_idx] * APConstants::BPS_TO_MBPS;
-            }
-            else if (m_has_tp[ap_idx] && m_monitor_tp[ap_idx] > 0.0)
-            {
-                uint32_t terminalsOnAp = 0;
-                const int apNo = ap_idx + 1; // initial_AP は 1 ベース
-                for (size_t i = 0; i < initial_AP.size(); ++i)
-                {
-                    if (initial_AP[i] == apNo)
-                    {
-                        ++terminalsOnAp;
-                    }
-                }
-                if (terminalsOnAp == 0)
-                {
-                    terminalsOnAp = 1;
-                }
-                // AP全体TPを接続台数で按分した推定値を使用
-                measuredTpMbps =
-                    (m_monitor_tp[ap_idx] / static_cast<double>(terminalsOnAp)) *
-                    APConstants::BPS_TO_MBPS;
             }
             if (measuredTpMbps <= 0.0)
             {
@@ -488,8 +445,6 @@ void APselection::ResetMonitorStats()
     std::fill(m_rtt_sum.begin(), m_rtt_sum.end(), 0.0);
     std::fill(m_rtt_count.begin(), m_rtt_count.end(), 0);
     std::fill(m_has_rtt.begin(), m_has_rtt.end(), false);
-    std::fill(m_monitor_tp.begin(), m_monitor_tp.end(), 0.0);
-    std::fill(m_has_tp.begin(), m_has_tp.end(), false);
     std::fill(m_terminal_tp.begin(), m_terminal_tp.end(), 0.0);
     std::fill(m_has_terminal_tp.begin(), m_has_terminal_tp.end(), false);
 }
@@ -581,23 +536,6 @@ void APselection::WriteMasterLog()
                 m_terminal_tp[i] > 0.0)
             {
                 measuredTpMbps = m_terminal_tp[i] * APConstants::BPS_TO_MBPS;
-            }
-            else if (ap_idx >= 0 &&
-                     ap_idx < static_cast<int>(m_has_tp.size()) &&
-                     m_has_tp[ap_idx] &&
-                     m_monitor_tp[ap_idx] > 0.0)
-            {
-                uint32_t terminalsOnAp = 0;
-                for (size_t j = 0; j < initial_AP.size(); ++j)
-                {
-                    if (initial_AP[j] == ap_1based)
-                    {
-                        ++terminalsOnAp;
-                    }
-                }
-                if (terminalsOnAp == 0) terminalsOnAp = 1;
-                measuredTpMbps = (m_monitor_tp[ap_idx] / static_cast<double>(terminalsOnAp)) *
-                                 APConstants::BPS_TO_MBPS;
             }
             std::ostringstream ss;
             ss << std::fixed << std::setprecision(2) << measuredTpMbps << "Mbps";

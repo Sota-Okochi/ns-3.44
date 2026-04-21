@@ -111,7 +111,6 @@ private:
     void SetGreedy();
     void SetBrowserApp();
     void SetOnlineGameApp();
-    void ReportMonitorGoodput();
     void CheckFlowMonitor(Ptr<FlowMonitor> monitor, Ptr<Ipv4FlowClassifier> classifier);
     
     bool LoadTermDataFromSqlite(const std::string& dbPath);
@@ -193,7 +192,6 @@ private:
     Time m_browserRequestInterval;
     uint32_t m_browserRequestCount;
     bool m_enableOnlineGameTracing;
-    bool m_goodputReportScheduled;
     std::unordered_set<uint32_t> m_wifiApAddresses;
     std::unordered_set<uint32_t> m_wifiStationAddresses;
     uint32_t m_cycleCount;

@@ -198,46 +198,15 @@ void KamedaAppServer::ProcessMonitorData(std::string senderIpAddress, std::strin
     
     int apNo = std::stoi(apNumStr);
     
-    // RTT値を抽出
     double rttValue = std::stod(parts[1]);
-    double throughputBps = 0.0;
-    bool hasThroughput = false;
-    if (parts.size() >= 3)
-    {
-        try
-        {
-            throughputBps = std::stod(parts[2]);
-            hasThroughput = true;
-        }
-        catch (const std::exception& ex)
-        {
-            std::cout << "Failed to parse throughput: " << ex.what() << std::endl;
-        }
-    }
-    
-    std::cout << "Processed Monitor Data: AP=" << apNo << ", RTT=" << rttValue << "ms";
-    if (hasThroughput)
-    {
-        std::cout << ", Throughput=" << throughputBps << "bps";
-    }
-    std::cout << std::endl;
-    
-    // APselectionに監視端末データを送信
+    std::cout << "Processed Monitor Data: AP=" << apNo << ", RTT=" << rttValue << "ms" << std::endl;
+
     if(apselect) {
-        // 監視端末データを直接APselectionに送信
-        // IPアドレスを監視端末用に変換: "10.0.10.1" -> "10.1.0.1" (AP0の形式)
         std::stringstream apIpAddress;
         apIpAddress << "10.1." << apNo << ".1";
-        
         std::stringstream monitorMsg;
         monitorMsg << "MONITOR_" << apNo << "," << rttValue;
-        if (hasThroughput)
-        {
-            monitorMsg << "," << throughputBps;
-        }
         apselect->setData(apIpAddress.str(), monitorMsg.str());
-        
-        // Monitor data forwarded silently to reduce output
     }
 }
 

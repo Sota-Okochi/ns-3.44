@@ -158,7 +158,6 @@ NetSim::NetSim()
     m_browserRequestInterval = Seconds(1.0);
     m_browserRequestCount = 5;
     m_enableOnlineGameTracing = true;
-    m_goodputReportScheduled = false;
     m_currentCycle = 0;
     m_terminalTpWindowStart = Seconds(0.0);
 
