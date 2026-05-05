@@ -170,6 +170,8 @@ void NetSim::SetKamedaModule(void){
     NS_LOG_LOGIC("install remote host Kameda server");
     Ptr<KamedaAppServer> appServer = CreateObject<KamedaAppServer>(m_apSelectionInput);
     appServer->ConfigureCycles(m_cycleCount, m_cycleDuration);
+    appServer->SetMonitorStopOffset(m_monitorStopOffset);
+    appServer->SetCycleEndGuard(m_cycleEndGuard);
     appServer->SetHandoverCallback([this](const std::vector<int>& assignment) {
         HandoverRequest(assignment);
     });
@@ -221,9 +223,9 @@ void NetSim::SetBrowserApp()
     const Time interval =
         m_browserRequestInterval.IsZero() ? Seconds(1.0) : m_browserRequestInterval;
     const uint32_t requestCount = std::max<uint32_t>(1, m_browserRequestCount);
-    const uint32_t requestBytes = 500u * 1024u;
+    const uint32_t requestBytes = m_browserRequestBytes;
     const Time requestDuration = Seconds(0.5);
-    const Time firstRequest = Seconds(1.0);
+    const Time firstRequest = m_browserFirstRequest;
     const uint32_t cycles = std::max<uint32_t>(1, m_cycleCount);
     const Time sinkStop = m_simulationDuration.IsZero()
                               ? (firstRequest + interval * requestCount + requestDuration)
@@ -273,7 +275,7 @@ void NetSim::SetBrowserApp()
                                 requestDuration,
                                 requestBytes);
             // Batch B: 7 additional requests at t=2.1+offset, 0.6s interval
-            Simulator::Schedule(Seconds(2.1) + offset,
+            Simulator::Schedule(m_browserBatchBStart + offset,
                                 &ScheduleBrowserDownload,
                                 server_browser,
                                 clientAddress,
@@ -608,8 +610,6 @@ void NetSim::SetOnlineGameApp()
 }
 
 
-
-
 void NetSim::BuildTerminalIpMap()
 {
     m_terminalIpAddresses.resize(terms.size(), Ipv4Address("0.0.0.0"));
@@ -813,7 +813,7 @@ void NetSim::ReinstallBrowserApp(uint32_t termIdx, Ipv4Address newIp, Time start
     sinkApps.Start(startTime);
     sinkApps.Stop(stopTime);
 
-    const uint32_t requestBytes = 500u * 1024u;
+    const uint32_t requestBytes = m_browserRequestBytes;
     const Time requestDuration = Seconds(0.5);
     const Time interval =
         m_browserRequestInterval.IsZero() ? Seconds(1.0) : m_browserRequestInterval;
@@ -824,7 +824,7 @@ void NetSim::ReinstallBrowserApp(uint32_t termIdx, Ipv4Address newIp, Time start
     Time now = Simulator::Now();
     for (uint32_t c = 0; c < m_cycleCount; ++c)
     {
-        Time cycleStart = m_cycleDuration * c + Seconds(1.0);
+        Time cycleStart = m_cycleDuration * c + m_browserFirstRequest;
         if (cycleStart > now)
         {
             remainingCycles++;

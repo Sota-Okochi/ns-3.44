@@ -1316,24 +1316,25 @@ void NetSim::InitializeTermAccessState()
             }
         }
 
-        auto ratStr = [](RatType r) -> const char* {
-            if (r == RatType::NR)  return "NR";
-            if (r == RatType::LTE) return "LTE";
-            return "WIFI";
-        };
-        std::cout << "[InitTermAccess] term=" << i
-                  << " ap=" << state.currentAp
-                  << " rat=" << ratStr(state.currentRat)
-                  << " nrIP=" << state.nrIpv4
-                  << " nrIF=" << state.nrIfIndex
-                  << " lteIP=" << state.lteIpv4
-                  << " lteIF=" << state.lteIfIndex;
-        for (uint32_t ap = 1; ap < APnum; ++ap)
-        {
-            std::cout << " wifiIP[" << ap << "]=" << state.wifiIpv4[ap]
-                      << " wifiIF[" << ap << "]=" << state.wifiIfIndex[ap];
-        }
-        std::cout << std::endl;
+        // 各端末のIPスタック
+        // auto ratStr = [](RatType r) -> const char* {
+        //     if (r == RatType::NR)  return "NR";
+        //     if (r == RatType::LTE) return "LTE";
+        //     return "WIFI";
+        // };
+        // std::cout << "[InitTermAccess] term=" << i
+        //           << " ap=" << state.currentAp
+        //           << " rat=" << ratStr(state.currentRat)
+        //           << " nrIP=" << state.nrIpv4
+        //           << " nrIF=" << state.nrIfIndex
+        //           << " lteIP=" << state.lteIpv4
+        //           << " lteIF=" << state.lteIfIndex;
+        // for (uint32_t ap = 1; ap < APnum; ++ap)
+        // {
+        //     std::cout << " wifiIP[" << ap << "]=" << state.wifiIpv4[ap]
+        //               << " wifiIF[" << ap << "]=" << state.wifiIfIndex[ap];
+        // }
+        // std::cout << std::endl;
     }
 }
 

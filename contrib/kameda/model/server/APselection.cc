@@ -129,6 +129,7 @@ void APselection::setData(std::string senderIpAddress, std::string recvMessage){
     m_monitor_rtt[apNo] = m_rtt_sum[apNo] / static_cast<double>(m_rtt_count[apNo]);
     m_has_rtt[apNo] = true;
 
+    // デバッグ用（各端末のTPの表示）
     std::cout << "Monitor data stored: AP=" << apNo << ", RTT=" << d
               << "ms, AVG=" << m_monitor_rtt[apNo] << "ms" << std::endl;
 }
@@ -142,8 +143,10 @@ void APselection::tmain(){
     
     for(int i=0; i<aps; i++){
         if(m_has_rtt[i]){
+            double ave_rtt = m_monitor_rtt[i];
+
             std::cout << std::fixed << std::setprecision(2);
-            std::cout << "AP:" << i << "\tRTT:" << m_monitor_rtt[i] << "ms" << std::endl;
+            std::cout << "AP:" << i << "\tRTT:" << ave_rtt << "ms" << std::endl;
         } else {
             std::cout << "実測のRTT値がありません" << std::endl;
         }
@@ -248,7 +251,8 @@ double APselection::calculate_satisfaction(int terminal_idx, int ap_idx) {
             }
             if (measuredTpMbps <= 0.0)
             {
-                measuredTpMbps = APConstants::MIN_SATISFACTION_THRESHOLD;
+                // TP未計測: 切り替え候補になるようペナルティ値を返す（0.00 ログと調和平均破綻を防ぐ）
+                return APConstants::SATISFACTION_FLOOR;
             }
             satis = measuredTpMbps / needTp;
         } else {
@@ -505,7 +509,7 @@ void APselection::WriteMasterLog()
     if (!m_masterLogInitialized)
     {
         std::ofstream ofs(filePath, std::ios::trunc);
-        ofs << "サイクル, 端末, AP, アプリ, ネットワーク指標, 通信品質, 端末満足度" << std::endl;
+        ofs << "サイクル, 端末, AP, アプリ, ネットワーク指標, 通信品質, 端末満足度, 計測有効" << std::endl;
         ofs.close();
         m_masterLogInitialized = true;
     }
@@ -554,6 +558,9 @@ void APselection::WriteMasterLog()
         }
 
         double satisfaction = calculate_satisfaction(i, ap_idx);
+        bool dataValid = isTpApp
+            ? (i < static_cast<int>(m_has_terminal_tp.size()) && m_has_terminal_tp[i] && m_terminal_tp[i] > 0.0)
+            : (ap_idx >= 0 && ap_idx < static_cast<int>(m_has_rtt.size()) && m_has_rtt[ap_idx]);
 
         ofs << m_cycleIndex << ", "
             << (i + 1) << ", "
@@ -561,7 +568,8 @@ void APselection::WriteMasterLog()
             << appNum << ", "
             << metricLabel << ", "
             << qualityStr << ", "
-            << satisfaction << std::endl;
+            << satisfaction << ", "
+            << (dataValid ? 1 : 0) << std::endl;
     }
 
     ofs.close();

@@ -197,6 +197,12 @@ private:
     uint32_t m_cycleCount;
     uint32_t m_currentCycle;
     Time m_cycleDuration;
+    Time m_monitorStartOffset;
+    Time m_monitorStopOffset;
+    Time m_cycleEndGuard;
+    Time m_browserFirstRequest;
+    Time m_browserBatchBStart;
+    uint32_t m_browserRequestBytes;
     std::vector<int> m_activeAssignment;
 
     // 端末別TP計測用（FlowMonitor方式）

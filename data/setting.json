@@ -10,5 +10,15 @@
     20.0,
     30.0,
     32.0
-  ]
+  ],
+  "cycleCount": 10,
+  "cycleDurationSec": 7.0,
+  "monitorStartOffsetSec": 1.1,
+  "monitorStopOffsetSec": 6.0,
+  "browserFirstRequestSec": 1.2,
+  "browserBatchBStartSec": 2.1,
+  "browserRequestIntervalSec": 1.0,
+  "browserRequestCount": 5,
+  "browserRequestBytes": 512000,
+  "cycleEndGuardSec": 0.5
 }

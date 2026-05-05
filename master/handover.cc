@@ -5,13 +5,6 @@
 
 namespace ns3 {
 
-namespace {
-
-// 監視ウィンドウのサイクル内オフセット
-const Time kMonitorStartOffset = Seconds(1.5);
-const Time kMonitorStopOffset  = Seconds(4.0);
-
-} // namespace
 
 void NetSim::ConfigureCycleParameters()
 {
@@ -35,10 +28,10 @@ void NetSim::ScheduleMonitorWindows()
 
     for (uint32_t cycle = 0; cycle < m_cycleCount; ++cycle)
     {
-        Time rttStart = m_cycleDuration * cycle + kMonitorStartOffset;
-        Time rttStop  = m_cycleDuration * cycle + kMonitorStopOffset;
-        Time tpStart  = m_cycleDuration * cycle + kMonitorStartOffset;
-        Time tpStop   = m_cycleDuration * cycle + kMonitorStopOffset;
+        Time rttStart = m_cycleDuration * cycle + m_monitorStartOffset;
+        Time rttStop  = m_cycleDuration * cycle + m_monitorStopOffset;
+        Time tpStart  = m_cycleDuration * cycle + m_monitorStartOffset;
+        Time tpStop   = m_cycleDuration * cycle + m_monitorStopOffset;
         for (const auto& monitor : m_monitorApps)
         {
             if (monitor == nullptr)

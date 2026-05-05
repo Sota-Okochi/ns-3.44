@@ -114,7 +114,7 @@ void KamedaAppServer::HandleRead(Ptr<Socket> socket){
     [[maybe_unused]] int recvSize = socket->RecvFrom((uint8_t*)buf, sizeof(buf)/sizeof(char), 0, recvFrom);
 
     std::string recvMessage = buf;
-    
+
     // 監視端末からのデータかチェック
     if (recvMessage.find("MONITOR_AP") == 0) {
         std::cout << "Received MONITOR message: " << recvMessage << std::endl;
@@ -195,12 +195,13 @@ void KamedaAppServer::ProcessMonitorData(std::string senderIpAddress, std::strin
         std::cout << "Empty AP number string" << std::endl;
         return;
     }
-    
+
     int apNo = std::stoi(apNumStr);
-    
+
     double rttValue = std::stod(parts[1]);
     std::cout << "Processed Monitor Data: AP=" << apNo << ", RTT=" << rttValue << "ms" << std::endl;
 
+    // APselectionに監視端末データを送信
     if(apselect) {
         std::stringstream apIpAddress;
         apIpAddress << "10.1." << apNo << ".1";
@@ -354,6 +355,16 @@ void KamedaAppServer::ConfigureCycles(uint32_t count, Time duration)
     }
 }
 
+void KamedaAppServer::SetMonitorStopOffset(Time offset)
+{
+    m_monitorStopOffset = offset.IsPositive() ? offset : Seconds(4.0);
+}
+
+void KamedaAppServer::SetCycleEndGuard(Time guard)
+{
+    m_cycleEndGuard = guard.IsPositive() ? guard : Seconds(0.5);
+}
+
 void KamedaAppServer::SetTerminalTp(int termIdx, double tpBps)
 {
     if (apselect)
@@ -373,10 +384,10 @@ void KamedaAppServer::SetHandoverCallback(const std::function<void(const std::ve
 
 void KamedaAppServer::ScheduleCycleEnd(uint32_t cycleIndex)
 {
-    const Time guard = Seconds(0.5);
-
+    Time stopOffset = m_monitorStopOffset.IsPositive() ? m_monitorStopOffset : Seconds(4.0);
+    Time guard = m_cycleEndGuard.IsPositive() ? m_cycleEndGuard : Seconds(0.5);
     Time cycleStart = m_cycleDuration * cycleIndex;
-    Time when = cycleStart + Seconds(4.0) + guard;
+    Time when = cycleStart + stopOffset + guard;
     if (when < Simulator::Now())
     {
         when = Simulator::Now();

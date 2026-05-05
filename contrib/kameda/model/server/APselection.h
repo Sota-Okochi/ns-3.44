@@ -37,6 +37,8 @@ namespace APConstants {
     
     // 桁合わせ
     constexpr double MIN_SATISFACTION_THRESHOLD = 1e-6;
+    // TP未計測端末へのペナルティ値（要求の1%相当）。0.00 ログを防ぎ調和平均の破綻を回避する
+    constexpr double SATISFACTION_FLOOR = 0.1;
     constexpr double BPS_TO_MBPS = 1e-6;
     constexpr double HARMONIC_WEIGHT_BASE = 2000.0;
 }
