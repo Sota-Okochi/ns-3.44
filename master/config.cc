@@ -12,16 +12,16 @@ struct BaselineSetting
     int terminals = 0;
     std::vector<int> capacities;
     std::vector<double> initialRtt;
-    int cycleCount = 10;
-    double cycleDurationSec = 3.5;
-    double monitorStartOffsetSec = 1.1;
-    double monitorStopOffsetSec = 4.0;
-    double browserFirstRequestSec = 1.2;
-    double browserBatchBStartSec = 2.1;
-    double browserRequestIntervalSec = 1.0;
-    int browserRequestCount = 5;
-    int browserRequestBytes = 512000;
-    double cycleEndGuardSec = 0.5;
+    int numCycles = 10;
+    double cycleTimeSec = 3.5;
+    double monitorStartSec = 1.1;
+    double monitorStopSec = 4.0;
+    double browserFirstBurstSec = 1.2;
+    double browserSecondBurstSec = 2.1;
+    double browserBurstIntervalSec = 1.0;
+    int browserNumRequests = 5;
+    int browserRequestSize = 512000;
+    double cycleEndMarginSec = 0.5;
 };
 
 std::string Trim(const std::string& str)
@@ -142,66 +142,66 @@ bool LoadBaselineSetting(const std::string& path, BaselineSetting& setting)
     {
         int tmp = 0;
         double dtmp = 0.0;
-        if (ExtractJsonInt(content, "cycleCount", tmp)) { setting.cycleCount = tmp; }
-        if (ExtractJsonDouble(content, "cycleDurationSec", dtmp)) { setting.cycleDurationSec = dtmp; }
-        if (ExtractJsonDouble(content, "monitorStartOffsetSec", dtmp)) { setting.monitorStartOffsetSec = dtmp; }
-        if (ExtractJsonDouble(content, "monitorStopOffsetSec", dtmp)) { setting.monitorStopOffsetSec = dtmp; }
-        if (ExtractJsonDouble(content, "browserFirstRequestSec", dtmp)) { setting.browserFirstRequestSec = dtmp; }
-        if (ExtractJsonDouble(content, "browserBatchBStartSec", dtmp)) { setting.browserBatchBStartSec = dtmp; }
-        if (ExtractJsonDouble(content, "browserRequestIntervalSec", dtmp)) { setting.browserRequestIntervalSec = dtmp; }
-        if (ExtractJsonInt(content, "browserRequestCount", tmp)) { setting.browserRequestCount = tmp; }
-        if (ExtractJsonInt(content, "browserRequestBytes", tmp)) { setting.browserRequestBytes = tmp; }
-        if (ExtractJsonDouble(content, "cycleEndGuardSec", dtmp)) { setting.cycleEndGuardSec = dtmp; }
+        if (ExtractJsonInt(content, "numCycles", tmp)) { setting.numCycles = tmp; }
+        if (ExtractJsonDouble(content, "cycleTimeSec", dtmp)) { setting.cycleTimeSec = dtmp; }
+        if (ExtractJsonDouble(content, "monitorStartSec", dtmp)) { setting.monitorStartSec = dtmp; }
+        if (ExtractJsonDouble(content, "monitorStopSec", dtmp)) { setting.monitorStopSec = dtmp; }
+        if (ExtractJsonDouble(content, "browserFirstBurstSec", dtmp)) { setting.browserFirstBurstSec = dtmp; }
+        if (ExtractJsonDouble(content, "browserSecondBurstSec", dtmp)) { setting.browserSecondBurstSec = dtmp; }
+        if (ExtractJsonDouble(content, "browserBurstIntervalSec", dtmp)) { setting.browserBurstIntervalSec = dtmp; }
+        if (ExtractJsonInt(content, "browserNumRequests", tmp)) { setting.browserNumRequests = tmp; }
+        if (ExtractJsonInt(content, "browserRequestSize", tmp)) { setting.browserRequestSize = tmp; }
+        if (ExtractJsonDouble(content, "cycleEndMarginSec", dtmp)) { setting.cycleEndMarginSec = dtmp; }
     }
     // 制約バリデーション
-    if (setting.monitorStartOffsetSec <= 1.0)
+    if (setting.monitorStartSec <= 1.0)
     {
-        std::cerr << "[WARN] monitorStartOffsetSec=" << setting.monitorStartOffsetSec
+        std::cerr << "[WARN] monitorStartSec=" << setting.monitorStartSec
                   << " must be > 1.0. Resetting to 1.1." << std::endl;
-        setting.monitorStartOffsetSec = 1.1;
+        setting.monitorStartSec = 1.1;
     }
-    if (setting.monitorStopOffsetSec <= setting.monitorStartOffsetSec)
+    if (setting.monitorStopSec <= setting.monitorStartSec)
     {
-        std::cerr << "[WARN] monitorStopOffsetSec=" << setting.monitorStopOffsetSec
-                  << " must be > monitorStartOffsetSec. Resetting to 4.0." << std::endl;
-        setting.monitorStopOffsetSec = 4.0;
+        std::cerr << "[WARN] monitorStopSec=" << setting.monitorStopSec
+                  << " must be > monitorStartSec. Resetting to 4.0." << std::endl;
+        setting.monitorStopSec = 4.0;
     }
-    const double maxStop = setting.cycleDurationSec + setting.monitorStartOffsetSec;
-    if (setting.monitorStopOffsetSec >= maxStop)
+    const double maxStop = setting.cycleTimeSec + setting.monitorStartSec;
+    if (setting.monitorStopSec >= maxStop)
     {
-        std::cerr << "[WARN] monitorStopOffsetSec=" << setting.monitorStopOffsetSec
+        std::cerr << "[WARN] monitorStopSec=" << setting.monitorStopSec
                   << " must be < cycleDuration+monitorStart (" << maxStop << "). Resetting to 4.0." << std::endl;
-        setting.monitorStopOffsetSec = 4.0;
+        setting.monitorStopSec = 4.0;
     }
-    if (setting.browserFirstRequestSec <= setting.monitorStartOffsetSec)
+    if (setting.browserFirstBurstSec <= setting.monitorStartSec)
     {
-        std::cerr << "[WARN] browserFirstRequestSec=" << setting.browserFirstRequestSec
-                  << " must be > monitorStartOffsetSec. Resetting to monitorStart+0.1." << std::endl;
-        setting.browserFirstRequestSec = setting.monitorStartOffsetSec + 0.1;
+        std::cerr << "[WARN] browserFirstBurstSec=" << setting.browserFirstBurstSec
+                  << " must be > monitorStartSec. Resetting to monitorStart+0.1." << std::endl;
+        setting.browserFirstBurstSec = setting.monitorStartSec + 0.1;
     }
     // Ending() が次サイクルに食い込まないことを保証
-    if (setting.monitorStopOffsetSec + setting.cycleEndGuardSec >= setting.cycleDurationSec)
+    if (setting.monitorStopSec + setting.cycleEndMarginSec >= setting.cycleTimeSec)
     {
-        std::cerr << "[ERROR] monitorStopOffsetSec(" << setting.monitorStopOffsetSec
-                  << ") + cycleEndGuardSec(" << setting.cycleEndGuardSec
-                  << ") must be < cycleDurationSec(" << setting.cycleDurationSec
+        std::cerr << "[ERROR] monitorStopSec(" << setting.monitorStopSec
+                  << ") + cycleEndMarginSec(" << setting.cycleEndMarginSec
+                  << ") must be < cycleTimeSec(" << setting.cycleTimeSec
                   << "). Ending() would spill into the next cycle." << std::endl;
-        NS_FATAL_ERROR("Invalid timing: cycleEndGuard overflow");
+        NS_FATAL_ERROR("Invalid timing: cycleEndMargin overflow");
     }
     // TP計測ウィンドウ内にブラウザトラフィックが発生することを保証
-    if (setting.browserFirstRequestSec >= setting.monitorStopOffsetSec)
+    if (setting.browserFirstBurstSec >= setting.monitorStopSec)
     {
-        std::cerr << "[ERROR] browserFirstRequestSec(" << setting.browserFirstRequestSec
-                  << ") must be < monitorStopOffsetSec(" << setting.monitorStopOffsetSec
+        std::cerr << "[ERROR] browserFirstBurstSec(" << setting.browserFirstBurstSec
+                  << ") must be < monitorStopSec(" << setting.monitorStopSec
                   << "). No browser traffic would be captured in the TP window." << std::endl;
-        NS_FATAL_ERROR("Invalid timing: browserFirstRequest outside TP window");
+        NS_FATAL_ERROR("Invalid timing: browserFirstBurst outside TP window");
     }
-    if (setting.browserBatchBStartSec >= setting.monitorStopOffsetSec)
+    if (setting.browserSecondBurstSec >= setting.monitorStopSec)
     {
-        std::cerr << "[ERROR] browserBatchBStartSec(" << setting.browserBatchBStartSec
-                  << ") must be < monitorStopOffsetSec(" << setting.monitorStopOffsetSec
-                  << "). Batch B would not be captured in the TP window." << std::endl;
-        NS_FATAL_ERROR("Invalid timing: browserBatchBStart outside TP window");
+        std::cerr << "[ERROR] browserSecondBurstSec(" << setting.browserSecondBurstSec
+                  << ") must be < monitorStopSec(" << setting.monitorStopSec
+                  << "). Second browser burst would not be captured in the TP window." << std::endl;
+        NS_FATAL_ERROR("Invalid timing: browserSecondBurst outside TP window");
     }
     return true;
 }
@@ -277,16 +277,16 @@ void NetSim::Init(int argc, char *argv[]){
     }
     APnum = static_cast<uint32_t>(setting.baseStations);
     termNum = static_cast<uint32_t>(setting.terminals);
-    m_cycleCount             = static_cast<uint32_t>(setting.cycleCount);
-    m_cycleDuration          = Seconds(setting.cycleDurationSec);
-    m_monitorStartOffset     = Seconds(setting.monitorStartOffsetSec);
-    m_monitorStopOffset      = Seconds(setting.monitorStopOffsetSec);
-    m_browserFirstRequest    = Seconds(setting.browserFirstRequestSec);
-    m_browserBatchBStart     = Seconds(setting.browserBatchBStartSec);
-    m_browserRequestInterval = Seconds(setting.browserRequestIntervalSec);
-    m_browserRequestCount    = static_cast<uint32_t>(setting.browserRequestCount);
-    m_browserRequestBytes    = static_cast<uint32_t>(setting.browserRequestBytes);
-    m_cycleEndGuard          = Seconds(setting.cycleEndGuardSec);
+    m_cycleCount             = static_cast<uint32_t>(setting.numCycles);
+    m_cycleDuration          = Seconds(setting.cycleTimeSec);
+    m_monitorStartOffset     = Seconds(setting.monitorStartSec);
+    m_monitorStopOffset      = Seconds(setting.monitorStopSec);
+    m_browserFirstRequest    = Seconds(setting.browserFirstBurstSec);
+    m_browserBatchBStart     = Seconds(setting.browserSecondBurstSec);
+    m_browserRequestInterval = Seconds(setting.browserBurstIntervalSec);
+    m_browserRequestCount    = static_cast<uint32_t>(setting.browserNumRequests);
+    m_browserRequestBytes    = static_cast<uint32_t>(setting.browserRequestSize);
+    m_cycleEndGuard          = Seconds(setting.cycleEndMarginSec);
 
     m_apSelectionInput.baseStations = setting.baseStations;
     m_apSelectionInput.terminals = setting.terminals;

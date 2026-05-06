@@ -1,6 +1,6 @@
 {
   "baseStations": 3,
-  "terminals": 70,
+  "terminals": 10,
   "capacities": [
     100,
     100,
@@ -11,14 +11,14 @@
     30.0,
     32.0
   ],
-  "cycleCount": 10,
-  "cycleDurationSec": 7.0,
-  "monitorStartOffsetSec": 1.1,
-  "monitorStopOffsetSec": 6.0,
-  "browserFirstRequestSec": 1.2,
-  "browserBatchBStartSec": 2.1,
-  "browserRequestIntervalSec": 1.0,
-  "browserRequestCount": 5,
-  "browserRequestBytes": 512000,
-  "cycleEndGuardSec": 0.5
+  "numCycles": 10,
+  "cycleTimeSec": 7.0,
+  "monitorStartSec": 1.1,
+  "monitorStopSec": 6.0,
+  "browserFirstBurstSec": 1.2,
+  "browserSecondBurstSec": 2.1,
+  "browserBurstIntervalSec": 1.0,
+  "browserNumRequests": 4,
+  "browserRequestSize": 512000,
+  "cycleEndMarginSec": 0.5
 }
