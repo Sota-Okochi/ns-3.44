@@ -67,6 +67,7 @@ struct TermAppState {
     int appType;                // 1=browser, 2=video, 3=voice, 4=game
     uint16_t primaryPort;
     uint16_t secondaryPort;     // voice/game downlink用
+    uint32_t browserGeneration;
     std::vector<Ptr<Application>> clientApps;
     std::vector<Ptr<Application>> serverApps;
 };
@@ -199,10 +200,12 @@ private:
     Time m_cycleDuration;
     Time m_monitorStartOffset;
     Time m_monitorStopOffset;
+    Time m_terminalTpStopOffset;
     Time m_cycleEndGuard;
     Time m_browserFirstRequest;
     Time m_browserBatchBStart;
     uint32_t m_browserRequestBytes;
+    Time m_browserPostHandoverDelay;
     std::vector<int> m_activeAssignment;
 
     // 端末別TP計測用（FlowMonitor方式）
@@ -214,6 +217,17 @@ private:
     void BuildTerminalIpMap();
     void ResetTerminalFlowStats();
     void CollectTerminalThroughput();
+    void ScheduleBrowserDownloadForTerminal(uint32_t termIdx,
+                                            uint16_t port,
+                                            uint32_t generation,
+                                            uint32_t requestIndex,
+                                            uint32_t totalRequests,
+                                            Time interval,
+                                            Time duration,
+                                            uint32_t maxBytes);
+    void ScheduleBrowserWarmupForTerminal(uint32_t termIdx, uint16_t port, uint32_t generation);
+    void ScheduleFutureBrowserBursts(uint32_t termIdx, uint16_t port, uint32_t generation,
+                                     Time minStartTime = Time(0));
 
     void ScheduleMonitorWindows();
     void HandoverRequest(const std::vector<int>& assignment);

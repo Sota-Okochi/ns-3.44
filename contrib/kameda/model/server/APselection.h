@@ -30,7 +30,7 @@ namespace APConstants {
     };
     
     // アプリケーションのトラフィック要求（必要TP, RTT）
-    constexpr double BROWSER_REQUIRED_TP = 3.0;      // Mbps（ブラウザ）
+    constexpr double BROWSER_REQUIRED_TP = 3.3;      // Mbps（ブラウザ）
     constexpr double VIDEO_REQUIRED_TP = 8.0;       // Mbps（動画ストリーミング）, 720/60fps
     constexpr double VOICE_CALL_REQUIRED_RTT = 60.0; // ms（通話アプリケーション）
     constexpr double ONLINE_GAME_REQUIRED_RTT = 20.0; // ms（オンラインゲーム）
@@ -41,6 +41,10 @@ namespace APConstants {
     constexpr double SATISFACTION_FLOOR = 0.1;
     constexpr double BPS_TO_MBPS = 1e-6;
     constexpr double HARMONIC_WEIGHT_BASE = 2000.0;
+    // ハンドオーバ直後の猶予満足度: TP未計測でも FLOOR を返さず「満足」扱いにする
+    constexpr double GRACE_SATISFACTION = 1.0;
+    // ハンドオーバ後に猶予を与えるサイクル数（デフォルト: 2サイクル）
+    constexpr uint32_t HANDOVER_GRACE_CYCLES = 2;
 }
 
 struct ApSelectionInput {
@@ -50,6 +54,7 @@ struct ApSelectionInput {
     std::vector<double> initialRtt;
     std::vector<int> useAppli;
     std::vector<int> initialAp;    // 各端末の初期接続先（1ベースのAP番号）
+    uint32_t handoverGraceCycles = APConstants::HANDOVER_GRACE_CYCLES;
 };
 
 class APselection : public Object{
@@ -89,9 +94,11 @@ private:
     int terms;                      //端末数
     std::vector<int> initial_app;       //各端末の初期アプリ番号
     std::vector<int> initial_AP;       //各端末の初期接続先
-    std::vector<int> m_lastAssignment;  // 直近の割当結果（1ベース）
-    uint32_t m_cycleIndex = 0;          // 現在のサイクル番号（1スタート）
-    uint32_t m_totalCycles = 0;         // 総サイクル数（0=制限なし）
+    std::vector<int> m_lastAssignment;      // 直近の割当結果（1ベース）
+    std::vector<uint32_t> m_switchCycle;   // 端末ごとのハンドオーバ発生サイクル（0=未切り替え）
+    uint32_t m_cycleIndex = 0;             // 現在のサイクル番号（1スタート）
+    uint32_t m_totalCycles = 0;            // 総サイクル数（0=制限なし）
+    uint32_t m_handoverGraceCycles = APConstants::HANDOVER_GRACE_CYCLES;
     std::function<void(const std::vector<int>&)> m_handoverCallback;
     std::vector<double> m_cycleHarmonicMeans; // サイクルごとの調和平均
     

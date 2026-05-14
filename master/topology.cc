@@ -1182,6 +1182,7 @@ void NetSim::InitializeTermAccessState()
         m_termAppStates[i].appType = m_termData[i].use_appli;
         m_termAppStates[i].primaryPort = 0;
         m_termAppStates[i].secondaryPort = 0;
+        m_termAppStates[i].browserGeneration = 0;
 
         Ptr<Ipv4> ipv4 = term->GetObject<Ipv4>();
         if (!ipv4)
@@ -1246,73 +1247,27 @@ void NetSim::InitializeTermAccessState()
             }
         }
 
-        // アクティブインターフェースのデフォルトルートを設定、他はSetDown
+        // 全RANのインターフェースはUpのまま維持し、default routeだけで
+        // 現在利用するRANを選択する。SetDownするとNR RRC/WiFi関連付けが
+        // 解放され、ハンドオーバー後に再確立遅延が発生する。
         if (state.currentRat == RatType::NR)
         {
-            // NRがアクティブ
             rt->SetDefaultRoute(m_nrGateway, state.nrIfIndex);
-            // LTEインターフェースを無効化
-            if (state.lteIfIndex > 0)
-            {
-                ipv4->SetDown(state.lteIfIndex);
-            }
-            // Wi-Fiインターフェースを無効化
-            for (uint32_t ap = 1; ap < APnum; ++ap)
-            {
-                if (state.wifiIfIndex[ap] > 0)
-                {
-                    ipv4->SetDown(state.wifiIfIndex[ap]);
-                }
-            }
         }
         else if (state.currentRat == RatType::LTE)
         {
-            // LTEがアクティブ
             if (state.lteIfIndex > 0 && m_lteGateway != Ipv4Address("0.0.0.0"))
             {
                 rt->SetDefaultRoute(m_lteGateway, state.lteIfIndex);
             }
-            // NRインターフェースを無効化
-            if (state.nrIfIndex > 0)
-            {
-                ipv4->SetDown(state.nrIfIndex);
-            }
-            // Wi-Fiインターフェースを無効化
-            for (uint32_t ap = 1; ap < APnum; ++ap)
-            {
-                if (state.wifiIfIndex[ap] > 0)
-                {
-                    ipv4->SetDown(state.wifiIfIndex[ap]);
-                }
-            }
         }
         else
         {
-            // Wi-Fiがアクティブ
             uint32_t apIdx = static_cast<uint32_t>(state.currentAp - 1);
             if (apIdx < APnum && state.wifiIfIndex[apIdx] > 0 &&
                 m_wifiApGatewayIps[apIdx] != Ipv4Address("0.0.0.0"))
             {
                 rt->SetDefaultRoute(m_wifiApGatewayIps[apIdx], state.wifiIfIndex[apIdx]);
-            }
-            // NRインターフェースを無効化
-            if (state.nrIfIndex > 0)
-            {
-                ipv4->SetDown(state.nrIfIndex);
-            }
-            // LTEインターフェースを無効化
-            if (state.lteIfIndex > 0)
-            {
-                ipv4->SetDown(state.lteIfIndex);
-            }
-            // 他のWi-Fiインターフェースを無効化
-            for (uint32_t ap = 1; ap < APnum; ++ap)
-            {
-                uint32_t apI = ap;
-                if (apI != apIdx && state.wifiIfIndex[apI] > 0)
-                {
-                    ipv4->SetDown(state.wifiIfIndex[apI]);
-                }
             }
         }
 

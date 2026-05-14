@@ -31,7 +31,7 @@ void NetSim::ScheduleMonitorWindows()
         Time rttStart = m_cycleDuration * cycle + m_monitorStartOffset;
         Time rttStop  = m_cycleDuration * cycle + m_monitorStopOffset;
         Time tpStart  = m_cycleDuration * cycle + m_monitorStartOffset;
-        Time tpStop   = m_cycleDuration * cycle + m_monitorStopOffset;
+        Time tpStop   = m_cycleDuration * cycle + m_terminalTpStopOffset;
         for (const auto& monitor : m_monitorApps)
         {
             if (monitor == nullptr)
@@ -245,16 +245,7 @@ void NetSim::WifiToWifiHandover(uint32_t termIdx, int oldAp, int newAp)
     Ptr<Node> term = terms[termIdx];
     TermAccessState& state = m_termAccessState[termIdx];
 
-    uint32_t oldApIdx = static_cast<uint32_t>(oldAp - 1);
     uint32_t newApIdx = static_cast<uint32_t>(newAp - 1);
-
-    Ptr<Ipv4> ipv4 = term->GetObject<Ipv4>();
-
-    // 旧Wi-Fiインターフェースを無効化
-    if (oldApIdx < state.wifiIfIndex.size() && state.wifiIfIndex[oldApIdx] > 0)
-    {
-        ipv4->SetDown(state.wifiIfIndex[oldApIdx]);
-    }
 
     // 新Wi-Fiインターフェースを有効化してルート設定
     if (newApIdx < state.wifiIfIndex.size() && newApIdx < m_wifiApGatewayIps.size())
@@ -277,14 +268,6 @@ void NetSim::NrToWifiHandover(uint32_t termIdx, int newAp)
 
     uint32_t newApIdx = static_cast<uint32_t>(newAp - 1);
 
-    Ptr<Ipv4> ipv4 = term->GetObject<Ipv4>();
-
-    // NRインターフェースを無効化
-    if (state.nrIfIndex > 0)
-    {
-        ipv4->SetDown(state.nrIfIndex);
-    }
-
     // Wi-Fiインターフェースを有効化してルート設定
     if (newApIdx < state.wifiIfIndex.size() && newApIdx < m_wifiApGatewayIps.size())
     {
@@ -303,16 +286,6 @@ void NetSim::WifiToNrHandover(uint32_t termIdx)
 {
     Ptr<Node> term = terms[termIdx];
     TermAccessState& state = m_termAccessState[termIdx];
-
-    uint32_t oldApIdx = static_cast<uint32_t>(state.currentAp - 1);
-
-    Ptr<Ipv4> ipv4 = term->GetObject<Ipv4>();
-
-    // 旧Wi-Fiインターフェースを無効化
-    if (oldApIdx < state.wifiIfIndex.size() && state.wifiIfIndex[oldApIdx] > 0)
-    {
-        ipv4->SetDown(state.wifiIfIndex[oldApIdx]);
-    }
 
     // NRインターフェースを有効化してルート設定
     SwitchDefaultRoute(term, state.nrIfIndex, m_nrGateway);
@@ -338,16 +311,6 @@ void NetSim::WifiToLteHandover(uint32_t termIdx)
     Ptr<Node> term = terms[termIdx];
     TermAccessState& state = m_termAccessState[termIdx];
 
-    uint32_t oldApIdx = static_cast<uint32_t>(state.currentAp - 1);
-
-    Ptr<Ipv4> ipv4 = term->GetObject<Ipv4>();
-
-    // 旧Wi-Fiインターフェースを無効化
-    if (oldApIdx < state.wifiIfIndex.size() && state.wifiIfIndex[oldApIdx] > 0)
-    {
-        ipv4->SetDown(state.wifiIfIndex[oldApIdx]);
-    }
-
     // LTEインターフェースを有効化してルート設定
     SwitchDefaultRoute(term, state.lteIfIndex, m_lteGateway);
 
@@ -366,14 +329,6 @@ void NetSim::LteToWifiHandover(uint32_t termIdx, int newAp)
     TermAccessState& state = m_termAccessState[termIdx];
 
     uint32_t newApIdx = static_cast<uint32_t>(newAp - 1);
-
-    Ptr<Ipv4> ipv4 = term->GetObject<Ipv4>();
-
-    // LTEインターフェースを無効化
-    if (state.lteIfIndex > 0)
-    {
-        ipv4->SetDown(state.lteIfIndex);
-    }
 
     // 新Wi-Fiインターフェースを有効化してルート設定
     if (newApIdx < state.wifiIfIndex.size() && newApIdx < m_wifiApGatewayIps.size())
@@ -394,14 +349,6 @@ void NetSim::NrToLteHandover(uint32_t termIdx)
     Ptr<Node> term = terms[termIdx];
     TermAccessState& state = m_termAccessState[termIdx];
 
-    Ptr<Ipv4> ipv4 = term->GetObject<Ipv4>();
-
-    // NRインターフェースを無効化
-    if (state.nrIfIndex > 0)
-    {
-        ipv4->SetDown(state.nrIfIndex);
-    }
-
     // LTEインターフェースを有効化してルート設定
     SwitchDefaultRoute(term, state.lteIfIndex, m_lteGateway);
 
@@ -417,14 +364,6 @@ void NetSim::LteToNrHandover(uint32_t termIdx)
 {
     Ptr<Node> term = terms[termIdx];
     TermAccessState& state = m_termAccessState[termIdx];
-
-    Ptr<Ipv4> ipv4 = term->GetObject<Ipv4>();
-
-    // LTEインターフェースを無効化
-    if (state.lteIfIndex > 0)
-    {
-        ipv4->SetDown(state.lteIfIndex);
-    }
 
     // NRインターフェースを有効化してルート設定
     SwitchDefaultRoute(term, state.nrIfIndex, m_nrGateway);

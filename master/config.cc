@@ -1,5 +1,6 @@
 #include "NetSim.h"
 #include "ns3/system-path.h"
+#include <algorithm>
 #include <unordered_map>
 
 NS_LOG_COMPONENT_DEFINE("researchMain");
@@ -22,6 +23,9 @@ struct BaselineSetting
     int browserNumRequests = 5;
     int browserRequestSize = 512000;
     double cycleEndMarginSec = 0.5;
+    int handoverGraceCycles = 2;
+    double browserPostHandoverDelaySec = 0.0;
+    double terminalTpStopSec = 4.0;
 };
 
 std::string Trim(const std::string& str)
@@ -152,6 +156,8 @@ bool LoadBaselineSetting(const std::string& path, BaselineSetting& setting)
         if (ExtractJsonInt(content, "browserNumRequests", tmp)) { setting.browserNumRequests = tmp; }
         if (ExtractJsonInt(content, "browserRequestSize", tmp)) { setting.browserRequestSize = tmp; }
         if (ExtractJsonDouble(content, "cycleEndMarginSec", dtmp)) { setting.cycleEndMarginSec = dtmp; }
+        if (ExtractJsonInt(content, "handoverGraceCycles", tmp)) { setting.handoverGraceCycles = tmp; }
+        if (ExtractJsonDouble(content, "browserPostHandoverDelaySec", dtmp)) { setting.browserPostHandoverDelaySec = dtmp; }
     }
     // 制約バリデーション
     if (setting.monitorStartSec <= 1.0)
@@ -179,13 +185,27 @@ bool LoadBaselineSetting(const std::string& path, BaselineSetting& setting)
                   << " must be > monitorStartSec. Resetting to monitorStart+0.1." << std::endl;
         setting.browserFirstBurstSec = setting.monitorStartSec + 0.1;
     }
+
+    const int browserSecondBurstRequests = std::max(0, setting.browserNumRequests - 1);
+    const double lastBrowserBurstSec =
+        browserSecondBurstRequests > 0
+            ? setting.browserSecondBurstSec +
+                  setting.browserBurstIntervalSec * static_cast<double>(browserSecondBurstRequests - 1)
+            : setting.browserFirstBurstSec;
+    const double browserCompletionGuardSec =
+        std::max(1.0, setting.browserBurstIntervalSec * 4.0 + 0.7);
+    const double terminalTpStopSec =
+        std::max(setting.monitorStopSec, lastBrowserBurstSec + browserCompletionGuardSec);
+    setting.terminalTpStopSec = terminalTpStopSec;
+
     // Ending() が次サイクルに食い込まないことを保証
-    if (setting.monitorStopSec + setting.cycleEndMarginSec >= setting.cycleTimeSec)
+    if (terminalTpStopSec + setting.cycleEndMarginSec >= setting.cycleTimeSec)
     {
-        std::cerr << "[ERROR] monitorStopSec(" << setting.monitorStopSec
+        std::cerr << "[ERROR] terminalTpStopSec(" << terminalTpStopSec
                   << ") + cycleEndMarginSec(" << setting.cycleEndMarginSec
                   << ") must be < cycleTimeSec(" << setting.cycleTimeSec
-                  << "). Ending() would spill into the next cycle." << std::endl;
+                  << "). Increase cycleTimeSec so browser bursts can complete before the next cycle."
+                  << std::endl;
         NS_FATAL_ERROR("Invalid timing: cycleEndMargin overflow");
     }
     // TP計測ウィンドウ内にブラウザトラフィックが発生することを保証
@@ -246,10 +266,12 @@ NetSim::NetSim()
     m_browserRequestCount = 5;
     m_monitorStartOffset  = Seconds(1.1);
     m_monitorStopOffset   = Seconds(4.0);
+    m_terminalTpStopOffset = Seconds(4.0);
     m_browserFirstRequest = Seconds(1.2);
     m_browserBatchBStart  = Seconds(2.1);
     m_browserRequestBytes = 500u * 1024u;
-    m_cycleEndGuard       = Seconds(0.5);
+    m_cycleEndGuard              = Seconds(0.5);
+    m_browserPostHandoverDelay   = Seconds(0.0);
     m_enableOnlineGameTracing = true;
     m_currentCycle = 0;
     m_terminalTpWindowStart = Seconds(0.0);
@@ -281,17 +303,20 @@ void NetSim::Init(int argc, char *argv[]){
     m_cycleDuration          = Seconds(setting.cycleTimeSec);
     m_monitorStartOffset     = Seconds(setting.monitorStartSec);
     m_monitorStopOffset      = Seconds(setting.monitorStopSec);
+    m_terminalTpStopOffset   = Seconds(setting.terminalTpStopSec);
     m_browserFirstRequest    = Seconds(setting.browserFirstBurstSec);
     m_browserBatchBStart     = Seconds(setting.browserSecondBurstSec);
     m_browserRequestInterval = Seconds(setting.browserBurstIntervalSec);
     m_browserRequestCount    = static_cast<uint32_t>(setting.browserNumRequests);
     m_browserRequestBytes    = static_cast<uint32_t>(setting.browserRequestSize);
-    m_cycleEndGuard          = Seconds(setting.cycleEndMarginSec);
+    m_cycleEndGuard              = Seconds(setting.cycleEndMarginSec);
+    m_browserPostHandoverDelay   = Seconds(setting.browserPostHandoverDelaySec);
 
     m_apSelectionInput.baseStations = setting.baseStations;
     m_apSelectionInput.terminals = setting.terminals;
     m_apSelectionInput.capacities = setting.capacities;
     m_apSelectionInput.initialRtt = setting.initialRtt;
+    m_apSelectionInput.handoverGraceCycles = static_cast<uint32_t>(setting.handoverGraceCycles);
 
     m_termData.clear();
     m_apSelectionInput.useAppli.clear();
@@ -436,6 +461,11 @@ void NetSim::Configure(){
 
     PacketMetadata::Enable();
 
+    // ARPキャッシュタイムアウトを短縮してハンドオーバー後の再解決を速める（案1）
+    Config::SetDefault("ns3::ArpCache::AliveTimeout", TimeValue(Seconds(10)));
+    Config::SetDefault("ns3::ArpCache::DeadTimeout", TimeValue(MilliSeconds(50)));
+    Config::SetDefault("ns3::ArpCache::WaitReplyTimeout", TimeValue(MilliSeconds(200)));
+
     // disable fragmentation for frames below 2200 bytes
     //Config::SetDefault ("ns3::WifiRemoteStationManager::FragmentationThreshold", StringValue ("2200"));
     // turn off RTS/CTS for frames below 2200 bytes
@@ -454,6 +484,23 @@ void NetSim::RunSim(){
     CreateNetworkTopology(); // ノードの生成
     ConfigureDataLinkLayer();
     ConfigureNetworkLayer();
+
+    // Keep per-cycle FlowMonitor diagnostics scoped to this simulation run.
+    {
+        const std::string flowCsvPath = std::string(OUTPUT_DIR) + "flow_per_cycle.csv";
+        std::ofstream resetFlowCsv(flowCsvPath, std::ios::trunc);
+        if (!resetFlowCsv.good())
+        {
+            NS_LOG_WARN("Failed to reset flow diagnostics CSV: " << flowCsvPath);
+        }
+
+        const std::string browserCsvPath = std::string(OUTPUT_DIR) + "browser_send_events.csv";
+        std::ofstream resetBrowserCsv(browserCsvPath, std::ios::trunc);
+        if (!resetBrowserCsv.good())
+        {
+            NS_LOG_WARN("Failed to reset browser send diagnostics CSV: " << browserCsvPath);
+        }
+    }
 
     FlowMonitorHelper flowmonHelper;
     Ptr<FlowMonitor> flowMonitor = flowmonHelper.InstallAll();

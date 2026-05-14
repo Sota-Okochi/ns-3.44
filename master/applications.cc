@@ -49,37 +49,110 @@ void TracePacketToAscii(Ptr<OutputStreamWrapper> stream, Ptr<const Packet> packe
     (*os) << Simulator::Now().GetSeconds() << " " << packet->GetSize() << std::endl;
 }
 
-void ScheduleBrowserDownload(Ptr<Node> server,
-                             Ipv4Address clientAddress,
-                             uint16_t port,
-                             uint32_t requestIndex,
-                             uint32_t totalRequests,
-                             Time interval,
-                             Time duration,
-                             uint32_t maxBytes)
+const char* RatTypeToString(RatType rat)
 {
-    if (server == nullptr || clientAddress == Ipv4Address("0.0.0.0") ||
-        requestIndex >= totalRequests)
+    if (rat == RatType::NR)
+    {
+        return "NR";
+    }
+    if (rat == RatType::LTE)
+    {
+        return "LTE";
+    }
+    return "WIFI";
+}
+
+} // namespace
+
+void NetSim::ScheduleBrowserDownloadForTerminal(uint32_t termIdx,
+                                                uint16_t port,
+                                                uint32_t generation,
+                                                uint32_t requestIndex,
+                                                uint32_t totalRequests,
+                                                Time interval,
+                                                Time duration,
+                                                uint32_t maxBytes)
+{
+    if (server_browser == nullptr || termIdx >= terms.size() || requestIndex >= totalRequests)
     {
         return;
     }
-    BulkSendHelper bulk("ns3::TcpSocketFactory", InetSocketAddress(clientAddress, port));
+    if (termIdx >= m_termAppStates.size() ||
+        m_termAppStates[termIdx].browserGeneration != generation)
+    {
+        return;
+    }
+
+    Ipv4Address clientAddress =
+        (m_nth == 5) ? GetActiveIpv4(termIdx) : GetPrimaryIpv4(terms[termIdx]);
+    if (clientAddress == Ipv4Address("0.0.0.0"))
+    {
+        return;
+    }
+
+    const uint16_t requestPort = port + static_cast<uint16_t>(requestIndex);
+
+    {
+        const uint32_t cycleNum =
+            static_cast<uint32_t>(Simulator::Now().GetSeconds() / m_cycleDuration.GetSeconds()) + 1;
+        const std::string csvPath = std::string(OUTPUT_DIR) + "browser_send_events.csv";
+        bool writeHeader = false;
+        {
+            std::ifstream chk(csvPath);
+            writeHeader = (!chk.good() || chk.peek() == std::ifstream::traits_type::eof());
+        }
+
+        std::ofstream ofs(csvPath, std::ios::app);
+        if (ofs.good())
+        {
+            if (writeHeader)
+            {
+                ofs << "time_s,cycle,term_idx,generation,current_ap,current_rat,dst_ip,port,"
+                    << "request_index,total_requests,max_bytes\n";
+            }
+
+            int currentAp = 0;
+            const char* currentRat = "unknown";
+            if (termIdx < m_termAccessState.size())
+            {
+                currentAp = m_termAccessState[termIdx].currentAp;
+                currentRat = RatTypeToString(m_termAccessState[termIdx].currentRat);
+            }
+
+            ofs << std::fixed << std::setprecision(2) << Simulator::Now().GetSeconds() << ","
+                << cycleNum << ","
+                << (termIdx + 1) << ","
+                << generation << ","
+                << currentAp << ","
+                << currentRat << ","
+                << clientAddress << ","
+                << requestPort << ","
+                << (requestIndex + 1) << ","
+                << totalRequests << ","
+                << maxBytes << "\n";
+        }
+    }
+
+    BulkSendHelper bulk("ns3::TcpSocketFactory", InetSocketAddress(clientAddress, requestPort));
     bulk.SetAttribute("MaxBytes", UintegerValue(maxBytes));
-    ApplicationContainer apps = bulk.Install(server);
-    Time now = Simulator::Now();
-    apps.Start(now);
-    // BulkSend has finite MaxBytes, so forcing an early Stop can close TCP with
-    // unsent data and leave internal timers firing on an empty tx item.
-    // Let the app/socket finish naturally when MaxBytes is sent.
+    ApplicationContainer apps = bulk.Install(server_browser);
+    apps.Start(Simulator::Now());
+    // MaxBytesで送信完了するため、短いStop時刻を入れない。
+    // TCP接続確立が遅れると0.5s Stopで後続バーストが完了前に終了してしまう。
     (void)duration;
+    if (apps.GetN() > 0)
+    {
+        m_termAppStates[termIdx].serverApps.push_back(apps.Get(0));
+    }
 
     if (requestIndex + 1 < totalRequests)
     {
         Simulator::Schedule(interval,
-                            &ScheduleBrowserDownload,
-                            server,
-                            clientAddress,
+                            &NetSim::ScheduleBrowserDownloadForTerminal,
+                            this,
+                            termIdx,
                             port,
+                            generation,
                             requestIndex + 1,
                             totalRequests,
                             interval,
@@ -88,7 +161,94 @@ void ScheduleBrowserDownload(Ptr<Node> server,
     }
 }
 
-} // namespace
+void NetSim::ScheduleBrowserWarmupForTerminal(uint32_t termIdx, uint16_t port, uint32_t generation)
+{
+    if (server_browser == nullptr || termIdx >= terms.size())
+    {
+        return;
+    }
+    if (termIdx >= m_termAppStates.size() ||
+        m_termAppStates[termIdx].browserGeneration != generation)
+    {
+        return;
+    }
+
+    Ipv4Address clientAddress =
+        (m_nth == 5) ? GetActiveIpv4(termIdx) : GetPrimaryIpv4(terms[termIdx]);
+    if (clientAddress == Ipv4Address("0.0.0.0"))
+    {
+        return;
+    }
+
+    const uint16_t warmupPort =
+        port + static_cast<uint16_t>(std::max<uint32_t>(1, m_browserRequestCount));
+    BulkSendHelper bulk("ns3::TcpSocketFactory", InetSocketAddress(clientAddress, warmupPort));
+    bulk.SetAttribute("MaxBytes", UintegerValue(1));
+    ApplicationContainer apps = bulk.Install(server_browser);
+    apps.Start(Simulator::Now());
+    if (apps.GetN() > 0)
+    {
+        m_termAppStates[termIdx].serverApps.push_back(apps.Get(0));
+    }
+}
+
+void NetSim::ScheduleFutureBrowserBursts(uint32_t termIdx, uint16_t port, uint32_t generation,
+                                         Time minStartTime)
+{
+    const Time interval =
+        m_browserRequestInterval.IsZero() ? Seconds(1.0) : m_browserRequestInterval;
+    const uint32_t requestCount = std::max<uint32_t>(1, m_browserRequestCount);
+    const Time requestDuration = Seconds(0.5);
+    const Time now = Simulator::Now();
+
+    for (uint32_t cycle = 0; cycle < m_cycleCount; ++cycle)
+    {
+        Time cycleStart = m_cycleDuration * cycle;
+        Time warmupAt = cycleStart + std::max(Seconds(0.1), m_monitorStartOffset - Seconds(0.8));
+        if (warmupAt > now && warmupAt > minStartTime)
+        {
+            Simulator::Schedule(warmupAt - now,
+                                &NetSim::ScheduleBrowserWarmupForTerminal,
+                                this,
+                                termIdx,
+                                port,
+                                generation);
+        }
+
+        Time firstRequestAt = cycleStart + m_browserFirstRequest;
+        // minStartTime: ハンドオーバー直後はARPが安定するまで送信を遅らせる（案2）
+        if (firstRequestAt > now && firstRequestAt > minStartTime)
+        {
+            Simulator::Schedule(firstRequestAt - now,
+                                &NetSim::ScheduleBrowserDownloadForTerminal,
+                                this,
+                                termIdx,
+                                port,
+                                generation,
+                                0,
+                                1,
+                                interval,
+                                requestDuration,
+                                m_browserRequestBytes);
+        }
+
+        Time secondBurstAt = cycleStart + m_browserBatchBStart;
+        if (secondBurstAt > now && secondBurstAt > minStartTime && requestCount > 1)
+        {
+            Simulator::Schedule(secondBurstAt - now,
+                                &NetSim::ScheduleBrowserDownloadForTerminal,
+                                this,
+                                termIdx,
+                                port + 1,
+                                generation,
+                                0,
+                                requestCount - 1,
+                                interval,
+                                requestDuration,
+                                m_browserRequestBytes);
+        }
+    }
+}
 
 void NetSim::AttachMonitorApplication(uint32_t apId, Ptr<Node> monitor)
 {
@@ -171,6 +331,7 @@ void NetSim::SetKamedaModule(void){
     Ptr<KamedaAppServer> appServer = CreateObject<KamedaAppServer>(m_apSelectionInput);
     appServer->ConfigureCycles(m_cycleCount, m_cycleDuration);
     appServer->SetMonitorStopOffset(m_monitorStopOffset);
+    appServer->SetCycleEndOffset(m_terminalTpStopOffset);
     appServer->SetCycleEndGuard(m_cycleEndGuard);
     appServer->SetHandoverCallback([this](const std::vector<int>& assignment) {
         HandoverRequest(assignment);
@@ -254,37 +415,57 @@ void NetSim::SetBrowserApp()
 
         const uint16_t port = basePort + static_cast<uint16_t>(i);
 
-        PacketSinkHelper sinkHelper("ns3::TcpSocketFactory",
-                                    InetSocketAddress(Ipv4Address::GetAny(), port));
-        ApplicationContainer sinkApps = sinkHelper.Install(client);
-        sinkApps.Start(Seconds(0.9));
-        sinkApps.Stop(sinkStop);
+        ApplicationContainer sinkApps;
+        for (uint32_t request = 0; request <= requestCount; ++request)
+        {
+            PacketSinkHelper sinkHelper(
+                "ns3::TcpSocketFactory",
+                InetSocketAddress(Ipv4Address::GetAny(),
+                                  port + static_cast<uint16_t>(request)));
+            ApplicationContainer oneSink = sinkHelper.Install(client);
+            oneSink.Start(Seconds(0.1));
+            oneSink.Stop(sinkStop);
+            sinkApps.Add(oneSink);
+        }
 
         for (uint32_t cycle = 0; cycle < cycles; ++cycle)
         {
             Time offset = m_cycleDuration * cycle;
-            // Batch A: 1st request at t=1.0+offset
-            Simulator::Schedule(firstRequest + offset,
-                                &ScheduleBrowserDownload,
-                                server_browser,
-                                clientAddress,
+            Time warmupAt = offset + std::max(Seconds(0.1), m_monitorStartOffset - Seconds(0.8));
+            Simulator::Schedule(warmupAt,
+                                &NetSim::ScheduleBrowserWarmupForTerminal,
+                                this,
+                                i,
                                 port,
+                                m_termAppStates[i].browserGeneration);
+
+            // Batch A: 1st request at cycleStart + browserFirstBurstSec.
+            Simulator::Schedule(firstRequest + offset,
+                                &NetSim::ScheduleBrowserDownloadForTerminal,
+                                this,
+                                i,
+                                port,
+                                m_termAppStates[i].browserGeneration,
                                 0,
                                 1,
                                 interval,
                                 requestDuration,
                                 requestBytes);
-            // Batch B: 7 additional requests at t=2.1+offset, 0.6s interval
-            Simulator::Schedule(m_browserBatchBStart + offset,
-                                &ScheduleBrowserDownload,
-                                server_browser,
-                                clientAddress,
-                                port,
-                                0,
-                                requestCount - 1,
-                                interval,
-                                requestDuration,
-                                requestBytes);
+            // Batch B: remaining requests at cycleStart + browserSecondBurstSec.
+            if (requestCount > 1)
+            {
+                Simulator::Schedule(m_browserBatchBStart + offset,
+                                    &NetSim::ScheduleBrowserDownloadForTerminal,
+                                    this,
+                                    i,
+                                    port + 1,
+                                    m_termAppStates[i].browserGeneration,
+                                    0,
+                                    requestCount - 1,
+                                    interval,
+                                    requestDuration,
+                                    requestBytes);
+            }
         }
 
         // アプリ追跡（nth==5用）
@@ -680,6 +861,54 @@ void NetSim::CollectTerminalThroughput()
         return;
     }
 
+    auto isTerminalAddress = [this](uint32_t termIdx, const Ipv4Address& addr) {
+        if (addr == Ipv4Address("0.0.0.0") || addr == Ipv4Address("127.0.0.1"))
+        {
+            return false;
+        }
+
+        if (termIdx < m_terminalIpAddresses.size() && m_terminalIpAddresses[termIdx] == addr)
+        {
+            return true;
+        }
+
+        if (termIdx < m_termAccessState.size())
+        {
+            const TermAccessState& state = m_termAccessState[termIdx];
+            if (state.nrIpv4 == addr || state.lteIpv4 == addr)
+            {
+                return true;
+            }
+            for (const auto& wifiAddr : state.wifiIpv4)
+            {
+                if (wifiAddr == addr)
+                {
+                    return true;
+                }
+            }
+        }
+
+        if (termIdx < terms.size() && terms[termIdx] != nullptr)
+        {
+            Ptr<Ipv4> ipv4 = terms[termIdx]->GetObject<Ipv4>();
+            if (ipv4 != nullptr)
+            {
+                for (uint32_t ifIndex = 0; ifIndex < ipv4->GetNInterfaces(); ++ifIndex)
+                {
+                    for (uint32_t a = 0; a < ipv4->GetNAddresses(ifIndex); ++a)
+                    {
+                        if (ipv4->GetAddress(ifIndex, a).GetLocal() == addr)
+                        {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+
+        return false;
+    };
+
     for (const auto& kv : stats)
     {
         const FlowId flowId = kv.first;
@@ -697,17 +926,82 @@ void NetSim::CollectTerminalThroughput()
         // フローの宛先が端末であればその端末のTPに加算
         for (uint32_t i = 0; i < m_terminalIpAddresses.size(); ++i)
         {
-            if (m_terminalIpAddresses[i] == Ipv4Address("0.0.0.0"))
-            {
-                continue;
-            }
-            if (tuple.destinationAddress != m_terminalIpAddresses[i])
+            if (!isTerminalAddress(i, tuple.destinationAddress))
             {
                 continue;
             }
 
             perTerm[i].totalBits += bits;
             break;
+        }
+    }
+
+    // サイクルごとのフロー詳細をCSVに書き出す
+    {
+        const uint32_t cycleNum =
+            static_cast<uint32_t>(Simulator::Now().GetSeconds() / m_cycleDuration.GetSeconds()) + 1;
+        const std::string flowCsvPath = std::string(OUTPUT_DIR) + "flow_per_cycle.csv";
+        bool writeHeader = false;
+        {
+            std::ifstream chk(flowCsvPath);
+            writeHeader = (!chk.good() || chk.peek() == std::ifstream::traits_type::eof());
+        }
+        std::ofstream ofs(flowCsvPath, std::ios::app);
+        if (ofs.good())
+        {
+            if (writeHeader)
+            {
+                ofs << "cycle,time_s,term_idx,term_ip,flow_id,src,dst,"
+                    << "tx_bytes,tx_packets,rx_bytes,rx_packets,lost_packets,"
+                    << "time_first_tx_s,time_first_rx_s,time_last_tx_s,time_last_rx_s,"
+                    << "tp_mbps,diagnosis\n";
+            }
+            for (const auto& kv : stats)
+            {
+                const FlowId flowId = kv.first;
+                const FlowMonitor::FlowStats& fs = kv.second;
+                Ipv4FlowClassifier::FiveTuple tuple = m_termFlowClassifier->FindFlow(flowId);
+                for (uint32_t i = 0; i < m_terminalIpAddresses.size(); ++i)
+                {
+                    if (!isTerminalAddress(i, tuple.destinationAddress))
+                        continue;
+                    double tpMbps = (fs.rxBytes > 0 && fixedWindowSec > 0.0)
+                                        ? (static_cast<double>(fs.rxBytes) * 8.0 / fixedWindowSec / 1e6)
+                                        : 0.0;
+                    const char* diagnosis = "received";
+                    if (fs.txPackets == 0)
+                    {
+                        diagnosis = "no_tx";
+                    }
+                    else if (fs.rxPackets == 0)
+                    {
+                        diagnosis = (fs.lostPackets > 0) ? "lost_or_unrouted" : "tx_no_rx_yet";
+                    }
+                    else if (fs.timeFirstRxPacket < m_terminalTpWindowStart)
+                    {
+                        diagnosis = "rx_before_window";
+                    }
+                    ofs << cycleNum << ","
+                        << std::fixed << std::setprecision(2) << Simulator::Now().GetSeconds() << ","
+                        << (i + 1) << ","
+                        << tuple.destinationAddress << ","
+                        << flowId << ","
+                        << tuple.sourceAddress << ","
+                        << tuple.destinationAddress << ","
+                        << fs.txBytes << ","
+                        << fs.txPackets << ","
+                        << fs.rxBytes << ","
+                        << fs.rxPackets << ","
+                        << fs.lostPackets << ","
+                        << fs.timeFirstTxPacket.GetSeconds() << ","
+                        << fs.timeFirstRxPacket.GetSeconds() << ","
+                        << fs.timeLastTxPacket.GetSeconds() << ","
+                        << fs.timeLastRxPacket.GetSeconds() << ","
+                        << tpMbps << ","
+                        << diagnosis << "\n";
+                    break;
+                }
+            }
         }
     }
 
@@ -743,6 +1037,30 @@ void NetSim::RebindTerminalApps(uint32_t termIdx, Ipv4Address newIp)
     }
 
     TermAppState& appState = m_termAppStates[termIdx];
+    if (appState.appType == 1)
+    {
+        Time now = Simulator::Now();
+        for (auto& app : appState.serverApps)
+        {
+            if (app)
+            {
+                app->SetStopTime(now);
+            }
+        }
+        appState.serverApps.clear();
+        appState.browserGeneration++;
+        // ハンドオーバー直後はARPが安定するまでバースト送信を遅らせる（案2）
+        Time postHandoverStart = Simulator::Now() + m_browserPostHandoverDelay;
+        ScheduleFutureBrowserBursts(termIdx, appState.primaryPort, appState.browserGeneration,
+                                    postHandoverStart);
+
+        std::cout << "[RebindBrowser] term=" << termIdx
+                  << " newIP=" << newIp
+                  << " keep existing sink on port=" << appState.primaryPort
+                  << " generation=" << appState.browserGeneration
+                  << std::endl;
+        return;
+    }
 
     // 旧アプリを停止（実行中アプリに効かせるため SetStopTime を直接使用）
     const Time stopDelay = MilliSeconds(1);
@@ -813,48 +1131,9 @@ void NetSim::ReinstallBrowserApp(uint32_t termIdx, Ipv4Address newIp, Time start
     sinkApps.Start(startTime);
     sinkApps.Stop(stopTime);
 
-    const uint32_t requestBytes = m_browserRequestBytes;
-    const Time requestDuration = Seconds(0.5);
-    const Time interval =
-        m_browserRequestInterval.IsZero() ? Seconds(1.0) : m_browserRequestInterval;
-    const uint32_t requestCount = std::max<uint32_t>(1, m_browserRequestCount);
-
-    // 残りサイクル分のブラウザリクエストをスケジュール
-    uint32_t remainingCycles = 0;
-    Time now = Simulator::Now();
-    for (uint32_t c = 0; c < m_cycleCount; ++c)
-    {
-        Time cycleStart = m_cycleDuration * c + m_browserFirstRequest;
-        if (cycleStart > now)
-        {
-            remainingCycles++;
-            Simulator::Schedule(cycleStart - now,
-                                &ScheduleBrowserDownload,
-                                server_browser,
-                                newIp,
-                                port,
-                                0,
-                                requestCount,
-                                interval,
-                                requestDuration,
-                                requestBytes);
-        }
-    }
-
-    // 直近のリクエストも投入
-    if (remainingCycles == 0)
-    {
-        Simulator::Schedule(startTime,
-                            &ScheduleBrowserDownload,
-                            server_browser,
-                            newIp,
-                            port,
-                            0,
-                            requestCount,
-                            interval,
-                            requestDuration,
-                            requestBytes);
-    }
+    // Browser request events are installed once in SetBrowserApp().  Each event
+    // resolves the terminal's active IP at execution time, so handover only
+    // needs a fresh sink and must not add duplicate future source events.
 
     if (sinkApps.GetN() > 0)
     {

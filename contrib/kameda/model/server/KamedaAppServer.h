@@ -19,6 +19,7 @@ public:
     virtual ~KamedaAppServer();
     void ConfigureCycles(uint32_t count, Time duration);
     void SetMonitorStopOffset(Time offset);
+    void SetCycleEndOffset(Time offset);
     void SetCycleEndGuard(Time guard);
     void SetHandoverCallback(const std::function<void(const std::vector<int>&)>& cb);
     void SetTerminalTp(int termIdx, double tpBps);
@@ -59,6 +60,7 @@ private:
     uint32_t m_cycleCount = 1;
     Time m_cycleDuration;
     Time m_monitorStopOffset;
+    Time m_cycleEndOffset;
     Time m_cycleEndGuard;
     std::function<void(const std::vector<int>&)> m_handoverCallback;
 };

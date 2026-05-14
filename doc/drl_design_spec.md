@@ -18,7 +18,7 @@ H = N / Σ(1 / S_i)
 ```
 
 - `N` : 端末総数
-- `S_i` : 端末 `i` の満足度（TP 重視またはRTT 重視、CLAUDE.md §5 参照）
+- `S_i` : 端末 `i` の満足度（TP重視，RTT重視）
 
 ### 現状の課題
 
@@ -483,19 +483,7 @@ data/processed/drl_dataset_{YYYYMMDD}.parquet
 | ns-3 バージョン固定 | 外部ライブラリ追加は禁止 | IPC は標準ソケットのみ使用 |
 | 状態次元の変化 | 端末数変更で state ベクトルが変わる | JSON 形式で送受信し Python 側でパースする |
 
----
-
-## 付録 A: G_nth 値の対応表（現状）
-
-| `G_nth` 値 | 割当方式 |
-|---|---|
-| 5 | `policy_assignment1`（不満足端末ランダム） |
-| その他 | `random_assignment` |
-| **6**（追加予定） | **DRL モード** |
-
----
-
-## 付録 B: state JSON 送受信プロトコル詳細
+## 付録 A: state JSON 送受信プロトコル詳細
 
 ```
 <state_json>\n    ← ns-3 → Python (改行終端)

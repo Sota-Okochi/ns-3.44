@@ -71,6 +71,8 @@ void APselection::init(const ApSelectionInput& input){
     m_has_terminal_tp.assign(terms, false);
 
     m_lastAssignment = initial_AP;
+    m_switchCycle.assign(terms, 0);
+    m_handoverGraceCycles = input.handoverGraceCycles;
     m_cycleIndex = 1;
     m_masterLogInitialized = false;
 
@@ -251,6 +253,15 @@ double APselection::calculate_satisfaction(int terminal_idx, int ap_idx) {
             }
             if (measuredTpMbps <= 0.0)
             {
+                // ハンドオーバ直後の猶予期間中は満足扱いにして調和平均の破綻と再切り替えループを防ぐ
+                if (!m_switchCycle.empty() &&
+                    terminal_idx < static_cast<int>(m_switchCycle.size()) &&
+                    m_switchCycle[terminal_idx] > 0 &&
+                    m_cycleIndex >= m_switchCycle[terminal_idx] &&
+                    (m_cycleIndex - m_switchCycle[terminal_idx]) < m_handoverGraceCycles)
+                {
+                    return APConstants::GRACE_SATISFACTION;
+                }
                 // TP未計測: 切り替え候補になるようペナルティ値を返す（0.00 ログと調和平均破綻を防ぐ）
                 return APConstants::SATISFACTION_FLOOR;
             }
@@ -426,6 +437,23 @@ void APselection::StartNewCycle(uint32_t cycleIndex)
 {
     std::cout << "=== APselection::StartNewCycle(" << cycleIndex << ") ===" << std::endl;
     m_cycleIndex = cycleIndex;
+
+    // ハンドオーバ検出: 前サイクルの割当と現在のAPを比較し、切り替わった端末の猶予期間を開始する
+    if (!m_lastAssignment.empty() && !m_switchCycle.empty())
+    {
+        for (int i = 0; i < terms && i < static_cast<int>(m_lastAssignment.size()); ++i)
+        {
+            if (m_lastAssignment[i] != initial_AP[i])
+            {
+                m_switchCycle[i] = m_cycleIndex;
+                std::cout << "  Term" << (i + 1) << ": AP" << initial_AP[i]
+                          << "→AP" << m_lastAssignment[i]
+                          << " (grace until cycle " << (m_cycleIndex + m_handoverGraceCycles - 1) << ")"
+                          << std::endl;
+            }
+        }
+    }
+
     if (!m_lastAssignment.empty())
     {
         initial_AP = m_lastAssignment;

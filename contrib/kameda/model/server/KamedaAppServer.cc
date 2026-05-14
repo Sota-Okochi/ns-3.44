@@ -358,6 +358,15 @@ void KamedaAppServer::ConfigureCycles(uint32_t count, Time duration)
 void KamedaAppServer::SetMonitorStopOffset(Time offset)
 {
     m_monitorStopOffset = offset.IsPositive() ? offset : Seconds(4.0);
+    if (!m_cycleEndOffset.IsPositive())
+    {
+        m_cycleEndOffset = m_monitorStopOffset;
+    }
+}
+
+void KamedaAppServer::SetCycleEndOffset(Time offset)
+{
+    m_cycleEndOffset = offset.IsPositive() ? offset : m_monitorStopOffset;
 }
 
 void KamedaAppServer::SetCycleEndGuard(Time guard)
@@ -384,7 +393,9 @@ void KamedaAppServer::SetHandoverCallback(const std::function<void(const std::ve
 
 void KamedaAppServer::ScheduleCycleEnd(uint32_t cycleIndex)
 {
-    Time stopOffset = m_monitorStopOffset.IsPositive() ? m_monitorStopOffset : Seconds(4.0);
+    Time stopOffset = m_cycleEndOffset.IsPositive()
+                          ? m_cycleEndOffset
+                          : (m_monitorStopOffset.IsPositive() ? m_monitorStopOffset : Seconds(4.0));
     Time guard = m_cycleEndGuard.IsPositive() ? m_cycleEndGuard : Seconds(0.5);
     Time cycleStart = m_cycleDuration * cycleIndex;
     Time when = cycleStart + stopOffset + guard;
