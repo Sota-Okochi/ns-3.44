@@ -317,6 +317,7 @@ void NetSim::Init(int argc, char *argv[]){
     m_apSelectionInput.capacities = setting.capacities;
     m_apSelectionInput.initialRtt = setting.initialRtt;
     m_apSelectionInput.handoverGraceCycles = static_cast<uint32_t>(setting.handoverGraceCycles);
+    m_apSelectionInput.nth = m_nth;
 
     m_termData.clear();
     m_apSelectionInput.useAppli.clear();
@@ -567,9 +568,6 @@ void NetSim::CheckFlowMonitor(Ptr<FlowMonitor> monitor, Ptr<Ipv4FlowClassifier> 
         if (classifier)
         {
             const auto stats = monitor->GetFlowStats();
-            auto isApWifiAddress = [this](const Ipv4Address& addr) {
-                return m_wifiApAddresses.find(addr.Get()) != m_wifiApAddresses.end();
-            };
             auto isStationWifiAddress = [this](const Ipv4Address& addr) {
                 return m_wifiStationAddresses.find(addr.Get()) != m_wifiStationAddresses.end();
             };

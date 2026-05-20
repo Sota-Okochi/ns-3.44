@@ -35,7 +35,7 @@ Ipv4Address GetPrimaryIpv4(Ptr<Node> node)
     return Ipv4Address("0.0.0.0");
 }
 
-void TracePacketToAscii(Ptr<OutputStreamWrapper> stream, Ptr<const Packet> packet)
+[[maybe_unused]] void TracePacketToAscii(Ptr<OutputStreamWrapper> stream, Ptr<const Packet> packet)
 {
     if (stream == nullptr)
     {
@@ -62,7 +62,363 @@ const char* RatTypeToString(RatType rat)
     return "WIFI";
 }
 
+std::string SocketErrnoToString(Socket::SocketErrno err)
+{
+    switch (err)
+    {
+    case Socket::ERROR_NOTERROR:
+        return "OK";
+    case Socket::ERROR_NOROUTETOHOST:
+        return "NOROUTETOHOST";
+    case Socket::ERROR_NODEV:
+        return "NODEV";
+    case Socket::ERROR_ADDRNOTAVAIL:
+        return "ADDRNOTAVAIL";
+    default:
+        return std::to_string(static_cast<int>(err));
+    }
+}
+
 } // namespace
+
+void NetSim::LogBrowserBulkDiagnostic(uint32_t termIdx,
+                                      uint16_t port,
+                                      uint32_t generation,
+                                      const std::string& phase,
+                                      Ipv4Address dstIp,
+                                      Ptr<Application> app)
+{
+    const std::string csvPath = std::string(OUTPUT_DIR) + "browser_bulk_diagnostics.csv";
+    bool writeHeader = false;
+    {
+        std::ifstream chk(csvPath);
+        writeHeader = (!chk.good() || chk.peek() == std::ifstream::traits_type::eof());
+    }
+
+    int currentAp = 0;
+    const char* currentRat = "unknown";
+    if (termIdx < m_termAccessState.size())
+    {
+        currentAp = m_termAccessState[termIdx].currentAp;
+        currentRat = RatTypeToString(m_termAccessState[termIdx].currentRat);
+    }
+
+    Ipv4Address activeIp = Ipv4Address("0.0.0.0");
+    if (termIdx < terms.size())
+    {
+        activeIp = (m_nth == 5) ? GetActiveIpv4(termIdx) : GetPrimaryIpv4(terms[termIdx]);
+    }
+
+    std::string routeErr = "no_server_ipv4";
+    std::string routeGateway = "0.0.0.0";
+    int32_t routeIf = -1;
+    if (server_browser != nullptr)
+    {
+        Ptr<Ipv4> serverIpv4 = server_browser->GetObject<Ipv4>();
+        if (serverIpv4 != nullptr && serverIpv4->GetRoutingProtocol() != nullptr)
+        {
+            Ipv4Header header;
+            header.SetDestination(dstIp);
+            header.SetProtocol(6); // TCP
+            Socket::SocketErrno err = Socket::ERROR_NOTERROR;
+            Ptr<Ipv4Route> route =
+                serverIpv4->GetRoutingProtocol()->RouteOutput(Create<Packet>(), header, nullptr, err);
+            routeErr = SocketErrnoToString(err);
+            if (route != nullptr)
+            {
+                routeIf = static_cast<int32_t>(serverIpv4->GetInterfaceForDevice(route->GetOutputDevice()));
+                std::ostringstream gw;
+                gw << route->GetGateway();
+                routeGateway = gw.str();
+            }
+        }
+    }
+
+    uint64_t matchedTxPackets = 0;
+    uint64_t matchedRxPackets = 0;
+    uint64_t matchedTxBytes = 0;
+    uint64_t matchedRxBytes = 0;
+    uint32_t matchedFlows = 0;
+    std::string matchedFlowIds;
+    if (m_termFlowMonitor != nullptr && m_termFlowClassifier != nullptr)
+    {
+        m_termFlowMonitor->CheckForLostPackets();
+        for (const auto& kv : m_termFlowMonitor->GetFlowStats())
+        {
+            Ipv4FlowClassifier::FiveTuple tuple = m_termFlowClassifier->FindFlow(kv.first);
+            if (tuple.destinationAddress != dstIp || tuple.destinationPort != port ||
+                tuple.protocol != 6)
+            {
+                continue;
+            }
+
+            const FlowMonitor::FlowStats& fs = kv.second;
+            matchedTxPackets += fs.txPackets;
+            matchedRxPackets += fs.rxPackets;
+            matchedTxBytes += fs.txBytes;
+            matchedRxBytes += fs.rxBytes;
+            if (!matchedFlowIds.empty())
+            {
+                matchedFlowIds += "|";
+            }
+            matchedFlowIds += std::to_string(kv.first);
+            matchedFlows++;
+        }
+    }
+
+    if (matchedFlowIds.empty())
+    {
+        matchedFlowIds = "-";
+    }
+
+    std::ofstream ofs(csvPath, std::ios::app);
+    if (!ofs.good())
+    {
+        return;
+    }
+    if (writeHeader)
+    {
+        ofs << "time_s,cycle,term_idx,generation,phase,current_ap,current_rat,"
+            << "active_ip,dst_ip,port,route_error,route_if,route_gateway,"
+            << "app_present,matched_flows,flow_ids,tx_packets,rx_packets,tx_bytes,rx_bytes\n";
+    }
+
+    const uint32_t cycleNum =
+        static_cast<uint32_t>(Simulator::Now().GetSeconds() / m_cycleDuration.GetSeconds()) + 1;
+    ofs << std::fixed << std::setprecision(2)
+        << Simulator::Now().GetSeconds() << ","
+        << cycleNum << ","
+        << (termIdx + 1) << ","
+        << generation << ","
+        << phase << ","
+        << currentAp << ","
+        << currentRat << ","
+        << activeIp << ","
+        << dstIp << ","
+        << port << ","
+        << routeErr << ","
+        << routeIf << ","
+        << routeGateway << ","
+        << (app != nullptr ? 1 : 0) << ","
+        << matchedFlows << ","
+        << matchedFlowIds << ","
+        << matchedTxPackets << ","
+        << matchedRxPackets << ","
+        << matchedTxBytes << ","
+        << matchedRxBytes << "\n";
+}
+
+void NetSim::LogBrowserTcpEvent(const std::string& context,
+                                const std::string& event,
+                                uint32_t packetSize,
+                                const std::string& detail)
+{
+    const std::string csvPath = std::string(OUTPUT_DIR) + "browser_tcp_events.csv";
+    bool writeHeader = false;
+    {
+        std::ifstream chk(csvPath);
+        writeHeader = (!chk.good() || chk.peek() == std::ifstream::traits_type::eof());
+    }
+
+    std::ofstream ofs(csvPath, std::ios::app);
+    if (!ofs.good())
+    {
+        return;
+    }
+    if (writeHeader)
+    {
+        ofs << "time_s,cycle,context,event,packet_size,detail\n";
+    }
+
+    const uint32_t cycleNum =
+        static_cast<uint32_t>(Simulator::Now().GetSeconds() / m_cycleDuration.GetSeconds()) + 1;
+    ofs << std::fixed << std::setprecision(2)
+        << Simulator::Now().GetSeconds() << ","
+        << cycleNum << ","
+        << context << ","
+        << event << ","
+        << packetSize << ","
+        << detail << "\n";
+}
+
+void NetSim::BrowserBulkTxTrace(std::string context, Ptr<const Packet> packet)
+{
+    LogBrowserTcpEvent(context, "bulk_tx", packet ? packet->GetSize() : 0, "-");
+}
+
+void NetSim::BrowserBulkSocketTrace(std::string context, Ptr<Socket> socket)
+{
+    std::string detail = "socket=null";
+    if (socket != nullptr)
+    {
+        detail = "errno=" + SocketErrnoToString(socket->GetErrno());
+        std::ostringstream oss;
+        oss << detail << " socket=" << PeekPointer(socket);
+        detail = oss.str();
+    }
+    LogBrowserTcpEvent(context, "bulk_socket", 0, detail);
+}
+
+void NetSim::BrowserBulkConnectReturnTrace(std::string context, Ptr<Socket> socket, int32_t result)
+{
+    std::ostringstream detail;
+    detail << "result=" << result;
+    if (socket != nullptr)
+    {
+        detail << " errno=" << SocketErrnoToString(socket->GetErrno())
+               << " socket=" << PeekPointer(socket);
+    }
+    else
+    {
+        detail << " socket=null";
+    }
+    LogBrowserTcpEvent(context, "bulk_connect_return", 0, detail.str());
+}
+
+void NetSim::BrowserBulkConnectionTrace(std::string context, Ptr<Socket> socket)
+{
+    std::string detail = "errno=unknown";
+    if (socket != nullptr)
+    {
+        detail = "errno=" + SocketErrnoToString(socket->GetErrno());
+    }
+    LogBrowserTcpEvent(context, "bulk_connection", 0, detail);
+}
+
+void NetSim::BrowserBulkRetransmissionTrace(std::string context,
+                                            Ptr<const Packet> packet,
+                                            const TcpHeader& header,
+                                            const Address& localAddr,
+                                            const Address& peerAddr,
+                                            Ptr<const TcpSocketBase> socket)
+{
+    std::ostringstream detail;
+    detail << "local=" << localAddr
+           << " peer=" << peerAddr
+           << " header=\"" << header << "\""
+           << " socket=" << PeekPointer(socket);
+    LogBrowserTcpEvent(context,
+                       "bulk_tcp_retransmission",
+                       packet ? packet->GetSize() : 0,
+                       detail.str());
+}
+
+void NetSim::BrowserTcpSocketTxTrace(std::string context,
+                                     Ptr<const Packet> packet,
+                                     const TcpHeader& header,
+                                     Ptr<const TcpSocketBase> socket)
+{
+    std::ostringstream detail;
+    detail << "header=\"" << header << "\""
+           << " socket=" << PeekPointer(socket);
+    LogBrowserTcpEvent(context, "tcp_socket_tx", packet ? packet->GetSize() : 0, detail.str());
+}
+
+void NetSim::BrowserTcpSocketStateTrace(std::string context,
+                                        TcpSocket::TcpStates_t oldState,
+                                        TcpSocket::TcpStates_t newState)
+{
+    std::ostringstream detail;
+    detail << "old=" << static_cast<int>(oldState)
+           << " new=" << static_cast<int>(newState);
+    LogBrowserTcpEvent(context, "tcp_socket_state", 0, detail.str());
+}
+
+void NetSim::AttachBrowserBulkTrace(uint32_t termIdx,
+                                    uint16_t port,
+                                    uint32_t generation,
+                                    Ipv4Address dstIp,
+                                    Ptr<Application> app)
+{
+    if (app == nullptr)
+    {
+        return;
+    }
+
+    std::ostringstream context;
+    context << "term=" << (termIdx + 1)
+            << "|gen=" << generation
+            << "|dst=" << dstIp
+            << "|port=" << port;
+    const std::string ctx = context.str();
+
+    app->TraceConnect("Tx", ctx, MakeCallback(&NetSim::BrowserBulkTxTrace, this));
+    app->TraceConnect("Start",
+                      ctx + "|phase=start",
+                      MakeCallback(&NetSim::BrowserBulkSocketTrace, this));
+    app->TraceConnect("SocketCreated",
+                      ctx + "|phase=socket_created",
+                      MakeCallback(&NetSim::BrowserBulkSocketTrace, this));
+    app->TraceConnect("ConnectAttempt",
+                      ctx + "|phase=connect_attempt",
+                      MakeCallback(&NetSim::BrowserBulkSocketTrace, this));
+    app->TraceConnect("ConnectReturn",
+                      ctx,
+                      MakeCallback(&NetSim::BrowserBulkConnectReturnTrace, this));
+    app->TraceConnect("ConnectionSucceeded",
+                      ctx + "|result=success",
+                      MakeCallback(&NetSim::BrowserBulkConnectionTrace, this));
+    app->TraceConnect("ConnectionFailed",
+                      ctx + "|result=failed",
+                      MakeCallback(&NetSim::BrowserBulkConnectionTrace, this));
+    app->TraceConnect("TcpRetransmission",
+                      ctx,
+                      MakeCallback(&NetSim::BrowserBulkRetransmissionTrace, this));
+
+    Simulator::Schedule(MilliSeconds(1),
+                        &NetSim::ProbeBrowserBulkSocketTrace,
+                        this,
+                        termIdx,
+                        port,
+                        generation,
+                        dstIp,
+                        app);
+}
+
+void NetSim::ProbeBrowserBulkSocketTrace(uint32_t termIdx,
+                                         uint16_t port,
+                                         uint32_t generation,
+                                         Ipv4Address dstIp,
+                                         Ptr<Application> app)
+{
+    Ptr<BulkSendApplication> bulkApp = DynamicCast<BulkSendApplication>(app);
+    if (bulkApp == nullptr)
+    {
+        return;
+    }
+
+    std::ostringstream context;
+    context << "term=" << (termIdx + 1)
+            << "|gen=" << generation
+            << "|dst=" << dstIp
+            << "|port=" << port;
+    const std::string ctx = context.str();
+
+    Ptr<Socket> socket = bulkApp->GetSocket();
+    if (socket == nullptr)
+    {
+        LogBrowserTcpEvent(ctx, "socket_probe", 0, "socket=null");
+        return;
+    }
+
+    std::ostringstream detail;
+    detail << "errno=" << SocketErrnoToString(socket->GetErrno())
+           << " socket=" << PeekPointer(socket);
+    LogBrowserTcpEvent(ctx, "socket_probe", 0, detail.str());
+
+    Ptr<TcpSocketBase> tcpSocket = DynamicCast<TcpSocketBase>(socket);
+    if (tcpSocket == nullptr)
+    {
+        LogBrowserTcpEvent(ctx, "socket_probe", 0, "socket_not_tcp_base");
+        return;
+    }
+
+    tcpSocket->TraceConnect("Tx", ctx, MakeCallback(&NetSim::BrowserTcpSocketTxTrace, this));
+    tcpSocket->TraceConnect("Retransmission",
+                            ctx,
+                            MakeCallback(&NetSim::BrowserBulkRetransmissionTrace, this));
+    tcpSocket->TraceConnect("State", ctx, MakeCallback(&NetSim::BrowserTcpSocketStateTrace, this));
+}
 
 void NetSim::ScheduleBrowserDownloadForTerminal(uint32_t termIdx,
                                                 uint16_t port,
@@ -91,6 +447,7 @@ void NetSim::ScheduleBrowserDownloadForTerminal(uint32_t termIdx,
     }
 
     const uint16_t requestPort = port + static_cast<uint16_t>(requestIndex);
+    LogBrowserBulkDiagnostic(termIdx, requestPort, generation, "before_install", clientAddress);
 
     {
         const uint32_t cycleNum =
@@ -142,7 +499,41 @@ void NetSim::ScheduleBrowserDownloadForTerminal(uint32_t termIdx,
     (void)duration;
     if (apps.GetN() > 0)
     {
-        m_termAppStates[termIdx].serverApps.push_back(apps.Get(0));
+        Ptr<Application> app = apps.Get(0);
+        m_termAppStates[termIdx].serverApps.push_back(app);
+        AttachBrowserBulkTrace(termIdx, requestPort, generation, clientAddress, app);
+        LogBrowserBulkDiagnostic(termIdx, requestPort, generation, "after_install", clientAddress, app);
+        Simulator::Schedule(MilliSeconds(50),
+                            &NetSim::LogBrowserBulkDiagnostic,
+                            this,
+                            termIdx,
+                            requestPort,
+                            generation,
+                            "probe_50ms",
+                            clientAddress,
+                            app);
+        Simulator::Schedule(MilliSeconds(500),
+                            &NetSim::LogBrowserBulkDiagnostic,
+                            this,
+                            termIdx,
+                            requestPort,
+                            generation,
+                            "probe_500ms",
+                            clientAddress,
+                            app);
+        Simulator::Schedule(Seconds(1.5),
+                            &NetSim::LogBrowserBulkDiagnostic,
+                            this,
+                            termIdx,
+                            requestPort,
+                            generation,
+                            "probe_1500ms",
+                            clientAddress,
+                            app);
+    }
+    else
+    {
+        LogBrowserBulkDiagnostic(termIdx, requestPort, generation, "install_failed", clientAddress);
     }
 
     if (requestIndex + 1 < totalRequests)

@@ -19,6 +19,8 @@
 #include "ns3/wifi-helper.h"
 #include "ns3/nr-module.h"
 #include "ns3/flow-monitor-module.h"
+#include "ns3/tcp-socket-base.h"
+#include "ns3/tcp-socket-state.h"
 #include "RttForwarderApp.h"
 
 #include <sstream>
@@ -96,7 +98,7 @@ private:
     void ConfigureWifiForAP2();
     void ConfigureNrForAp0();
     void ConfigureNrIpAfterNetwork();
-    void ConfigureLteForAp1();
+    void ConfigureWifiForAP1();
     void ConfigureLteIpAfterNetwork();
     void ConfigureLtePgwCerLink();
     void ConfigureP2P(uint32_t count);
@@ -228,6 +230,43 @@ private:
     void ScheduleBrowserWarmupForTerminal(uint32_t termIdx, uint16_t port, uint32_t generation);
     void ScheduleFutureBrowserBursts(uint32_t termIdx, uint16_t port, uint32_t generation,
                                      Time minStartTime = Time(0));
+    void LogBrowserBulkDiagnostic(uint32_t termIdx,
+                                  uint16_t port,
+                                  uint32_t generation,
+                                  const std::string& phase,
+                                  Ipv4Address dstIp,
+                                  Ptr<Application> app = nullptr);
+    void AttachBrowserBulkTrace(uint32_t termIdx,
+                                uint16_t port,
+                                uint32_t generation,
+                                Ipv4Address dstIp,
+                                Ptr<Application> app);
+    void ProbeBrowserBulkSocketTrace(uint32_t termIdx,
+                                     uint16_t port,
+                                     uint32_t generation,
+                                     Ipv4Address dstIp,
+                                     Ptr<Application> app);
+    void LogBrowserTcpEvent(const std::string& context,
+                            const std::string& event,
+                            uint32_t packetSize,
+                            const std::string& detail);
+    void BrowserBulkTxTrace(std::string context, Ptr<const Packet> packet);
+    void BrowserBulkSocketTrace(std::string context, Ptr<Socket> socket);
+    void BrowserBulkConnectReturnTrace(std::string context, Ptr<Socket> socket, int32_t result);
+    void BrowserBulkConnectionTrace(std::string context, Ptr<Socket> socket);
+    void BrowserBulkRetransmissionTrace(std::string context,
+                                        Ptr<const Packet> packet,
+                                        const TcpHeader& header,
+                                        const Address& localAddr,
+                                        const Address& peerAddr,
+                                        Ptr<const TcpSocketBase> socket);
+    void BrowserTcpSocketTxTrace(std::string context,
+                                 Ptr<const Packet> packet,
+                                 const TcpHeader& header,
+                                 Ptr<const TcpSocketBase> socket);
+    void BrowserTcpSocketStateTrace(std::string context,
+                                    TcpSocket::TcpStates_t oldState,
+                                    TcpSocket::TcpStates_t newState);
 
     void ScheduleMonitorWindows();
     void HandoverRequest(const std::vector<int>& assignment);

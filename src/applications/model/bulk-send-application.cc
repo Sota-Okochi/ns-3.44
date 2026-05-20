@@ -63,6 +63,30 @@ BulkSendApplication::GetTypeId()
                             "A new packet is sent",
                             MakeTraceSourceAccessor(&BulkSendApplication::m_txTrace),
                             "ns3::Packet::TracedCallback")
+            .AddTraceSource("Start",
+                            "StartApplication has run",
+                            MakeTraceSourceAccessor(&BulkSendApplication::m_startTrace),
+                            "ns3::Socket::TracedCallback")
+            .AddTraceSource("SocketCreated",
+                            "The socket was created",
+                            MakeTraceSourceAccessor(&BulkSendApplication::m_socketCreatedTrace),
+                            "ns3::Socket::TracedCallback")
+            .AddTraceSource("ConnectAttempt",
+                            "The socket Connect call is about to run",
+                            MakeTraceSourceAccessor(&BulkSendApplication::m_connectAttemptTrace),
+                            "ns3::Socket::TracedCallback")
+            .AddTraceSource("ConnectReturn",
+                            "The socket Connect call returned",
+                            MakeTraceSourceAccessor(&BulkSendApplication::m_connectReturnTrace),
+                            "ns3::Socket::TracedCallback")
+            .AddTraceSource("ConnectionSucceeded",
+                            "The TCP connection succeeded",
+                            MakeTraceSourceAccessor(&BulkSendApplication::m_connectionSucceededTrace),
+                            "ns3::Socket::ConnectionSucceededCallback")
+            .AddTraceSource("ConnectionFailed",
+                            "The TCP connection failed",
+                            MakeTraceSourceAccessor(&BulkSendApplication::m_connectionFailedTrace),
+                            "ns3::Socket::ConnectionFailedCallback")
             .AddTraceSource("TxWithSeqTsSize",
                             "A new packet is created with SeqTsSizeHeader",
                             MakeTraceSourceAccessor(&BulkSendApplication::m_txTraceWithSeqTsSize),
@@ -120,11 +144,13 @@ BulkSendApplication::StartApplication() // Called at time specified by Start
 {
     NS_LOG_FUNCTION(this);
     Address from;
+    m_startTrace(m_socket);
 
     // Create the socket if not already
     if (!m_socket)
     {
         m_socket = Socket::CreateSocket(GetNode(), m_tid);
+        m_socketCreatedTrace(m_socket);
         int ret = -1;
 
         // Fatal error if socket type is not NS3_SOCK_STREAM or NS3_SOCK_SEQPACKET
@@ -168,7 +194,9 @@ BulkSendApplication::StartApplication() // Called at time specified by Start
         {
             m_socket->SetIpTos(m_tos); // Affects only IPv4 sockets.
         }
-        m_socket->Connect(m_peer);
+        m_connectAttemptTrace(m_socket);
+        ret = m_socket->Connect(m_peer);
+        m_connectReturnTrace(m_socket, ret);
         m_socket->ShutdownRecv();
         m_socket->SetConnectCallback(MakeCallback(&BulkSendApplication::ConnectionSucceeded, this),
                                      MakeCallback(&BulkSendApplication::ConnectionFailed, this));
@@ -296,6 +324,7 @@ BulkSendApplication::ConnectionSucceeded(Ptr<Socket> socket)
 {
     NS_LOG_FUNCTION(this << socket);
     NS_LOG_LOGIC("BulkSendApplication Connection succeeded");
+    m_connectionSucceededTrace(socket);
     m_connected = true;
     Address from;
     Address to;
@@ -309,6 +338,7 @@ BulkSendApplication::ConnectionFailed(Ptr<Socket> socket)
 {
     NS_LOG_FUNCTION(this << socket);
     NS_LOG_LOGIC("BulkSendApplication, Connection Failed");
+    m_connectionFailedTrace(socket);
 }
 
 void

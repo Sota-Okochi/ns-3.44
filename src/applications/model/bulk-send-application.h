@@ -122,6 +122,24 @@ class BulkSendApplication : public SourceApplication
     /// Traced Callback: sent packets
     TracedCallback<Ptr<const Packet>> m_txTrace;
 
+    /// Traced Callback: StartApplication has run
+    TracedCallback<Ptr<Socket>> m_startTrace;
+
+    /// Traced Callback: socket was created
+    TracedCallback<Ptr<Socket>> m_socketCreatedTrace;
+
+    /// Traced Callback: Connect is about to be called
+    TracedCallback<Ptr<Socket>> m_connectAttemptTrace;
+
+    /// Traced Callback: Connect returned
+    TracedCallback<Ptr<Socket>, int32_t> m_connectReturnTrace;
+
+    /// Traced Callback: TCP connection succeeded
+    TracedCallback<Ptr<Socket>> m_connectionSucceededTrace;
+
+    /// Traced Callback: TCP connection failed
+    TracedCallback<Ptr<Socket>> m_connectionFailedTrace;
+
     /// Traced Callback: retransmitted packets
     TracedCallback<Ptr<const Packet>,
                    const TcpHeader&,

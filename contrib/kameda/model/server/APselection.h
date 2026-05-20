@@ -30,7 +30,7 @@ namespace APConstants {
     };
     
     // アプリケーションのトラフィック要求（必要TP, RTT）
-    constexpr double BROWSER_REQUIRED_TP = 3.3;      // Mbps（ブラウザ）
+    constexpr double BROWSER_REQUIRED_TP = 2.34;      // Mbps（ブラウザ）
     constexpr double VIDEO_REQUIRED_TP = 8.0;       // Mbps（動画ストリーミング）, 720/60fps
     constexpr double VOICE_CALL_REQUIRED_RTT = 60.0; // ms（通話アプリケーション）
     constexpr double ONLINE_GAME_REQUIRED_RTT = 20.0; // ms（オンラインゲーム）
@@ -55,6 +55,7 @@ struct ApSelectionInput {
     std::vector<int> useAppli;
     std::vector<int> initialAp;    // 各端末の初期接続先（1ベースのAP番号）
     uint32_t handoverGraceCycles = APConstants::HANDOVER_GRACE_CYCLES;
+    int nth = 0;
 };
 
 class APselection : public Object{
@@ -103,6 +104,7 @@ private:
     std::vector<double> m_cycleHarmonicMeans; // サイクルごとの調和平均
     
     std::vector<double> traffic_request;      //必要TP, RTT
+    int m_nth = 0;                             // 実験モード番号
     bool m_masterLogInitialized = false;       // master_log.csv ヘッダー書き込み済みフラグ
     std::string m_masterLogPath;               // 実行ごとのmaster_logファイルパス
 

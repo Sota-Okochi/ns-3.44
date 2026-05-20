@@ -31,7 +31,7 @@ void DumpIpv4Info(const std::string& title, Ptr<Node> node)
     {
         for (uint32_t a = 0; a < ipv4->GetNAddresses(ifIndex); ++a)
         {
-            Ipv4InterfaceAddress ifaddr = ipv4->GetAddress(ifIndex, a);
+            static_cast<void>(ipv4->GetAddress(ifIndex, a));
         }
     }
     Ipv4StaticRoutingHelper rh;
@@ -39,7 +39,7 @@ void DumpIpv4Info(const std::string& title, Ptr<Node> node)
     uint32_t nRoutes = rt->GetNRoutes();
     for (uint32_t r = 0; r < nRoutes; ++r)
     {
-        Ipv4RoutingTableEntry e = rt->GetRoute(r);
+        static_cast<void>(rt->GetRoute(r));
     }
 }
 
@@ -187,7 +187,7 @@ void NetSim::ConfigureDataLinkLayer(){
     ConfigureMobility(); // モビリティ設定
     ConfigureMonitorPlacement(); // 検査用端末の配置
     ConfigureNrForAp0(); // AP0: NR
-    ConfigureLteForAp1(); // AP1: LTE
+    ConfigureWifiForAP1(); // AP1: Wi-Fi
     ConfigureWifiForAP2(); // AP2: Wi-Fi
     ConfigureP2PDevices(); // P2Pのデバイス設定
     ConfigureRouterCerLinks(); // ルータとCERのリンク設定
@@ -470,66 +470,61 @@ void NetSim::ConfigureNrForAp0()
     }
 }
 
-void NetSim::ConfigureLteForAp1()
-{
-    std::cout << "==== ConfigureLteForAp1 ====" << std::endl;
+void NetSim::ConfigureWifiForAP1(){
+    std::cout << "==== ConfigureWifiForAP1 ====" << std::endl;
     NS_LOG_FUNCTION(this);
 
-    if (APnum < 2 || wifiAPs.size() < 2 || wifiNodes.size() < 2)
+    constexpr uint32_t apIndex = 1;
+    if (APnum <= apIndex || wifiNodes.size() <= apIndex || wifiDevices.size() <= apIndex ||
+        wifiNodes[apIndex].GetN() == 0)
     {
-        std::cout << "[LTE] APnum<2 or wifiAPs/wifiNodes insufficient; skipping" << std::endl;
+        std::cout << "[Wi-Fi] AP1 is not available; skipping Wi-Fi setup" << std::endl;
         return;
     }
 
-    // RLC バッファを拡大
-    Config::SetDefault("ns3::LteRlcUm::MaxTxBufferSize", UintegerValue(999999999));
+    SpectrumWifiPhyHelper phy;
+    Ptr<MultiModelSpectrumChannel> spectrumChannel = CreateObject<MultiModelSpectrumChannel>();
+    Ptr<ConstantSpeedPropagationDelayModel> delay = CreateObject<ConstantSpeedPropagationDelayModel>();
+    spectrumChannel->SetPropagationDelayModel(delay);
+    Ptr<LogDistancePropagationLossModel> loss = CreateObject<LogDistancePropagationLossModel>();
+    spectrumChannel->AddPropagationLossModel(loss);
+    phy.SetChannel(spectrumChannel);
+    phy.Set("RxGain", DoubleValue(0));
+    phy.Set("Antennas", UintegerValue(1));
+    phy.Set("MaxSupportedTxSpatialStreams", UintegerValue(1));
+    phy.Set("MaxSupportedRxSpatialStreams", UintegerValue(1));
+    phy.SetPcapDataLinkType(WifiPhyHelper::DLT_IEEE802_11_RADIO);
 
-    // LTE EPC ヘルパーを生成（UEアドレスを 6.0.0.0/8 に設定）
-    m_lteEpcHelper = CreateObject<PointToPointEpcHelper>();
-    m_lteEpcHelper->SetAttribute("S1uLinkDataRate", DataRateValue(DataRate("10Gb/s")));
-    m_lteEpcHelper->SetAttribute("S1uLinkDelay", TimeValue(MilliSeconds(0)));
+    WifiHelper wifi;
+    wifi.SetStandard(WIFI_STANDARD_80211ax);
+    Config::SetDefault("ns3::WifiPhy::ChannelWidth", UintegerValue(40));
+    wifi.SetRemoteStationManager("ns3::IdealWifiManager");
+    Config::SetDefault("ns3::WifiRemoteStationManager::RtsCtsThreshold", UintegerValue(2200));
+    wifi.ConfigHeOptions("BssColor", UintegerValue((apIndex % 63) + 1));
 
-    m_lteHelper = CreateObject<LteHelper>();
-    m_lteHelper->SetEpcHelper(m_lteEpcHelper);
+    WifiMacHelper mac;
+    std::stringstream ssidss;
+    ssidss << "main-SSID-" << apIndex;
+    Ssid ssid = Ssid(ssidss.str());
 
-    // Band 1 (2.1 GHz), デフォルト EARFCN (DL:100, UL:18100), 20 MHz 帯域 (100 RBs)
-    m_lteHelper->SetEnbDeviceAttribute("DlBandwidth", UintegerValue(100));
-    m_lteHelper->SetEnbDeviceAttribute("UlBandwidth", UintegerValue(100));
-    Config::SetDefault("ns3::LteEnbPhy::TxPower", DoubleValue(43.0));
-    Config::SetDefault("ns3::LteUePhy::TxPower", DoubleValue(23.0));
+    mac.SetType("ns3::ApWifiMac",
+                "Ssid", SsidValue(ssid),
+                "QosSupported", BooleanValue(true),
+                "BeaconInterval", TimeValue(MicroSeconds(52224)));
 
-    // AP1 ノードに eNB デバイスをインストール
-    NodeContainer enb;
-    enb.Add(wifiAPs[1]);
-    m_lteEnbDevs = m_lteHelper->InstallEnbDevice(enb);
+    wifiDevices[apIndex] = wifi.Install(phy, mac, wifiNodes[apIndex].Get(0));
 
-    // wifiNodes[1] の端末（index 1以降）に UE デバイスをインストール
-    NodeContainer ue;
-    for (uint32_t i = 1; i < wifiNodes[1].GetN(); ++i)
-    {
-        Ptr<Node> n = wifiNodes[1].Get(i);
-        if (n)
-        {
-            ue.Add(n);
-        }
+    mac.SetType("ns3::StaWifiMac",
+                "Ssid", SsidValue(ssid),
+                "ActiveProbing", BooleanValue(true),
+                "QosSupported", BooleanValue(true));
+
+    for(uint32_t i=1; i<wifiNodes[apIndex].GetN(); i++){
+        NetDeviceContainer temp = wifi.Install(phy, mac, wifiNodes[apIndex].Get(i));
+        wifiDevices[apIndex].Add(temp);
     }
-
-    if (ue.GetN() == 0)
-    {
-        std::cout << "[LTE] No UE nodes found for AP1; skipping UE install" << std::endl;
-        return;
-    }
-    m_lteUeDevs = m_lteHelper->InstallUeDevice(ue);
-
-    // LTE PGW と CER のリンク設定用にノードを登録
-    Ptr<Node> ltePgw = m_lteEpcHelper->GetPgwNode();
-    if (ltePgw && cerNode != nullptr)
-    {
-        m_ltePgwCerNodes = NodeContainer(ltePgw, cerNode);
-    }
-
-    std::cout << "[LTE] Installed " << m_lteEnbDevs.GetN() << " eNB, "
-              << m_lteUeDevs.GetN() << " UE devices for AP1" << std::endl;
+    std::stringstream ss;
+    ss << OUTPUT_DIR << "wifi" << apIndex;
 }
 
 void NetSim::ConfigureWifiForAP2(){
@@ -1165,9 +1160,8 @@ void NetSim::InitializeTermAccessState()
 
         TermAccessState& state = m_termAccessState[i];
         state.currentAp = m_termData[i].apNo;
-        // AP1→NR, AP2→LTE, AP3以降→WIFI
+        // AP1→NR, AP2以降→WIFI
         if (state.currentAp == 1)      state.currentRat = RatType::NR;
-        else if (state.currentAp == 2) state.currentRat = RatType::LTE;
         else                           state.currentRat = RatType::WIFI;
         state.nrIpv4 = Ipv4Address("0.0.0.0");
         state.lteIpv4 = Ipv4Address("0.0.0.0");

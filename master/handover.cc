@@ -302,7 +302,6 @@ void NetSim::WifiToNrHandover(uint32_t termIdx)
 RatType NetSim::GetRatTypeForAp(int apNo) const
 {
     if (apNo == 1) return RatType::NR;
-    if (apNo == 2) return RatType::LTE;
     return RatType::WIFI;
 }
 

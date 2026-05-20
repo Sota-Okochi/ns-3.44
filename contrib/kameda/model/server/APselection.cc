@@ -23,8 +23,6 @@
 
 namespace ns3{
 
-extern int G_nth;
-
 NS_LOG_COMPONENT_DEFINE("APselection");
 
 // split関数の定義
@@ -61,6 +59,7 @@ void APselection::init(const ApSelectionInput& input){
     terms = input.terminals; // 端末数
     initial_app = input.useAppli; // 各端末の初期アプリ番号
     initial_AP = input.initialAp; // 各端末の初期接続先
+    m_nth = input.nth;            // 実験モード番号
 
 
     m_monitor_rtt.assign(aps, 0.0);
@@ -106,14 +105,6 @@ void APselection::setData(std::string senderIpAddress, std::string recvMessage){
     std::cout << "Message: " << recvMessage << std::endl;
 
     //送られたRTTデータから基地局ごとにRTT平均値を求める ここでは基地局ごとにpush_back
-    std::vector<std::string> ret = splitString(senderIpAddress, "."); //IPアドレスを桁ごとに分解
-    if(ret.size() < 3) {
-        std::cout << "Invalid IP address format" << std::endl;
-        return;
-    }
-    std::stringstream ss(ret[2]);   //前から3つ目の値がAPのナンバー
-    int apNo; ss >> apNo;
-
     std::vector<std::string> ret2 = splitString(recvMessage, ",");
     if( ret2.size() < 2 || ret2.size() > 3 ) {
         std::cout << "Invalid message format" << std::endl;
@@ -121,8 +112,33 @@ void APselection::setData(std::string senderIpAddress, std::string recvMessage){
     }
     std::stringstream ss2(ret2[1]);
     double d; ss2 >> d;
-    if(static_cast<size_t>(apNo) >= m_monitor_rtt.size()) {
-        std::cout << "Invalid AP index" << std::endl;
+
+    // AP番号をメッセージ本文から取得する。
+    // "MONITOR_AP{id},{rtt}" 形式のメッセージに含まれるidを使用する。
+    // IPの第3オクテットは LTE(6.0.0.x) が常に0になるなど、RATによって誤るため使わない。
+    int apNo = -1;
+    const std::string kPrefix = "MONITOR_AP";
+    if (ret2[0].find(kPrefix) == 0)
+    {
+        std::string apIdStr = ret2[0].substr(kPrefix.length());
+        std::stringstream apSs(apIdStr);
+        apSs >> apNo;
+    }
+    else
+    {
+        // MONITOR_AP形式でない場合は従来どおりIPの第3オクテットを使う
+        std::vector<std::string> ret = splitString(senderIpAddress, ".");
+        if (ret.size() < 3)
+        {
+            std::cout << "Invalid IP address format" << std::endl;
+            return;
+        }
+        std::stringstream ss(ret[2]);
+        ss >> apNo;
+    }
+
+    if(apNo < 0 || static_cast<size_t>(apNo) >= m_monitor_rtt.size()) {
+        std::cout << "Invalid AP index: " << apNo << std::endl;
         return;
     }
 
@@ -164,7 +180,7 @@ void APselection::tmain(){
 
     if (m_totalCycles == 0 || m_cycleIndex < m_totalCycles)
     {
-        if (G_nth == 5)
+        if (m_nth == 5)
         {
             // policy_assignment1();
             random_assignment();
@@ -222,8 +238,6 @@ void APselection::cal_initial_harmonic_mean(){
     {
         initial_harmonic_mean = terms / sum_inverse_satisfaction;
     }
-    std::cout << std::fixed << std::setprecision(6)
-              << "端末満足度の調和平均：" << initial_harmonic_mean << std::endl;
     RecordHarmonicMean(initial_harmonic_mean);
 }
 
@@ -490,27 +504,19 @@ void APselection::setTerminalTp(int termIdx, double tpBps)
     m_terminal_tp[termIdx] = tpBps;
     m_has_terminal_tp[termIdx] = true;
 
-    bool isTpApp = false;
-    if (termIdx < static_cast<int>(initial_app.size()))
-    {
-        const int app = initial_app[termIdx];
-        isTpApp =
-            (app == static_cast<int>(APConstants::AppType::BROWSER)) ||
-            (app == static_cast<int>(APConstants::AppType::VIDEO));
-    }
-
     //デバッグ用（各端末のTPの表示）
-    // if (isTpApp)
-    // {
-    //     std::cout << "Terminal TP stored: term=" << termIdx
-    //               << ", TP=" << (tpBps * APConstants::BPS_TO_MBPS) << "Mbps" << std::endl;
-    // }
+    // std::cout << "Terminal TP stored: term=" << termIdx
+    //           << ", TP=" << (tpBps * APConstants::BPS_TO_MBPS) << "Mbps" << std::endl;
 }
 
 void APselection::RecordHarmonicMean(double value)
 {
     // サイクル順に積み上げる
     m_cycleHarmonicMeans.push_back(value);
+
+    std::cout << std::fixed << std::setprecision(6)
+              << "Cycle " << m_cycleIndex
+              << " の端末満足度の調和平均：" << value << std::endl;
 }
 
 void APselection::PrintCycleHarmonicMeans()
