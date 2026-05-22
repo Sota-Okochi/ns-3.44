@@ -9,6 +9,9 @@ namespace {
 constexpr uint16_t kRttForwarderListenPort = 9000;
 constexpr uint16_t kRttForwarderRemotePort = 8080;
 constexpr uint16_t kBrowserBasePort        = 15000;
+// master_log だけを残すため、ブラウザ/FlowMonitorの補助CSV出力は止める。
+constexpr bool kEnableBrowserDiagnostics = false;
+constexpr bool kEnableFlowCycleDiagnostics = false;
 
 Ipv4Address GetPrimaryIpv4(Ptr<Node> node)
 {
@@ -88,6 +91,11 @@ void NetSim::LogBrowserBulkDiagnostic(uint32_t termIdx,
                                       Ipv4Address dstIp,
                                       Ptr<Application> app)
 {
+    if (!kEnableBrowserDiagnostics)
+    {
+        return;
+    }
+
     const std::string csvPath = std::string(OUTPUT_DIR) + "browser_bulk_diagnostics.csv";
     bool writeHeader = false;
     {
@@ -213,6 +221,11 @@ void NetSim::LogBrowserTcpEvent(const std::string& context,
                                 uint32_t packetSize,
                                 const std::string& detail)
 {
+    if (!kEnableBrowserDiagnostics)
+    {
+        return;
+    }
+
     const std::string csvPath = std::string(OUTPUT_DIR) + "browser_tcp_events.csv";
     bool writeHeader = false;
     {
@@ -449,6 +462,7 @@ void NetSim::ScheduleBrowserDownloadForTerminal(uint32_t termIdx,
     const uint16_t requestPort = port + static_cast<uint16_t>(requestIndex);
     LogBrowserBulkDiagnostic(termIdx, requestPort, generation, "before_install", clientAddress);
 
+    if (kEnableBrowserDiagnostics)
     {
         const uint32_t cycleNum =
             static_cast<uint32_t>(Simulator::Now().GetSeconds() / m_cycleDuration.GetSeconds()) + 1;
@@ -501,35 +515,41 @@ void NetSim::ScheduleBrowserDownloadForTerminal(uint32_t termIdx,
     {
         Ptr<Application> app = apps.Get(0);
         m_termAppStates[termIdx].serverApps.push_back(app);
-        AttachBrowserBulkTrace(termIdx, requestPort, generation, clientAddress, app);
+        if (kEnableBrowserDiagnostics)
+        {
+            AttachBrowserBulkTrace(termIdx, requestPort, generation, clientAddress, app);
+        }
         LogBrowserBulkDiagnostic(termIdx, requestPort, generation, "after_install", clientAddress, app);
-        Simulator::Schedule(MilliSeconds(50),
-                            &NetSim::LogBrowserBulkDiagnostic,
-                            this,
-                            termIdx,
-                            requestPort,
-                            generation,
-                            "probe_50ms",
-                            clientAddress,
-                            app);
-        Simulator::Schedule(MilliSeconds(500),
-                            &NetSim::LogBrowserBulkDiagnostic,
-                            this,
-                            termIdx,
-                            requestPort,
-                            generation,
-                            "probe_500ms",
-                            clientAddress,
-                            app);
-        Simulator::Schedule(Seconds(1.5),
-                            &NetSim::LogBrowserBulkDiagnostic,
-                            this,
-                            termIdx,
-                            requestPort,
-                            generation,
-                            "probe_1500ms",
-                            clientAddress,
-                            app);
+        if (kEnableBrowserDiagnostics)
+        {
+            Simulator::Schedule(MilliSeconds(50),
+                                &NetSim::LogBrowserBulkDiagnostic,
+                                this,
+                                termIdx,
+                                requestPort,
+                                generation,
+                                "probe_50ms",
+                                clientAddress,
+                                app);
+            Simulator::Schedule(MilliSeconds(500),
+                                &NetSim::LogBrowserBulkDiagnostic,
+                                this,
+                                termIdx,
+                                requestPort,
+                                generation,
+                                "probe_500ms",
+                                clientAddress,
+                                app);
+            Simulator::Schedule(Seconds(1.5),
+                                &NetSim::LogBrowserBulkDiagnostic,
+                                this,
+                                termIdx,
+                                requestPort,
+                                generation,
+                                "probe_1500ms",
+                                clientAddress,
+                                app);
+        }
     }
     else
     {
@@ -1328,6 +1348,7 @@ void NetSim::CollectTerminalThroughput()
     }
 
     // サイクルごとのフロー詳細をCSVに書き出す
+    if (kEnableFlowCycleDiagnostics)
     {
         const uint32_t cycleNum =
             static_cast<uint32_t>(Simulator::Now().GetSeconds() / m_cycleDuration.GetSeconds()) + 1;

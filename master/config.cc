@@ -7,6 +7,9 @@ NS_LOG_COMPONENT_DEFINE("researchMain");
 
 namespace {
 
+// master_log だけを残すため、FlowMonitorの補助出力は止める。
+constexpr bool kEnableFlowOutputLogs = false;
+
 struct BaselineSetting
 {
     int baseStations = 0;
@@ -323,7 +326,7 @@ void NetSim::Init(int argc, char *argv[]){
     m_apSelectionInput.useAppli.clear();
     m_apSelectionInput.initialAp.clear();
 
-    if (m_nth == 4 || m_nth == 5)
+    if (m_nth == 5)
     {
         Ptr<UniformRandomVariable> apRand = CreateObject<UniformRandomVariable>();
         Ptr<UniformRandomVariable> appRand = CreateObject<UniformRandomVariable>();
@@ -487,6 +490,7 @@ void NetSim::RunSim(){
     ConfigureNetworkLayer();
 
     // Keep per-cycle FlowMonitor diagnostics scoped to this simulation run.
+    if (kEnableFlowOutputLogs)
     {
         const std::string flowCsvPath = std::string(OUTPUT_DIR) + "flow_per_cycle.csv";
         std::ofstream resetFlowCsv(flowCsvPath, std::ios::trunc);
@@ -520,7 +524,7 @@ void NetSim::RunSim(){
     }
 
     Time checkStop = m_simulationDuration.IsZero() ? Seconds(7.0) : m_simulationDuration;
-    if (flowMonitor && checkStop.IsPositive())
+    if (kEnableFlowOutputLogs && flowMonitor && checkStop.IsPositive())
     {
         Time checkTime = checkStop - MilliSeconds(1);
         if (checkTime.IsNegative())
@@ -543,6 +547,11 @@ void NetSim::CheckFlowMonitor(Ptr<FlowMonitor> monitor, Ptr<Ipv4FlowClassifier> 
     if (monitor == nullptr)
     {
         NS_LOG_WARN("FlowMonitor instance is null");
+        return;
+    }
+
+    if (!kEnableFlowOutputLogs)
+    {
         return;
     }
 

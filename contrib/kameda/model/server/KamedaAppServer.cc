@@ -231,6 +231,9 @@ void KamedaAppServer::HandleError(Ptr<Socket> socket){
 }
 
 void KamedaAppServer::SERVER_LOG_INFO(std::string info){
+    // master_log だけを残すため、server_log.txt は出力しない。
+    return;
+
     std::stringstream ss;
     ss << "NODE_ID:" << GetNode()->GetId();
 

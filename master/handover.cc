@@ -380,6 +380,9 @@ void NetSim::LogHandoverEvent(double timeSec, uint32_t termId, int oldAp, int ne
                                Ipv4Address oldIp, Ipv4Address newIp,
                                const std::string& result)
 {
+    // master_log だけを残すため、handover-events.csv は出力しない。
+    return;
+
     static bool headerWritten = false;
     const std::string filePath = std::string(OUTPUT_DIR) + "handover-events.csv";
 
