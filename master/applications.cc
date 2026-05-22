@@ -493,7 +493,7 @@ void NetSim::ScheduleBrowserDownloadForTerminal(uint32_t termIdx,
     BulkSendHelper bulk("ns3::TcpSocketFactory", InetSocketAddress(clientAddress, requestPort));
     bulk.SetAttribute("MaxBytes", UintegerValue(maxBytes));
     ApplicationContainer apps = bulk.Install(server_browser);
-    apps.Start(Simulator::Now());
+    apps.Start(Seconds(0));
     // MaxBytesで送信完了するため、短いStop時刻を入れない。
     // TCP接続確立が遅れると0.5s Stopで後続バーストが完了前に終了してしまう。
     (void)duration;
@@ -576,7 +576,7 @@ void NetSim::ScheduleBrowserWarmupForTerminal(uint32_t termIdx, uint16_t port, u
     BulkSendHelper bulk("ns3::TcpSocketFactory", InetSocketAddress(clientAddress, warmupPort));
     bulk.SetAttribute("MaxBytes", UintegerValue(1));
     ApplicationContainer apps = bulk.Install(server_browser);
-    apps.Start(Simulator::Now());
+    apps.Start(Seconds(0));
     if (apps.GetN() > 0)
     {
         m_termAppStates[termIdx].serverApps.push_back(apps.Get(0));
@@ -1430,12 +1430,11 @@ void NetSim::RebindTerminalApps(uint32_t termIdx, Ipv4Address newIp)
     TermAppState& appState = m_termAppStates[termIdx];
     if (appState.appType == 1)
     {
-        Time now = Simulator::Now();
         for (auto& app : appState.serverApps)
         {
             if (app)
             {
-                app->SetStopTime(now);
+                app->SetStopTime(Seconds(0));
             }
         }
         appState.serverApps.clear();
