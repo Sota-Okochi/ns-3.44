@@ -5,13 +5,14 @@
 このリポジトリは，ns-3上でヘテロジニアス無線ネットワーク環境を再現し，動的割り当て手法の有効性を検証するプロジェクトです．
 
 - 目的: 動的割り当て手法の検証
-- シナリオ: AP0が5G基地局，AP1，AP2がWi-Fi基地局，端末数は80台以上
+- シナリオ: AP0が5G基地局，AP1/AP2がWi-Fi基地局，端末数は設定ファイルで変更可能
 - 出力: スループットとラウンドトリップタイムを元に定義された端末満足度の調和平均（全体最適化の客観的評価）
 
 ## 目次
 - [ネットワークアーキテクチャ](#ネットワークアーキテクチャ)
 - [環境設定](#環境設定)
 - [実行](#実行)
+- [出力ログ](#出力ログ)
 - [ディレクトリ構造](#ディレクトリ構造)
 - [進捗状況](#進捗状況)
 - [実験環境](#実験環境)
@@ -31,24 +32,24 @@ flowchart LR
         gNB --> NREPC
     end
 
-    subgraph GLTE["AP1 / Wi-Fi"]
-        LTEUE["UE"]
-        LTEMON["Monitor Terminal"]
-        eNB["eNB"]
-        LTEEPC["LTE EPC (PGW)"]
-        LTEUE --> eNB
-        LTEMON --> eNB
-        eNB --> LTEEPC
+    subgraph GWiFi1["AP1 / Wi-Fi"]
+        WIFI1STA["STA"]
+        WIFI1MON["Monitor Terminal"]
+        WIFI1AP["Wi-Fi AP1"]
+        WIFI1R["L3 Router"]
+        WIFI1STA --> WIFI1AP
+        WIFI1MON --> WIFI1AP
+        WIFI1AP --> WIFI1R
     end
 
-    subgraph GWiFi["AP2 / Wi-Fi 6"]
-        STA["STA"]
-        WIFIMON["Monitor Terminal"]
-        AP["Wi-Fi AP"]
-        L3R["L3 Router"]
-        STA --> AP
-        WIFIMON --> AP
-        AP --> L3R
+    subgraph GWiFi2["AP2 / Wi-Fi"]
+        WIFI2STA["STA"]
+        WIFI2MON["Monitor Terminal"]
+        WIFI2AP["Wi-Fi AP2"]
+        WIFI2R["L3 Router"]
+        WIFI2STA --> WIFI2AP
+        WIFI2MON --> WIFI2AP
+        WIFI2AP --> WIFI2R
     end
 
     subgraph Servers["Servers"]
@@ -63,8 +64,8 @@ flowchart LR
     %% --- Core Edge ---
     CER["Common Internet<br/>Edge Router"]
     NREPC --> CER
-    LTEEPC --> CER
-    L3R --> CER
+    WIFI1R --> CER
+    WIFI2R --> CER
 
     %% --- Fan-out to servers ---
     CER --> RH
@@ -81,14 +82,14 @@ flowchart LR
 | NR | Monitor Terminal | AP0 の RTT を測定する監視端末 |
 | NR | gNB | AP0 に相当する NR 基地局 |
 | NR | NR EPC (PGW) | NR コアネットワーク |
-| LTE | UE | AP1 配下の端末 |
-| LTE | Monitor Terminal | AP1 の RTT を測定する監視端末 |
-| LTE | eNB | AP1 に相当する LTE 基地局 |
-| LTE | LTE EPC (PGW) | LTE コアネットワーク |
-| Wi-Fi | STA | AP2 以降の Wi-Fi 接続端末 |
-| Wi-Fi | Monitor Terminal | Wi-Fi AP の RTT を測定する監視端末 |
-| Wi-Fi | Wi-Fi AP | AP2 以降に相当する Wi-Fi 6 AP |
-| Wi-Fi | L3 Router | Wi-Fi AP と CER を接続するルータ |
+| Wi-Fi1 | STA | AP1 配下の Wi-Fi 接続端末 |
+| Wi-Fi1 | Monitor Terminal | AP1 の RTT を測定する監視端末 |
+| Wi-Fi1 | Wi-Fi AP1 | AP1 に相当する Wi-Fi 基地局 |
+| Wi-Fi1 | L3 Router | Wi-Fi AP1 と CER を接続するルータ |
+| Wi-Fi2 | STA | AP2 配下の Wi-Fi 接続端末 |
+| Wi-Fi2 | Monitor Terminal | AP2 の RTT を測定する監視端末 |
+| Wi-Fi2 | Wi-Fi AP2 | AP2 に相当する Wi-Fi 基地局 |
+| Wi-Fi2 | L3 Router | Wi-Fi AP2 と CER を接続するルータ |
 | コア | CER | 共通エッジルータ |
 | サーバ | RemoteHost | AP 選択，端末満足度計算，割り当て結果生成 |
 | サーバ | RTT Server | 監視端末の RTT 測定結果を RemoteHost へ転送 |
@@ -97,11 +98,11 @@ flowchart LR
 
 ### ノード間接続
 - UE/Monitor Terminal → gNB: NR Wireless
-- UE/Monitor Terminal → eNB: LTE Wireless
-- STA/Monitor Terminal → Wi-Fi AP: Wi-Fi 6 Wireless
+- STA/Monitor Terminal → Wi-Fi AP1: Wi-Fi Wireless
+- STA/Monitor Terminal → Wi-Fi AP2: Wi-Fi Wireless
 - gNB → NR EPC(PGW) → CER : PointToPoint
-- eNB → LTE EPC(PGW) → CER : PointToPoint
-- Wi-Fi AP → L3 Router → CER : PointToPoint
+- Wi-Fi AP1 → L3 Router → CER : PointToPoint
+- Wi-Fi AP2 → L3 Router → CER : PointToPoint
 - CER ↔ servers : PointToPoint
 
 ## 環境設定
@@ -136,15 +137,34 @@ cd ~/ns-3.44
 
 ### プロジェクトの実行  
 ```
-./ns3 run master -- --nth=5
+./ns3 run "master --method=random"
 ```
-- 引数が`--nth=4`の場合，端末の初期APとアプリ番号はランダムに設定されます（それ以外は同じです）
+- `method` で AP 割り当て手法を指定します．
 
 ```
-./ns3 run "master --RngRun=2 --nth=5"
+./ns3 run "master --method=greedy"
 ```
-- --RngRunで初期設定のシード値を変更
 
+```
+./ns3 run "master --method=ml"
+```
+- 現状，実行可能な手法は `random` と `greedy` です．
+- `ml` は深層強化学習連携用の予定枠であり，現時点では未実装または開発中のため，通常の実験では使用しないでください．
+- 乱数 seed などの実験条件は `data/setting.json` で管理します．
+
+### 設定ファイル
+主な実験条件は `data/setting.json` に記述します．
+
+| 項目 | 説明 |
+|---|---|
+| `baseStations` | 基地局数 |
+| `terminals` | 端末数 |
+| `numCycles` | 測定・割り当てサイクル数 |
+| `cycleTimeSec` | 1サイクルの長さ |
+| `monitorStartSec` / `monitorStopSec` | RTT/TP 測定ウィンドウ |
+| `browserNumRequests` | ブラウザ通信のリクエスト数 |
+| `handoverGraceCycles` | ハンドオーバ後の猶予サイクル数 |
+| `rngSeed` | 乱数 seed |
 
 
 ### 予備コマンド
@@ -154,6 +174,41 @@ cd ~/ns-3.44
 ```
 - このコマンドを実行すると，CMake設定とビルドによって生成された成果物が削除されます．
 - 再度，[ここから](#pythonバインディングのビルドを有効化)実行してください．
+
+## 出力ログ
+
+実行結果は `OUTPUT/` 以下に保存されます．主要なログは `master_log` です．
+
+### master_log
+
+ファイル名規則:
+
+```text
+OUTPUT/master_log_<端末数>_<method>_<YYYYMMDD_HHMMSS>.csv
+```
+
+例:
+
+```text
+OUTPUT/master_log_10_random_20260523_174000.csv
+OUTPUT/master_log_10_greedy_20260523_202742.csv
+```
+
+CSV の列:
+
+| 列名 | 説明 |
+|---|---|
+| `サイクル` | 測定・割り当てサイクル番号 |
+| `端末` | 端末番号 |
+| `AP` | 接続先 AP 番号 |
+| `アプリ` | アプリケーション種別番号 |
+| `ネットワーク指標` | 満足度計算に使う指標（`TP` または `RTT`） |
+| `通信品質` | 測定された TP または RTT |
+| `端末満足度` | アプリ要求値に対する達成度 |
+| `計測有効` | 測定値が有効なら `1`，無効なら `0` |
+
+端末満足度は，TP 重視アプリでは `TP_link / TP_need`，RTT 重視アプリでは `RTT_need / RTT_link` を用いて計算します．
+全体評価では，端末満足度の調和平均を重視します．
 
 ## ディレクトリ構造
 
