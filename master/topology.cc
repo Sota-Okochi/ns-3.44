@@ -193,7 +193,6 @@ void NetSim::ConfigureDataLinkLayer(){
     ConfigureRouterCerLinks(); // ルータとCERのリンク設定
     ConfigureServerCerLinks(); // サーバとCERのリンク設定
     ConfigurePgwCerLink(); // NR PgwとCERのリンク設定
-    ConfigureLtePgwCerLink(); // LTE PgwとCERのリンク設定
 }
 
 void NetSim::ConfigureMobility(){
@@ -914,54 +913,6 @@ void NetSim::ConfigureNetworkLayer(){
     // NR UEのIP設定とCERへのルーティングの設定
     ConfigureNrIpAfterNetwork();
 
-    // LTE PGW と CER のリンク IP 設定
-    Ipv4Address ltePgwAddr("0.0.0.0");
-    uint32_t cerLtePgwIfIndex = 0;
-    bool ltePgwLinkActive = false;
-    if (m_ltePgwCerDevices.GetN() == 2)
-    {
-        address.SetBase("10.203.0.0", "255.255.255.252");
-        Ipv4InterfaceContainer lteIfaces = address.Assign(m_ltePgwCerDevices);
-        ltePgwAddr = lteIfaces.GetAddress(0);
-        Ipv4Address lteCerSideAddr = lteIfaces.GetAddress(1);
-
-        Ptr<Node> ltePgwNode = m_lteEpcHelper ? m_lteEpcHelper->GetPgwNode() : nullptr;
-        Ptr<Ipv4> ltePgwIpv4 = ltePgwNode ? ltePgwNode->GetObject<Ipv4>() : nullptr;
-        if (ltePgwIpv4)
-        {
-            EnableIpForwardIfPresent(ltePgwIpv4);
-            int32_t ltePgwIf = ltePgwIpv4->GetInterfaceForDevice(m_ltePgwCerDevices.Get(0));
-            if (ltePgwIf < 0)
-            {
-                ltePgwIf = ltePgwIpv4->GetInterfaceForAddress(ltePgwAddr);
-            }
-            if (ltePgwIf >= 0)
-            {
-                Ptr<Ipv4StaticRouting> ltePgwStatic = staticRouting.GetStaticRouting(ltePgwIpv4);
-                ltePgwStatic->SetDefaultRoute(lteCerSideAddr, static_cast<uint32_t>(ltePgwIf));
-                ltePgwStatic->AddNetworkRouteTo(Ipv4Address("10.201.0.0"), Ipv4Mask("255.255.240.0"),
-                                                lteCerSideAddr, static_cast<uint32_t>(ltePgwIf));
-            }
-        }
-
-        if (cerIpv4)
-        {
-            int32_t cerIf = cerIpv4->GetInterfaceForDevice(m_ltePgwCerDevices.Get(1));
-            if (cerIf < 0)
-            {
-                cerIf = cerIpv4->GetInterfaceForAddress(lteCerSideAddr);
-            }
-            if (cerIf >= 0)
-            {
-                cerLtePgwIfIndex = static_cast<uint32_t>(cerIf);
-                ltePgwLinkActive = true;
-            }
-        }
-    }
-
-    // LTE UE の IP 設定（6.0.0.0/8 帯、UE→eNB アタッチ）
-    ConfigureLteIpAfterNetwork();
-
     if (cerStatic)
     {
         for (uint32_t i = 0; i < APnum; ++i)
@@ -981,15 +932,8 @@ void NetSim::ConfigureNetworkLayer(){
         {
             cerStatic->AddNetworkRouteTo(UE_NET, UE_MASK, pgwAddr, cerPgwIfIndex);
         }
-
-        // LTE UE ネットワーク (6.0.0.0/8) への CER ルート
-        if (ltePgwLinkActive)
-        {
-            static const Ipv4Address LTE_UE_NET("6.0.0.0");
-            static const Ipv4Mask    LTE_UE_MASK("255.0.0.0");
-            cerStatic->AddNetworkRouteTo(LTE_UE_NET, LTE_UE_MASK, ltePgwAddr, cerLtePgwIfIndex);
-        }
     }
+
 
     if (APnum >= 3)
     {
@@ -1044,62 +988,6 @@ void NetSim::ConfigureNetworkLayer(){
         m_nrGateway = m_nrEpcHelper ? m_nrEpcHelper->GetUeDefaultGatewayAddress() : Ipv4Address("0.0.0.0");
 
         InitializeTermAccessState();
-    }
-}
-
-void NetSim::ConfigureLtePgwCerLink()
-{
-    if (m_ltePgwCerNodes.GetN() != 2)
-    {
-        return;
-    }
-    PointToPointHelper pointToPoint;
-    pointToPoint.SetDeviceAttribute("DataRate", StringValue("100Mbps"));
-    pointToPoint.SetChannelAttribute("Delay", StringValue("0.1ms"));
-    pointToPoint.SetQueue("ns3::DropTailQueue<Packet>", "MaxSize", StringValue("230p"));
-    m_ltePgwCerDevices = pointToPoint.Install(m_ltePgwCerNodes);
-}
-
-void NetSim::ConfigureLteIpAfterNetwork()
-{
-    if (!m_lteEpcHelper || m_lteUeDevs.GetN() == 0 || m_lteEnbDevs.GetN() == 0)
-    {
-        return;
-    }
-
-    // LTE UE に IP アドレスを付与（6.0.0.0/8 帯）
-    // no-backhaul-epc-helper.cc の m_uePgwAddressHelper を 6.0.0.0/8 に変更済み
-    Ipv4InterfaceContainer ueIf = m_lteEpcHelper->AssignUeIpv4Address(NetDeviceContainer(m_lteUeDevs));
-    (void)ueIf;
-
-    // LTE ゲートウェイ IP を記録
-    m_lteGateway = m_lteEpcHelper->GetUeDefaultGatewayAddress();
-    std::cout << "[LTE] UE gateway=" << m_lteGateway << std::endl;
-
-    // UE を eNB にアタッチ（デフォルト EPS Bearer は Attach() で自動生成）
-    m_lteHelper->Attach(m_lteUeDevs, m_lteEnbDevs.Get(0));
-
-    // UE のデフォルトルートを LTE GW に設定
-    Ipv4StaticRoutingHelper rh;
-    for (auto it = m_lteUeDevs.Begin(); it != m_lteUeDevs.End(); ++it)
-    {
-        Ptr<Node> n = (*it)->GetNode();
-        Ptr<Ipv4> ipv4 = n ? n->GetObject<Ipv4>() : nullptr;
-        if (!ipv4) continue;
-        Ptr<Ipv4StaticRouting> rt = rh.GetStaticRouting(ipv4);
-        // LTE インターフェースのインデックスを探す（6.x.x.x アドレス）
-        for (uint32_t ifIdx = 0; ifIdx < ipv4->GetNInterfaces(); ++ifIdx)
-        {
-            for (uint32_t a = 0; a < ipv4->GetNAddresses(ifIdx); ++a)
-            {
-                std::ostringstream ss;
-                ss << ipv4->GetAddress(ifIdx, a).GetLocal();
-                if (ss.str().substr(0, 2) == "6.")
-                {
-                    rt->SetDefaultRoute(m_lteGateway, ifIdx);
-                }
-            }
-        }
     }
 }
 
@@ -1164,9 +1052,7 @@ void NetSim::InitializeTermAccessState()
         if (state.currentAp == 1)      state.currentRat = RatType::NR;
         else                           state.currentRat = RatType::WIFI;
         state.nrIpv4 = Ipv4Address("0.0.0.0");
-        state.lteIpv4 = Ipv4Address("0.0.0.0");
         state.nrIfIndex = 0;
-        state.lteIfIndex = 0;
         state.wifiIpv4.resize(APnum, Ipv4Address("0.0.0.0"));
         state.wifiIfIndex.resize(APnum, 0);
         state.lastSwitchTime = Seconds(0.0);
@@ -1205,12 +1091,6 @@ void NetSim::InitializeTermAccessState()
                     state.nrIpv4 = addr;
                     state.nrIfIndex = ifIdx;
                 }
-                // LTE: 6.x.x.x
-                else if (addrS.substr(0, 2) == "6.")
-                {
-                    state.lteIpv4 = addr;
-                    state.lteIfIndex = ifIdx;
-                }
                 else
                 {
                     // Wi-Fi: 10.1.{apIdx}.x
@@ -1248,13 +1128,6 @@ void NetSim::InitializeTermAccessState()
         {
             rt->SetDefaultRoute(m_nrGateway, state.nrIfIndex);
         }
-        else if (state.currentRat == RatType::LTE)
-        {
-            if (state.lteIfIndex > 0 && m_lteGateway != Ipv4Address("0.0.0.0"))
-            {
-                rt->SetDefaultRoute(m_lteGateway, state.lteIfIndex);
-            }
-        }
         else
         {
             uint32_t apIdx = static_cast<uint32_t>(state.currentAp - 1);
@@ -1276,8 +1149,6 @@ void NetSim::InitializeTermAccessState()
         //           << " rat=" << ratStr(state.currentRat)
         //           << " nrIP=" << state.nrIpv4
         //           << " nrIF=" << state.nrIfIndex
-        //           << " lteIP=" << state.lteIpv4
-        //           << " lteIF=" << state.lteIfIndex;
         // for (uint32_t ap = 1; ap < APnum; ++ap)
         // {
         //     std::cout << " wifiIP[" << ap << "]=" << state.wifiIpv4[ap]
@@ -1317,10 +1188,6 @@ Ipv4Address NetSim::GetActiveIpv4(uint32_t termIdx) const
     if (state.currentRat == RatType::NR)
     {
         return state.nrIpv4;
-    }
-    if (state.currentRat == RatType::LTE)
-    {
-        return state.lteIpv4;
     }
     uint32_t apIdx = static_cast<uint32_t>(state.currentAp - 1);
     if (apIdx < state.wifiIpv4.size())

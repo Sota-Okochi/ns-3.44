@@ -58,10 +58,6 @@ const char* RatTypeToString(RatType rat)
     {
         return "NR";
     }
-    if (rat == RatType::LTE)
-    {
-        return "LTE";
-    }
     return "WIFI";
 }
 
@@ -1286,7 +1282,7 @@ void NetSim::CollectTerminalThroughput()
         if (termIdx < m_termAccessState.size())
         {
             const TermAccessState& state = m_termAccessState[termIdx];
-            if (state.nrIpv4 == addr || state.lteIpv4 == addr)
+            if (state.nrIpv4 == addr)
             {
                 return true;
             }

@@ -10,7 +10,6 @@
 #include "ns3/internet-apps-module.h"
 #include "ns3/tcp-header.h"
 #include "ns3/udp-header.h"
-#include "ns3/lte-module.h"
 #include "ns3/KamedaAppClient.h"
 #include "ns3/KamedaAppServer.h"
 #include "ns3/APselection.h"
@@ -48,17 +47,15 @@ enum APID{
     wifi4,
 };
 
-enum class RatType { NR, WIFI, LTE };
+enum class RatType { NR, WIFI };
 
 // 各端末の接続状態（どのAP、どのRAT・IP）
 struct TermAccessState {
     int currentAp;              // 1-based
     RatType currentRat;         // NR, WIFI, or LTE
     Ipv4Address nrIpv4;         // 7.x.x.x
-    Ipv4Address lteIpv4;        // 6.x.x.x (LTE UE IP)
     std::vector<Ipv4Address> wifiIpv4; // index=apIdx (0-based), Wi-Fi AP毎のIP
     uint32_t nrIfIndex;         // NRデバイスのIpv4インターフェース番号
-    uint32_t lteIfIndex;        // LTEデバイスのIpv4インターフェース番号
     std::vector<uint32_t> wifiIfIndex; // Wi-Fi AP毎のインターフェース番号
     Time lastSwitchTime;
     bool switchInProgress;
@@ -152,14 +149,6 @@ private:
     NetDeviceContainer m_nrUeDevs;
     Ptr<NrHelper> m_nrHelper;
     Ptr<NrPointToPointEpcHelper> m_nrEpcHelper;
-    // LTE devices (AP1専用)
-    NetDeviceContainer m_lteEnbDevs;
-    NetDeviceContainer m_lteUeDevs;
-    Ptr<LteHelper> m_lteHelper;
-    Ptr<PointToPointEpcHelper> m_lteEpcHelper;
-    Ipv4Address m_lteGateway;
-    NodeContainer m_ltePgwCerNodes;
-    NetDeviceContainer m_ltePgwCerDevices;
 
     uint32_t termNum;
     uint32_t APnum;
@@ -278,10 +267,6 @@ private:
     void WifiToWifiHandover(uint32_t termIdx, int oldAp, int newAp);
     void NrToWifiHandover(uint32_t termIdx, int newAp);
     void WifiToNrHandover(uint32_t termIdx);
-    void LteToWifiHandover(uint32_t termIdx, int newAp);
-    void WifiToLteHandover(uint32_t termIdx);
-    void NrToLteHandover(uint32_t termIdx);
-    void LteToNrHandover(uint32_t termIdx);
     RatType GetRatTypeForAp(int apNo) const;
     void SwitchDefaultRoute(Ptr<Node> termNode, uint32_t newIfIndex, Ipv4Address newGateway);
     void RebindTerminalApps(uint32_t termIdx, Ipv4Address newIp);

@@ -147,11 +147,6 @@ void NetSim::ApplyHandoverBatch(const std::vector<std::pair<uint32_t, int>>& swi
             // NR→NR: gNBが1台のためno-op
             continue;
         }
-        else if (oldRat == RatType::LTE && newRat == RatType::LTE)
-        {
-            // LTE→LTE: eNBが1台のためno-op
-            continue;
-        }
         else if (oldRat == RatType::WIFI && newRat == RatType::WIFI)
         {
             WifiToWifiHandover(termIdx, oldAp, newAp);
@@ -163,22 +158,6 @@ void NetSim::ApplyHandoverBatch(const std::vector<std::pair<uint32_t, int>>& swi
         else if (oldRat == RatType::WIFI && newRat == RatType::NR)
         {
             WifiToNrHandover(termIdx);
-        }
-        else if (oldRat == RatType::NR && newRat == RatType::LTE)
-        {
-            NrToLteHandover(termIdx);
-        }
-        else if (oldRat == RatType::LTE && newRat == RatType::NR)
-        {
-            LteToNrHandover(termIdx);
-        }
-        else if (oldRat == RatType::LTE && newRat == RatType::WIFI)
-        {
-            LteToWifiHandover(termIdx, newAp);
-        }
-        else if (oldRat == RatType::WIFI && newRat == RatType::LTE)
-        {
-            WifiToLteHandover(termIdx);
         }
 
         Ipv4Address newIp = GetActiveIpv4(termIdx);
@@ -305,76 +284,6 @@ RatType NetSim::GetRatTypeForAp(int apNo) const
     return RatType::WIFI;
 }
 
-void NetSim::WifiToLteHandover(uint32_t termIdx)
-{
-    Ptr<Node> term = terms[termIdx];
-    TermAccessState& state = m_termAccessState[termIdx];
-
-    // LTEインターフェースを有効化してルート設定
-    SwitchDefaultRoute(term, state.lteIfIndex, m_lteGateway);
-
-    int oldAp = state.currentAp;
-    Ipv4Address newIp = state.lteIpv4;
-    ApplyHandoverState(termIdx, 2, RatType::LTE, newIp);
-
-    std::cout << "[WiFi→LTE] term=" << termIdx
-              << " AP" << oldAp << "→AP2(LTE)"
-              << " IP=" << newIp << std::endl;
-}
-
-void NetSim::LteToWifiHandover(uint32_t termIdx, int newAp)
-{
-    Ptr<Node> term = terms[termIdx];
-    TermAccessState& state = m_termAccessState[termIdx];
-
-    uint32_t newApIdx = static_cast<uint32_t>(newAp - 1);
-
-    // 新Wi-Fiインターフェースを有効化してルート設定
-    if (newApIdx < state.wifiIfIndex.size() && newApIdx < m_wifiApGatewayIps.size())
-    {
-        SwitchDefaultRoute(term, state.wifiIfIndex[newApIdx], m_wifiApGatewayIps[newApIdx]);
-    }
-
-    Ipv4Address newIp = state.wifiIpv4[newApIdx];
-    ApplyHandoverState(termIdx, newAp, RatType::WIFI, newIp);
-
-    std::cout << "[LTE→WiFi] term=" << termIdx
-              << " AP2(LTE)→AP" << newAp
-              << " IP=" << newIp << std::endl;
-}
-
-void NetSim::NrToLteHandover(uint32_t termIdx)
-{
-    Ptr<Node> term = terms[termIdx];
-    TermAccessState& state = m_termAccessState[termIdx];
-
-    // LTEインターフェースを有効化してルート設定
-    SwitchDefaultRoute(term, state.lteIfIndex, m_lteGateway);
-
-    Ipv4Address newIp = state.lteIpv4;
-    ApplyHandoverState(termIdx, 2, RatType::LTE, newIp);
-
-    std::cout << "[NR→LTE] term=" << termIdx
-              << " AP1(NR)→AP2(LTE)"
-              << " IP=" << newIp << std::endl;
-}
-
-void NetSim::LteToNrHandover(uint32_t termIdx)
-{
-    Ptr<Node> term = terms[termIdx];
-    TermAccessState& state = m_termAccessState[termIdx];
-
-    // NRインターフェースを有効化してルート設定
-    SwitchDefaultRoute(term, state.nrIfIndex, m_nrGateway);
-
-    Ipv4Address newIp = state.nrIpv4;
-    ApplyHandoverState(termIdx, 1, RatType::NR, newIp);
-
-    std::cout << "[LTE→NR] term=" << termIdx
-              << " AP2(LTE)→AP1(NR)"
-              << " IP=" << newIp << std::endl;
-}
-
 void NetSim::LogHandoverEvent(double timeSec, uint32_t termId, int oldAp, int newAp,
                                RatType oldRat, RatType newRat,
                                Ipv4Address oldIp, Ipv4Address newIp,
@@ -400,7 +309,6 @@ void NetSim::LogHandoverEvent(double timeSec, uint32_t termId, int oldAp, int ne
 
     auto ratStr = [](RatType r) -> std::string {
         if (r == RatType::NR)  return "NR";
-        if (r == RatType::LTE) return "LTE";
         return "WIFI";
     };
 
