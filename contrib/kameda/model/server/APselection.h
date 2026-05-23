@@ -55,7 +55,8 @@ struct ApSelectionInput {
     std::vector<int> useAppli;
     std::vector<int> initialAp;    // 各端末の初期接続先（1ベースのAP番号）
     uint32_t handoverGraceCycles = APConstants::HANDOVER_GRACE_CYCLES;
-    int nth = 0;
+    std::string assignmentMethod = "random";
+    uint32_t rngSeed = 1;
 };
 
 class APselection : public Object{
@@ -78,7 +79,8 @@ private:
     void cal_initial_harmonic_mean(); // 端末満足度の調和平均の計算
     double calculate_satisfaction(int terminal_idx, int ap_idx);
     void random_assignment(); //ランダム法による割り当て
-    void policy_assignment1(); //方策による割り当て
+    void greedy_assignment(); // greedy法による割り当て
+    void ml_assignment(); // ML法による割り当て
     void ResetMonitorStats();
     void RecordHarmonicMean(double value);
     void WriteMasterLog();
@@ -104,7 +106,8 @@ private:
     std::vector<double> m_cycleHarmonicMeans; // サイクルごとの調和平均
     
     std::vector<double> traffic_request;      //必要TP, RTT
-    int m_nth = 0;                             // 実験モード番号
+    std::string m_assignmentMethod = "random"; // 割り当て手法名
+    uint32_t m_rngSeed = 1;                    // 割り当て手法用乱数seed
     bool m_masterLogInitialized = false;       // master_log.csv ヘッダー書き込み済みフラグ
     std::string m_masterLogPath;               // 実行ごとのmaster_logファイルパス
 

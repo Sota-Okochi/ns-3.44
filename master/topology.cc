@@ -106,33 +106,15 @@ void NetSim::CreateMonitorNodes()
 
 void NetSim::CreateTerminalNodes()
 {
-    if (m_nth == 5)
+    // 全端末を全APのコンテナに追加 → 全RATのデバイスが付く
+    for (uint32_t i = 0; i < termNum; ++i)
     {
-        // nth==5: 全端末を全APのコンテナに追加 → 全RATのデバイスが付く
-        for (uint32_t i = 0; i < termNum; ++i)
+        Ptr<Node> term = CreateObject<Node>();
+        for (uint32_t ap = 0; ap < APnum; ++ap)
         {
-            Ptr<Node> term = CreateObject<Node>();
-            for (uint32_t ap = 0; ap < APnum; ++ap)
-            {
-                wifiNodes[ap].Add(term);
-            }
-            terms.push_back(term);
+            wifiNodes[ap].Add(term);
         }
-    }
-    else
-    {
-        // 既存ロジック（単一APコンテナ）
-        for (uint32_t i = 0; i < termNum; ++i)
-        {
-            Ptr<Node> term = CreateObject<Node>();
-            uint32_t apIndex = static_cast<uint32_t>(std::max(0, m_termData[i].apNo - 1));
-            if (apIndex >= wifiNodes.size())
-            {
-                apIndex = 0;
-            }
-            wifiNodes[apIndex].Add(term);
-            terms.push_back(term);
-        }
+        terms.push_back(term);
     }
 }
 
@@ -216,39 +198,23 @@ void NetSim::ConfigureApMobility()
         mobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
         Ptr<ListPositionAllocator> posList = CreateObject<ListPositionAllocator>();
 
-        if (m_nth == 5)
+        if (i == 0)
         {
-            if (i == 0)
-            {
-                posList->Add(Vector(0.0, 0.0, 10.0));
-            }
-            else if (i == 1)
-            {
-                posList->Add(Vector(5.0, 0.0, 3.0));
-            }
-            else if (i == 2)
-            {
-                posList->Add(Vector(-5.0, 0.0, 3.0));
-            }
-            else
-            {
-                const int* offset = kOffsets[(i - 1) % 4];
-                const int ring = static_cast<int>((i - 1) / 4) + 1;
-                posList->Add(Vector(kBase * ring * offset[0], kBase * ring * offset[1], 3.0));
-            }
+            posList->Add(Vector(0.0, 0.0, 10.0));
+        }
+        else if (i == 1)
+        {
+            posList->Add(Vector(5.0, 0.0, 3.0));
+        }
+        else if (i == 2)
+        {
+            posList->Add(Vector(-5.0, 0.0, 3.0));
         }
         else
         {
-            if (i == 0)
-            {
-                posList->Add(Vector(0.0, -10.0, 10.0));
-            }
-            else
-            {
-                const int* offset = kOffsets[(i - 1) % 4];
-                const int ring = static_cast<int>((i - 1) / 4) + 1;
-                posList->Add(Vector(kBase * ring * offset[0], kBase * ring * offset[1], 3.0));
-            }
+            const int* offset = kOffsets[(i - 1) % 4];
+            const int ring = static_cast<int>((i - 1) / 4) + 1;
+            posList->Add(Vector(kBase * ring * offset[0], kBase * ring * offset[1], 3.0));
         }
 
         mobility.SetPositionAllocator(posList);
@@ -277,7 +243,7 @@ void NetSim::ConfigureTermMobility()
     }
 
     // 端末をAPの近く（半径 radius メートル以内）にランダム配置
-    const double radius = (m_nth == 5) ? 20.0 : 10.0;
+    const double radius = 20.0;
     Ptr<UniformRandomVariable> rng = CreateObject<UniformRandomVariable>();
     const Vector ap0Center =
         (!apPositions.empty()) ? apPositions[0] : Vector(0.0, 0.0, 10.0);
@@ -290,26 +256,8 @@ void NetSim::ConfigureTermMobility()
             continue;
         }
 
-        Vector apPos;
-        if (m_nth == 5)
-        {
-            // nth==5: AP0 を中心に半径20m以内へ配置
-            apPos = ap0Center;
-        }
-        else
-        {
-            // 端末の割り当てAP (1ベース → 0ベース)
-            uint32_t apIdx = 0;
-            if (idx < m_termData.size() && m_termData[idx].apNo > 0)
-            {
-                apIdx = static_cast<uint32_t>(m_termData[idx].apNo - 1);
-            }
-            if (apIdx >= APnum)
-            {
-                apIdx = 0;
-            }
-            apPos = apPositions[apIdx];
-        }
+        // AP0 を中心に半径20m以内へ配置
+        Vector apPos = ap0Center;
 
         // AP周囲に一様ランダム配置（円形）
         double angle = rng->GetValue(0.0, 2.0 * M_PI);
@@ -360,29 +308,14 @@ void NetSim::ConfigureMonitorPlacement()
 
 Vector NetSim::GetMonitorPosition(uint32_t apId) const
 {
-    if (m_nth == 5)
-    {
-        switch (apId)
-        {
-        case 0:
-            return Vector(0.0, 0.0, 1.5);
-        case 1:
-            return Vector(5.0, 0.0, 1.5);
-        case 2:
-            return Vector(-5.0, 0.0, 1.5);
-        default:
-            return Vector(0.0, 0.0, 1.5);
-        }
-    }
-
     switch (apId)
     {
     case 0:
-        return Vector(0.0, -25.0, 1.5);
+        return Vector(0.0, 0.0, 1.5);
     case 1:
-        return Vector(25.0, 25.0, 1.5);
+        return Vector(5.0, 0.0, 1.5);
     case 2:
-        return Vector(-25.0, 25.0, 1.5);
+        return Vector(-5.0, 0.0, 1.5);
     default:
         return Vector(0.0, 0.0, 1.5);
     }
@@ -952,43 +885,40 @@ void NetSim::ConfigureNetworkLayer(){
         }
     }
 
-    // nth==5: マルチRAT端末のアクセス状態を初期化
-    if (m_nth == 5)
+    // マルチRAT端末のアクセス状態を初期化
+    // Wi-Fi APゲートウェイIPを記録
+    m_wifiApGatewayIps.resize(APnum, Ipv4Address("0.0.0.0"));
+    for (uint32_t i = 0; i < APnum; ++i)
     {
-        // Wi-Fi APゲートウェイIPを記録
-        m_wifiApGatewayIps.resize(APnum, Ipv4Address("0.0.0.0"));
-        for (uint32_t i = 0; i < APnum; ++i)
+        if (i < wifiAPs.size() && wifiAPs[i] != nullptr)
         {
-            if (i < wifiAPs.size() && wifiAPs[i] != nullptr)
+            Ptr<Ipv4> apIpv4 = wifiAPs[i]->GetObject<Ipv4>();
+            if (apIpv4)
             {
-                Ptr<Ipv4> apIpv4 = wifiAPs[i]->GetObject<Ipv4>();
-                if (apIpv4)
+                // Wi-Fi AP側のIPを探す (10.1.{i}.x)
+                std::stringstream wifiBase;
+                wifiBase << "10.1." << i << ".";
+                std::string prefix = wifiBase.str();
+                for (uint32_t ifIdx = 0; ifIdx < apIpv4->GetNInterfaces(); ++ifIdx)
                 {
-                    // Wi-Fi AP側のIPを探す (10.1.{i}.x)
-                    std::stringstream wifiBase;
-                    wifiBase << "10.1." << i << ".";
-                    std::string prefix = wifiBase.str();
-                    for (uint32_t ifIdx = 0; ifIdx < apIpv4->GetNInterfaces(); ++ifIdx)
+                    for (uint32_t a = 0; a < apIpv4->GetNAddresses(ifIdx); ++a)
                     {
-                        for (uint32_t a = 0; a < apIpv4->GetNAddresses(ifIdx); ++a)
+                        std::ostringstream addrStr;
+                        addrStr << apIpv4->GetAddress(ifIdx, a).GetLocal();
+                        if (addrStr.str().substr(0, prefix.size()) == prefix)
                         {
-                            std::ostringstream addrStr;
-                            addrStr << apIpv4->GetAddress(ifIdx, a).GetLocal();
-                            if (addrStr.str().substr(0, prefix.size()) == prefix)
-                            {
-                                m_wifiApGatewayIps[i] = apIpv4->GetAddress(ifIdx, a).GetLocal();
-                            }
+                            m_wifiApGatewayIps[i] = apIpv4->GetAddress(ifIdx, a).GetLocal();
                         }
                     }
                 }
             }
         }
-
-        // NRゲートウェイIPを記録
-        m_nrGateway = m_nrEpcHelper ? m_nrEpcHelper->GetUeDefaultGatewayAddress() : Ipv4Address("0.0.0.0");
-
-        InitializeTermAccessState();
     }
+
+    // NRゲートウェイIPを記録
+    m_nrGateway = m_nrEpcHelper ? m_nrEpcHelper->GetUeDefaultGatewayAddress() : Ipv4Address("0.0.0.0");
+
+    InitializeTermAccessState();
 }
 
 void NetSim::ConfigureNrIpAfterNetwork()
@@ -1160,9 +1090,8 @@ void NetSim::InitializeTermAccessState()
 
 Ipv4Address NetSim::GetActiveIpv4(uint32_t termIdx) const
 {
-    if (m_nth != 5 || termIdx >= m_termAccessState.size())
+    if (termIdx >= m_termAccessState.size())
     {
-        // nth!=5の場合は従来のGetPrimaryIpv4相当
         if (termIdx < terms.size() && terms[termIdx] != nullptr)
         {
             Ptr<Ipv4> ipv4 = terms[termIdx]->GetObject<Ipv4>();

@@ -59,7 +59,8 @@ void APselection::init(const ApSelectionInput& input){
     terms = input.terminals; // 端末数
     initial_app = input.useAppli; // 各端末の初期アプリ番号
     initial_AP = input.initialAp; // 各端末の初期接続先
-    m_nth = input.nth;            // 実験モード番号
+    m_assignmentMethod = input.assignmentMethod;
+    m_rngSeed = input.rngSeed;
 
 
     m_monitor_rtt.assign(aps, 0.0);
@@ -80,7 +81,8 @@ void APselection::init(const ApSelectionInput& input){
         std::tm *tm_local = std::localtime(&t);
         char dateBuf[32];
         std::strftime(dateBuf, sizeof(dateBuf), "%Y%m%d_%H%M%S", tm_local);
-        m_masterLogPath = "OUTPUT/master_log_" + std::to_string(terms) + "_" + dateBuf + ".csv";
+        m_masterLogPath = "OUTPUT/master_log_" + std::to_string(terms) + "_" +
+                          m_assignmentMethod + "_" + dateBuf + ".csv";
     }
     std::cout << "master_log path: " << m_masterLogPath << std::endl;
 
@@ -180,14 +182,21 @@ void APselection::tmain(){
 
     if (m_totalCycles == 0 || m_cycleIndex < m_totalCycles)
     {
-        if (m_nth == 5)
+        if (m_assignmentMethod == "random")
         {
-            // policy_assignment1();
             random_assignment();
+        }
+        else if (m_assignmentMethod == "greedy")
+        {
+            greedy_assignment();
+        }
+        else if (m_assignmentMethod == "ml")
+        {
+            ml_assignment();
         }
         else
         {
-            random_assignment();
+            NS_FATAL_ERROR("Unknown assignment method: " << m_assignmentMethod);
         }
     }
 
@@ -304,8 +313,7 @@ void APselection::random_assignment() {
 
     // AP0〜2の範囲でランダム生成（AP数が3未満の場合は存在するAPの範囲に制限）
     const int maxApIndex = std::min(aps - 1, 2);
-    std::random_device rd;
-    std::mt19937 gen(rd());
+    std::mt19937 gen(m_rngSeed + m_cycleIndex * 1000003u);
     std::uniform_int_distribution<> dist(0, maxApIndex);
 
     for (int i = 0; i < terms; ++i) {
@@ -330,15 +338,15 @@ void APselection::random_assignment() {
 }
 
 // 方策による割り当て（3分類し、不満足端末のみ再割り当て）
-void APselection::policy_assignment1() {
-    std::cout << "=== APselection::policy_assignment1() ===" << std::endl;
+void APselection::greedy_assignment() {
+    std::cout << "=== APselection::greedy_assignment() ===" << std::endl;
 
     // master_log を読み込み、現在サイクルの端末満足度を取得
     const std::string filePath = m_masterLogPath;
     std::ifstream ifs(filePath);
     if (!ifs.is_open())
     {
-        std::cerr << "policy_assignment1: " << filePath << " を開けません" << std::endl;
+        std::cerr << "greedy_assignment: " << filePath << " を開けません" << std::endl;
         return;
     }
 
@@ -388,8 +396,7 @@ void APselection::policy_assignment1() {
     // 割り当て結果（初期値は現在のAP）
     std::vector<int> assignment = initial_AP;
 
-    std::random_device rd;
-    std::mt19937 gen(rd());
+    std::mt19937 gen(m_rngSeed + m_cycleIndex * 1000003u + 17u);
 
     int superSatisfiedCount = 0;
     int satisfiedCount = 0;
@@ -445,6 +452,10 @@ void APselection::policy_assignment1() {
     {
         m_handoverCallback(assignment);
     }
+}
+
+void APselection::ml_assignment() {
+    NS_FATAL_ERROR("ML assignment method is not implemented yet.");
 }
 
 void APselection::StartNewCycle(uint32_t cycleIndex)

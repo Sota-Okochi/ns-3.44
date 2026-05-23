@@ -136,8 +136,9 @@ private:
     void ConfigurePgwCerLink();
     void InstallMonitorCompetitionTraffic();
 
-    int m_nth;
     int m_mob;
+    std::string m_assignmentMethod;
+    uint32_t m_rngSeed;
 
     std::vector<NodeContainer> p2pNodes;
     std::vector<NodeContainer> wifiNodes;

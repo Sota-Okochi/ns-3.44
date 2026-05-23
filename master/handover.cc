@@ -55,8 +55,7 @@ void NetSim::HandoverRequest(const std::vector<int>& assignment)
         return;
     }
 
-    // nth==5:
-    if (m_nth == 5 && !m_termAccessState.empty())
+    if (!m_termAccessState.empty())
     {
         // 差分抽出
         std::vector<std::pair<uint32_t, int>> switchList;

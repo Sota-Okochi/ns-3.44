@@ -110,7 +110,7 @@ void NetSim::LogBrowserBulkDiagnostic(uint32_t termIdx,
     Ipv4Address activeIp = Ipv4Address("0.0.0.0");
     if (termIdx < terms.size())
     {
-        activeIp = (m_nth == 5) ? GetActiveIpv4(termIdx) : GetPrimaryIpv4(terms[termIdx]);
+        activeIp = GetActiveIpv4(termIdx);
     }
 
     std::string routeErr = "no_server_ipv4";
@@ -449,7 +449,7 @@ void NetSim::ScheduleBrowserDownloadForTerminal(uint32_t termIdx,
     }
 
     Ipv4Address clientAddress =
-        (m_nth == 5) ? GetActiveIpv4(termIdx) : GetPrimaryIpv4(terms[termIdx]);
+        GetActiveIpv4(termIdx);
     if (clientAddress == Ipv4Address("0.0.0.0"))
     {
         return;
@@ -581,7 +581,7 @@ void NetSim::ScheduleBrowserWarmupForTerminal(uint32_t termIdx, uint16_t port, u
     }
 
     Ipv4Address clientAddress =
-        (m_nth == 5) ? GetActiveIpv4(termIdx) : GetPrimaryIpv4(terms[termIdx]);
+        GetActiveIpv4(termIdx);
     if (clientAddress == Ipv4Address("0.0.0.0"))
     {
         return;
@@ -813,7 +813,7 @@ void NetSim::SetBrowserApp()
         {
             continue;
         }
-        Ipv4Address clientAddress = (m_nth == 5) ? GetActiveIpv4(i) : GetPrimaryIpv4(client);
+        Ipv4Address clientAddress = GetActiveIpv4(i);
         if (clientAddress == Ipv4Address("0.0.0.0"))
         {
             NS_LOG_WARN("Browser terminal " << i << " has no IPv4 address");
@@ -875,8 +875,8 @@ void NetSim::SetBrowserApp()
             }
         }
 
-        // アプリ追跡（nth==5用）
-        if (m_nth == 5 && i < m_termAppStates.size())
+        // アプリ追跡
+        if (i < m_termAppStates.size())
         {
             m_termAppStates[i].appType = 1;
             m_termAppStates[i].primaryPort = port;
@@ -932,7 +932,7 @@ void NetSim::SetVideoApp(void){
             continue;
         }
 
-        Ipv4Address clientAddress = (m_nth == 5) ? GetActiveIpv4(i) : GetPrimaryIpv4(client);
+        Ipv4Address clientAddress = GetActiveIpv4(i);
         if (clientAddress == Ipv4Address("0.0.0.0"))
         {
             NS_LOG_WARN("Video terminal " << i << " has no IPv4 address");
@@ -952,8 +952,8 @@ void NetSim::SetVideoApp(void){
         serverApps.Start(serverStart);
         serverApps.Stop(sinkStop);
 
-        // アプリ追跡（nth==5用）
-        if (m_nth == 5 && i < m_termAppStates.size())
+        // アプリ追跡
+        if (i < m_termAppStates.size())
         {
             m_termAppStates[i].appType = 2;
             m_termAppStates[i].primaryPort = streamPort;
@@ -1006,7 +1006,7 @@ void NetSim::SetVoiceApp(void){
             continue;
         }
 
-        Ipv4Address clientAddress = (m_nth == 5) ? GetActiveIpv4(i) : GetPrimaryIpv4(client);
+        Ipv4Address clientAddress = GetActiveIpv4(i);
         if (clientAddress == Ipv4Address("0.0.0.0"))
         {
             NS_LOG_WARN("Voice terminal " << i << " has no IPv4 address");
@@ -1043,8 +1043,8 @@ void NetSim::SetVoiceApp(void){
         downlinkApps.Start(Seconds(1.0));
         downlinkSrcApps.Start(Seconds(1.0));
 
-        // アプリ追跡（nth==5用）
-        if (m_nth == 5 && i < m_termAppStates.size())
+        // アプリ追跡
+        if (i < m_termAppStates.size())
         {
             m_termAppStates[i].appType = 3;
             m_termAppStates[i].primaryPort = port;
@@ -1115,7 +1115,7 @@ void NetSim::SetOnlineGameApp()
             continue;
         }
 
-        Ipv4Address clientAddress = (m_nth == 5) ? GetActiveIpv4(i) : GetPrimaryIpv4(client);
+        Ipv4Address clientAddress = GetActiveIpv4(i);
         if (clientAddress == Ipv4Address("0.0.0.0"))
         {
             NS_LOG_WARN("Online game terminal " << i << " has no IPv4 address");
@@ -1163,8 +1163,8 @@ void NetSim::SetOnlineGameApp()
         downlinkSrcApps.Start(startTime);
         downlinkSrcApps.Stop(stopTime);
 
-        // アプリ追跡（nth==5用）
-        if (m_nth == 5 && i < m_termAppStates.size())
+        // アプリ追跡
+        if (i < m_termAppStates.size())
         {
             m_termAppStates[i].appType = 4;
             m_termAppStates[i].primaryPort = uplinkPort;
@@ -1203,7 +1203,7 @@ void NetSim::BuildTerminalIpMap()
     m_terminalIpAddresses.resize(terms.size(), Ipv4Address("0.0.0.0"));
     for (uint32_t i = 0; i < terms.size(); ++i)
     {
-        if (m_nth == 5 && i < m_termAccessState.size())
+        if (i < m_termAccessState.size())
         {
             m_terminalIpAddresses[i] = GetActiveIpv4(i);
             continue;
@@ -1420,8 +1420,8 @@ void NetSim::CollectTerminalThroughput()
         {
             continue;
         }
-        // nth==5: 切替直後の端末はTP計測をスキップ
-        if (m_nth == 5 && i < m_termAccessState.size())
+        // 切替直後の端末はTP計測をスキップ
+        if (i < m_termAccessState.size())
         {
             Time elapsed = Simulator::Now() - m_termAccessState[i].lastSwitchTime;
             if (m_termAccessState[i].lastSwitchTime.IsPositive() && elapsed < Seconds(0.5))

@@ -28,6 +28,7 @@ struct BaselineSetting
     int handoverGraceCycles = 2;
     double browserPostHandoverDelaySec = 0.0;
     double terminalTpStopSec = 4.0;
+    uint32_t rngSeed = 1;
 };
 
 std::string Trim(const std::string& str)
@@ -160,6 +161,7 @@ bool LoadBaselineSetting(const std::string& path, BaselineSetting& setting)
         if (ExtractJsonDouble(content, "cycleEndMarginSec", dtmp)) { setting.cycleEndMarginSec = dtmp; }
         if (ExtractJsonInt(content, "handoverGraceCycles", tmp)) { setting.handoverGraceCycles = tmp; }
         if (ExtractJsonDouble(content, "browserPostHandoverDelaySec", dtmp)) { setting.browserPostHandoverDelaySec = dtmp; }
+        if (ExtractJsonInt(content, "rngSeed", tmp)) { setting.rngSeed = static_cast<uint32_t>(tmp); }
     }
     // 制約バリデーション
     if (setting.monitorStartSec <= 1.0)
@@ -236,8 +238,9 @@ NetSim::NetSim()
 {
     termNum = 1;
     APnum = 1;
-    m_nth = 0;
     m_mob = 1;
+    m_assignmentMethod = "random";
+    m_rngSeed = 1;
     server_udpVoice = nullptr;
     server_udpVideo = nullptr;
     server_rtt = nullptr;
@@ -272,9 +275,15 @@ void NetSim::Init(int argc, char *argv[]){
     NS_LOG_FUNCTION(this);
 
     CommandLine cmd;
-    cmd.AddValue("nth", " 3(rd) is static app, 4(th) is random app", m_nth);
+    cmd.AddValue("method", "Assignment method: random, greedy, ml", m_assignmentMethod);
     cmd.AddValue("mob", "1 is constant, 2 is randomwalk", m_mob);
     cmd.Parse(argc, argv);
+
+    if (m_assignmentMethod != "random" && m_assignmentMethod != "greedy" &&
+        m_assignmentMethod != "ml")
+    {
+        NS_FATAL_ERROR("Unknown assignment method: " << m_assignmentMethod);
+    }
 
     BaselineSetting setting;
     const std::string settingPath = std::string(INPUT_DIR) + "setting.json";
@@ -296,73 +305,74 @@ void NetSim::Init(int argc, char *argv[]){
     m_browserRequestBytes    = static_cast<uint32_t>(setting.browserRequestSize);
     m_cycleEndGuard              = Seconds(setting.cycleEndMarginSec);
     m_browserPostHandoverDelay   = Seconds(setting.browserPostHandoverDelaySec);
+    m_rngSeed = setting.rngSeed;
+    RngSeedManager::SetSeed(m_rngSeed);
+    RngSeedManager::SetRun(1);
 
     m_apSelectionInput.baseStations = setting.baseStations;
     m_apSelectionInput.terminals = setting.terminals;
     m_apSelectionInput.capacities = setting.capacities;
     m_apSelectionInput.initialRtt = setting.initialRtt;
     m_apSelectionInput.handoverGraceCycles = static_cast<uint32_t>(setting.handoverGraceCycles);
-    m_apSelectionInput.nth = m_nth;
+    m_apSelectionInput.assignmentMethod = m_assignmentMethod;
+    m_apSelectionInput.rngSeed = m_rngSeed;
 
     m_termData.clear();
     m_apSelectionInput.useAppli.clear();
     m_apSelectionInput.initialAp.clear();
 
-    if (m_nth == 5)
+    Ptr<UniformRandomVariable> apRand = CreateObject<UniformRandomVariable>();
+    Ptr<UniformRandomVariable> appRand = CreateObject<UniformRandomVariable>();
+    uint32_t apCount = std::max<uint32_t>(APnum, 1);
+    
+    // アプリの出現率の設定
+    for (uint32_t i = 0; i < termNum; ++i)
     {
-        Ptr<UniformRandomVariable> apRand = CreateObject<UniformRandomVariable>();
-        Ptr<UniformRandomVariable> appRand = CreateObject<UniformRandomVariable>();
-        uint32_t apCount = std::max<uint32_t>(APnum, 1);
-        
-        // アプリの出現率の設定    
-        for (uint32_t i = 0; i < termNum; ++i)
+        TermData data;
+        const double appDraw = appRand->GetValue(0.0, 1.0);
+        if (appDraw < 0.40)
         {
-            TermData data;
-            const double appDraw = appRand->GetValue(0.0, 1.0);
-            if (appDraw < 0.40)
-            {
-                data.use_appli = 1;
-            }
-            else if (appDraw < 0.80)
-            {
-                data.use_appli = 2;
-            }
-            else if (appDraw < 0.86)
-            {
-                data.use_appli = 3;
-            }
-            else
-            {
-                data.use_appli = 4;
-            }
-            data.apNo = static_cast<int>(apRand->GetInteger(1, apCount));
-            data.x = 0.0;
-            data.y = 0.0;
-            m_termData.push_back(data);
-            m_apSelectionInput.useAppli.push_back(data.use_appli);
-            m_apSelectionInput.initialAp.push_back(data.apNo);
+            data.use_appli = 1;
         }
-        std::cout << "初期AP番号: [";
-        for (size_t i = 0; i < m_apSelectionInput.initialAp.size(); ++i)
+        else if (appDraw < 0.80)
         {
-            std::cout << m_apSelectionInput.initialAp[i];
-            if (i + 1 != m_apSelectionInput.initialAp.size())
-            {
-                std::cout << ", ";
-            }
+            data.use_appli = 2;
         }
-        std::cout << "]" << std::endl;
-        std::cout << "初期アプリ番号: [";
-        for (size_t i = 0; i < m_apSelectionInput.useAppli.size(); ++i)
+        else if (appDraw < 0.86)
         {
-            std::cout << m_apSelectionInput.useAppli[i];
-            if (i + 1 != m_apSelectionInput.useAppli.size())
-            {
-                std::cout << ", ";
-            }
+            data.use_appli = 3;
         }
-        std::cout << "]" << std::endl;
+        else
+        {
+            data.use_appli = 4;
+        }
+        data.apNo = static_cast<int>(apRand->GetInteger(1, apCount));
+        data.x = 0.0;
+        data.y = 0.0;
+        m_termData.push_back(data);
+        m_apSelectionInput.useAppli.push_back(data.use_appli);
+        m_apSelectionInput.initialAp.push_back(data.apNo);
     }
+    std::cout << "初期AP番号: [";
+    for (size_t i = 0; i < m_apSelectionInput.initialAp.size(); ++i)
+    {
+        std::cout << m_apSelectionInput.initialAp[i];
+        if (i + 1 != m_apSelectionInput.initialAp.size())
+        {
+            std::cout << ", ";
+        }
+    }
+    std::cout << "]" << std::endl;
+    std::cout << "初期アプリ番号: [";
+    for (size_t i = 0; i < m_apSelectionInput.useAppli.size(); ++i)
+    {
+        std::cout << m_apSelectionInput.useAppli[i];
+        if (i + 1 != m_apSelectionInput.useAppli.size())
+        {
+            std::cout << ", ";
+        }
+    }
+    std::cout << "]" << std::endl;
     m_activeAssignment = m_apSelectionInput.initialAp;
 
     // 各基地局の接続数を表示
@@ -567,10 +577,7 @@ void NetSim::CheckFlowMonitor(Ptr<FlowMonitor> monitor, Ptr<Ipv4FlowClassifier> 
 
     std::ostringstream filename;
     filename << OUTPUT_DIR << "monitor-flow";
-    if (m_nth > 0)
-    {
-        filename << "_G" << m_nth;
-    }
+    filename << "_" << m_assignmentMethod;
     filename << ".xml";
 
     monitor->SerializeToXmlFile(filename.str(), true, true);
