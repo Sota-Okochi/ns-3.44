@@ -1,7 +1,6 @@
 #include "NetSim.h"
 #include "ns3/system-path.h"
 #include <algorithm>
-#include <unordered_map>
 
 NS_LOG_COMPONENT_DEFINE("researchMain");
 
@@ -233,21 +232,6 @@ bool LoadBaselineSetting(const std::string& path, BaselineSetting& setting)
 
 namespace ns3 {
 
-namespace {
-
-std::vector<std::string> Split(const std::string& input, char delimiter)
-{
-    std::istringstream stream(input);
-    std::string field;
-    std::vector<std::string> result;
-    while (std::getline(stream, field, delimiter)) {
-        result.push_back(field);
-    }
-    return result;
-}
-
-} // namespace
-
 NetSim::NetSim()
 {
     termNum = 1;
@@ -275,8 +259,6 @@ NetSim::NetSim()
     m_browserRequestBytes = 500u * 1024u;
     m_cycleEndGuard              = Seconds(0.5);
     m_browserPostHandoverDelay   = Seconds(0.0);
-    m_enableOnlineGameTracing = true;
-    m_currentCycle = 0;
     m_terminalTpWindowStart = Seconds(0.0);
 
     // Ensure OUTPUT directory exists before writing trace or log files
@@ -380,51 +362,6 @@ void NetSim::Init(int argc, char *argv[]){
             }
         }
         std::cout << "]" << std::endl;
-    }
-    else
-    {
-        static const std::unordered_map<int, std::string> kNthToInputFile = {
-            {1, "termData_1st.txt"},
-            {2, "termData_2nd.txt"},
-            {3, "reconnect_hungarian.txt"},
-        };
-        auto it = kNthToInputFile.find(m_nth);
-        if (it == kNthToInputFile.end())
-        {
-            std::cerr << "nth error" << std::endl;
-            return;
-        }
-        std::string filename2 = std::string(INPUT_DIR) + it->second;
-        std::ifstream ifs2(filename2);
-        if(ifs2.fail()){
-            std::cerr << "No Input File 2" << std::endl;
-            return;
-        }
-        for(std::string line; std::getline(ifs2, line); ){
-            std::vector<std::string> ret = Split(line, ' ');
-            std::stringstream ss1, ss2, ss3, ss4;
-            TermData data;
-            if(m_nth == 1 || m_nth ==2){
-                ss1 << ret.at(1);
-                ss1 >> data.use_appli;
-                ss2 << ret.at(2);
-                ss2 >> data.apNo;
-                ss3 << ret.at(3);
-                ss3 >> data.x;
-                ss4 << ret.at(4);
-                ss4 >> data.y;
-            }else{
-                ss1 << ret.at(1);
-                ss1 >> data.use_appli;
-                ss2 << ret.at(2);
-                ss2 >> data.apNo;
-                data.x = 0.0;
-                data.y = 0.0;
-            }
-            m_termData.push_back(data);
-            m_apSelectionInput.useAppli.push_back(data.use_appli);
-            m_apSelectionInput.initialAp.push_back(data.apNo);
-        }
     }
     m_activeAssignment = m_apSelectionInput.initialAp;
 
