@@ -1,6 +1,6 @@
 {
   "baseStations": 3,
-  "terminals": 30,
+  "terminals": 10,
   "numCycles": 3,
   "cycleTimeSec": 9.5,
   "monitorStartSec": 1.1,

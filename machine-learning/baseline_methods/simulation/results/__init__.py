@@ -1,0 +1,2 @@
+"""Result container objects."""
+

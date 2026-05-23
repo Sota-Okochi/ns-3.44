@@ -331,7 +331,8 @@ void NetSim::Init(int argc, char *argv[]){
         Ptr<UniformRandomVariable> apRand = CreateObject<UniformRandomVariable>();
         Ptr<UniformRandomVariable> appRand = CreateObject<UniformRandomVariable>();
         uint32_t apCount = std::max<uint32_t>(APnum, 1);
-
+        
+        // アプリの出現率の設定    
         for (uint32_t i = 0; i < termNum; ++i)
         {
             TermData data;
