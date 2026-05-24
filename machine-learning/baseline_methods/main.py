@@ -9,7 +9,7 @@ from simulation.config import (
 from simulation.entities.ap import Ap  # 1基地局が持つデータ構造
 from simulation.entities.term import Term  # 端末1台が持つデータ構造
 from simulation.results.result import simResult
-from simulation.services import cal, rand, create, model
+from simulation.services import cal, rand, create
 from simulation.visualization import output as output
 from simulation.visualization import graph as gp
 from simulation.algorithms import hungarian_kai as hung
@@ -37,31 +37,18 @@ if __name__ == '__main__':
     termNumOverLimitArray: List = []
     linkTerm: List = []  # 基地局に接続されている端末台数
     jtime: List = []
-    # 自由空間
-    satisHarmeanArray_fspl: List = []
-    count_fspl: int = 0
-    count_array_fspl: List = []
-    # 非自由空間
-    satisHarmeanArray_nonfspl: List = []
-    count_nonfspl: int = 0
-    count_array_nonfspl: List = []
+
     # 繰り返し割り当て
     for i in range(confSim["simNumTime"]):
         start_time = time.time()
         print("-------------------------------------------------------------")
         print("割り当て回数="+str(i+1)+"回目")
         satisHarmean: float
-        satisHarmen_fspl: float
-        satisHarmen_nonfspl: float
 
         # 端末の接続基地局先をランダムに設定
         rand.randAp(TERMS, APS)
         # 端末のアプリをランダムに設定
         rand.randApp(TERMS, APS)
-        # 自由空間の環境設定（提案1）
-        term_ap_relations = model.fspl(TERMS, APS)
-        # 非自由空間の環境設定（提案2）
-        term_ap_relations_nonfspl = model.nfspl(TERMS, APS)
 
         # 基地局接続台数算出
         cal.sumTermAp(TERMS, APS)
@@ -75,13 +62,8 @@ if __name__ == '__main__':
 
         print("↓")
 
-        # ハンガリアン法
-        count_fspl, count_nonfspl, satisHarmen_fspl, satisHarmen_nonfspl = hung.call_hungarian(
-            TERMS, APS, term_ap_relations, term_ap_relations_nonfspl)
-        count_array_fspl.append(count_fspl)
-        count_array_nonfspl.append(count_nonfspl)
-        satisHarmeanArray_fspl.append(satisHarmen_fspl)
-        satisHarmeanArray_nonfspl.append(satisHarmen_nonfspl)
+        # ハンガリアン法による接続先最適化
+        result = hung.call_hungarian(TERMS, APS)
 
         # 基地局接続台数
         cal.sumTermAp(TERMS, APS)
@@ -92,8 +74,6 @@ if __name__ == '__main__':
         # 端末満足度算出
         satisHarmean = cal.calSatis(TERMS, APS)  # 端末満足度の調和平均算出
         satisHarmeanArray.append(satisHarmean)
-        print("調和平均（FSPL）:", satisHarmen_fspl)
-        print("調和平均（NONFSPL）:", satisHarmen_nonfspl)
 
         # 容量超過端末数算出
         # TERM_NUM_OVER_LIMIT = cal.overTransferLimit(TERMS, APS)
@@ -109,19 +89,10 @@ if __name__ == '__main__':
     RES = {
         "satisHarmeanArray": satisHarmeanArray,
         "PresatisHarmeanArray": PresatisHarmeanArray,
-        "satisHarmeanArray_fspl": satisHarmeanArray_fspl,
-        "satisHarmeanArray_nonfspl": satisHarmeanArray_nonfspl,
-        "count_array_fspl": count_array_fspl,
-        "count_array_nonfspl": count_array_nonfspl,
-        #   "termNumOverLimitArray": termNumOverLimitArray,
         "linkTerm": linkTerm
     }
 
     print("調和平均", satisHarmeanArray)
-    print("調和平均（FSPL）:", satisHarmeanArray_fspl)
-    print("調和平均（NONFSPL）:", satisHarmeanArray_nonfspl)
-    print("不一致数（FSPL）:", count_array_fspl)
-    print("不一致数（NONFSPL）:", count_array_nonfspl)
     print("時間", jtime)
 
 
@@ -129,18 +100,6 @@ if __name__ == '__main__':
 
     # 移動平均
     # SATIS_MOVING_AVE: List = cal.movingAverage(RES["satisHarmeanArray"])
-
-    # gp.exportGraph(
-    #         RES["satisHarmeanArray"],
-    #         RES["satisHarmeanArray_fspl"],
-    #         RES["satisHarmeanArray_nonfspl"],
-    #         SATIS_MOVING_AVE,
-    #         TERMS
-    # )
-    # gp.exportGraph_count(
-    #         RES["count_array_fspl"],
-    #         RES["count_array_nonfspl"]
-    # )
 
     # gp.exportGraph_propa(
     #             RES["satisHarmeanArray"],

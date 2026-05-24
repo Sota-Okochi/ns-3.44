@@ -12,7 +12,6 @@ from simulation.config import load_app_config, load_sim_config
 from simulation.entities.ap import Ap  # 1基地局が持つデータ構造
 from simulation.services import cal
 from simulation.entities.term import Term  # 端末1台が持つデータ構造
-from simulation.services.model import TERM_AP, TERM_AP_NFSPL
 
 # アプリケーション種類ごとの設定
 confApp = load_app_config()
@@ -20,27 +19,10 @@ confSim = load_sim_config()
 
 
 FIX_DIGIT = Math.pow(10, 6)  # コスト値 int変換桁数(float->int)
+EPSILON = 1e-6  # 端末満足度の0除算防止用
 
 
 class hungarianResult():
-    maxSum: float
-    maxSum_r: float
-    min: float
-    Sum: float
-    Harmean: float
-    combiApTermArray: List[int]
-
-
-class hungarianResult_fspl():
-    maxSum: float
-    maxSum_r: float
-    min: float
-    Sum: float
-    Harmean: float
-    combiApTermArray: List[int]
-
-
-class hungarianResult_nonfspl():
     maxSum: float
     maxSum_r: float
     min: float
@@ -165,16 +147,12 @@ def makeCombiApTerm(terms: List[Term], aps: List[Ap]):
 
     # print(combi_ap_term)
     # print(len(combi_ap_term))
-    return combi_ap_term_tmp
+    return combi_ap_term
 
 
-def call_hungarian(terms: List[Term], aps: List[Ap], term_ap_relations: List[List[TERM_AP]], term_ap_relations_nfspl: List[List[TERM_AP_NFSPL]]):
+def call_hungarian(terms: List[Term], aps: List[Ap]):
     hungarianResultAll: List[hungarianResult] = []
-    hungarianResult_fsplAll: List[hungarianResult_fspl] = []
-    hungarianResult_nonfsplAll: List[hungarianResult_nonfspl] = []
     index_of_max: int = 0
-    index_of_max_fspl: int = 0
-    index_of_max_nonfspl: int = 0
 
     # munkeres-------------------------------------------------------------------------------
     # hunres: List = []
@@ -186,9 +164,8 @@ def call_hungarian(terms: List[Term], aps: List[Ap], term_ap_relations: List[Lis
     # ハンガリアン法計算用の仮想端末と基地局を生成(インスタンスをコピー) */
     APS_VIRTUAL: List[Ap] = aps
     TERMS_VIRTUAL: List[Term] = terms
-    costMatrix = np.zeros((len(TERMS_VIRTUAL), len(TERMS_VIRTUAL)))
-    costMatrix_fspl = np.zeros((len(TERMS_VIRTUAL), len(TERMS_VIRTUAL)))
-    costMatrix_nonfspl = np.zeros((len(TERMS_VIRTUAL), len(TERMS_VIRTUAL)))
+    satisfactionMatrix = np.zeros((len(TERMS_VIRTUAL), len(TERMS_VIRTUAL)))
+    reciprocalCostMatrix = np.zeros((len(TERMS_VIRTUAL), len(TERMS_VIRTUAL)))
 
     for i in range(len(COMBI_AP_TERM)):
         # 対象の全組み合わせ（パターン）でハンガリアン法実行
@@ -220,35 +197,24 @@ def call_hungarian(terms: List[Term], aps: List[Ap], term_ap_relations: List[Lis
                 distAp = COMBI_AP_TERM[i][j] - 1  # 基地局番号1を index 0 にする
                 # print("dist:",distAp+1)
                 TERMS_VIRTUAL[k].setSwitchAp(distAp)
-                # 自由空間の重みを算出
-                selected_term = term_ap_relations[k]
-                selected_ap = selected_term[TERMS_VIRTUAL[k].apBssid]
-                rate_fspl = selected_ap.rate
-                # 非自由空間の重みを算出
-                selected_term_nonfspl = term_ap_relations_nfspl[k]
-                selected_ap_nonfspl = selected_term_nonfspl[TERMS_VIRTUAL[k].apBssid]
-                rate_nonfspl = selected_ap_nonfspl.rate
 
                 # 端末満足度計算
                 # print("端末番号:", k, "接続先:", TERMS_VIRTUAL[k].apBssid, APS_VIRTUAL[TERMS_VIRTUAL[k].apBssid].tp, rate)
-                satis, satis_fspl, statis_nonfspl = cal.calSatisTerm_a(
-                    TERMS_VIRTUAL[k], APS_VIRTUAL, rate_fspl, rate_nonfspl)
-                costMatrix[j][k] = round(satis, 6)
-                costMatrix_fspl[j][k] = round(satis_fspl, 6)
-                costMatrix_nonfspl[j][k] = round(statis_nonfspl, 6)
+                satis = max(cal.calSatisTerm_a(TERMS_VIRTUAL[k], APS_VIRTUAL), EPSILON)
+                satisfactionMatrix[j][k] = round(satis, 6)
+                reciprocalCostMatrix[j][k] = 1 / satisfactionMatrix[j][k]
                 # print("端末満足度", satis)
-                # costMatrix[j][k] = satis
+                # satisfactionMatrix[j][k] = satis
 
             # 基地局接続台数算出
             # cal.sumTermAp(TERMS_VIRTUAL, APS_VIRTUAL)
-        # print("N：", costMatrix)
-        # print("F:", costMatrix_fspl)
-        # print("NF:", costMatrix_nonfspl)
+        # print("S：", satisfactionMatrix)
+        # print("1/S：", reciprocalCostMatrix)
         # -------------------------------------------------------------------------------print
 
         """
         組み合わせごとにハンガリアン法を試行
-        端末満足度最大の組み合わせを選択・端末満足度の調和平均値を算出
+        端末満足度の逆数和が最小の組み合わせを選択・端末満足度の調和平均値を算出
         Object: hungarianResult
         """
 
@@ -259,25 +225,10 @@ def call_hungarian(terms: List[Term], aps: List[Ap], term_ap_relations: List[Lis
         # print("モジュの満足度合計", hunres[i])
         # print("モジュの結果座標", m)
 
-        # 伝搬損失を考慮する部分をここで制御
-        HUNGARIAN_RESULT: hungarianResult = hungarian(
-            costMatrix, COMBI_AP_TERM[i])
-    #     HUNGARIAN_RESULT: hungarianResult = Parallel(n_jobs=-1)(
-    #     delayed(run_hungarian)(costMatrix, combi) for combi in COMBI_AP_TERM
-    # )
-        # 自由空間のハンガリアン法
-        HUNGARIAN_RESULT_FSPL: hungarianResult_fspl = hungarian(
-            costMatrix_fspl, COMBI_AP_TERM[i])
-    #     HUNGARIAN_RESULT_PROP: hungarianResult_fspl = Parallel(n_jobs=-1)(
-    #     delayed(run_hungarian)(costMatrix_fspl, combi) for combi in COMBI_AP_TERM
-    # )
-        # 非自由空間のハンガリアン法
-        HUNGARIAN_RESULT_NONFSPL: hungarianResult_nonfspl = hungarian(
-            costMatrix_nonfspl, COMBI_AP_TERM[i])
+        HUNGARIAN_RESULT: hungarianResult = hungarian_minimize(
+            reciprocalCostMatrix, satisfactionMatrix, COMBI_AP_TERM[i])
 
         hungarianResultAll.append(HUNGARIAN_RESULT)
-        hungarianResult_fsplAll.append(HUNGARIAN_RESULT_FSPL)
-        hungarianResult_nonfsplAll.append(HUNGARIAN_RESULT_NONFSPL)
         # print(HUNGARIAN_RESULT.max, HUNGARIAN_RESULT.combiApTermArray, "\n")
     # print("-------------------------------------------------------------")
     # -------------------------------------------------------------------------------print
@@ -300,14 +251,8 @@ def call_hungarian(terms: List[Term], aps: List[Ap], term_ap_relations: List[Lis
     # 最大値をとる巡目（インデックス）を取得 検証用
     index_of_max = max(enumerate(hungarianResultAll),
                        key=lambda x: x[1].Harmean)[0]
-    index_of_max_fspl = max(
-        enumerate(hungarianResult_fsplAll), key=lambda x: x[1].Harmean)[0]
-    index_of_max_nonfspl = max(
-        enumerate(hungarianResult_nonfsplAll), key=lambda x: x[1].Harmean)[0]
     # 最大値自体を取得（これは上記コードと同様）
     HUNGARIAN_MAX_VALUE = hungarianResultAll[index_of_max].Harmean
-    HUNGARIAN_MAX_VALUE_FSPL = hungarianResult_fsplAll[index_of_max_fspl].Harmean
-    HUNGARIAN_MAX_VALUE_NONFSPL = hungarianResult_nonfsplAll[index_of_max_nonfspl].Harmean
 
     # HUNGARIAN_MAX_VALUE :float = 0
     # a = 0
@@ -319,10 +264,6 @@ def call_hungarian(terms: List[Term], aps: List[Ap], term_ap_relations: List[Lis
     # maxSum 最大を返す
     # print("端末満足度の最大値", HUNGARIAN_MAX_VALUE, "\n選ばれた組み合わせ番号", b)
     print("調和平均の最大値", HUNGARIAN_MAX_VALUE, "最大値の場合の組み合わせ番", index_of_max)
-    print("調和平均の最大値（FSPL）", HUNGARIAN_MAX_VALUE_FSPL,
-          "最大値の場合の組み合わせ番", index_of_max_fspl)
-    print("調和平均の最大値（NONFSPL）", HUNGARIAN_MAX_VALUE_NONFSPL,
-          "最大値の場合の組み合わせ番", index_of_max_nonfspl)
     # -------------------------------------------------------------------------------print
 
     # 最大値であるレコードを抽出
@@ -339,18 +280,12 @@ def call_hungarian(terms: List[Term], aps: List[Ap], term_ap_relations: List[Lis
     # resArray : List[hungarianResult] = []
     resArray = list(filter(lambda res: filterMax(
         res, HUNGARIAN_MAX_VALUE), hungarianResultAll))
-    resArray_fspl = list(filter(lambda res_fspl: filterMax(
-        res_fspl, HUNGARIAN_MAX_VALUE_FSPL), hungarianResult_fsplAll))
-    resArray_nonfspl = list(filter(lambda res_nonfspl: filterMax(
-        res_nonfspl, HUNGARIAN_MAX_VALUE_NONFSPL), hungarianResult_nonfsplAll))
     # resArray = list(filter(lambda x:filterMax(x, HUNGARIAN_MAX_VALUE), hungarianResultAll))
     # print(len(resArray))
     # print(resArray)
 
     # 最小値最大を選択
     res = max(resArray, key=lambda r: r.min)
-    res_fspl = max(resArray_fspl, key=lambda r_fspl: r_fspl.min)
-    res_nonfspl = max(resArray_nonfspl, key=lambda r_nonfspl: r_nonfspl.min)
 
     # cur = hungarianResultAll[0].min
     # for res in resArray:
@@ -360,27 +295,14 @@ def call_hungarian(terms: List[Term], aps: List[Ap], term_ap_relations: List[Lis
     # 接続先切り替え
     for i in range(len(terms)):
         terms[i].setSwitchAp(res.combiApTermArray[i] - 1)
-        # terms[i].setSwitchAp_fspl(res_fspl.combiApTermArray[i] - 1)
         # print(terms[i].apBssid + 1)
         # print(str(res.combiApTermArray[i]-1))
         # print(str(i)+ 'Dist AP'+ str(res.combiApTermArray[i]-1))
 
     print("各端末の接続先:", res.combiApTermArray)
-    print("各端末の接続先（FSPL）:", res_fspl.combiApTermArray)
-    print("各端末の接続先（NONFSPL）:", res_nonfspl.combiApTermArray)
-
-    count_fspl = 0
-    count_nonfspl = 0
-    for i in range(len(terms)):
-        if res.combiApTermArray[i] != res_fspl.combiApTermArray[i]:
-            count_fspl += 1
-        if (res.combiApTermArray[i] != res_nonfspl.combiApTermArray[i]):
-            count_nonfspl += 1
-    print("不一致数（FSPL）:", count_fspl)
-    print("不一致数（NONFSPL）:", count_nonfspl)
 
     # console.log(res)
-    return count_fspl, count_nonfspl, HUNGARIAN_MAX_VALUE_FSPL, HUNGARIAN_MAX_VALUE_NONFSPL
+    return res
 
 
 """
@@ -390,6 +312,127 @@ def call_hungarian(terms: List[Term], aps: List[Ap], term_ap_relations: List[Lis
 """
 # def run_hungarian(costMatrix, combi):
 #     return hungarian(costMatrix, combi)
+
+
+def _hungarian_maximize_assignment(scoreMatrix):
+    """
+    最大重みマッチングとしてハンガリアン法を実行し、行ごとの割当列 x を返す。
+    x[row] = column
+    """
+    N: int = len(scoreMatrix[0])
+    b = np.empty((N, N))
+
+    for i in range(N):
+        for j in range(N):
+            b[i][j] = Math.floor(scoreMatrix[i][j] * FIX_DIGIT)
+
+    fx = np.full(N, -sys.maxsize)
+    fy = np.zeros(N)
+    x = np.full(N, -1)
+    y = np.full(N, -1)
+    for i in range(N):
+        for j in range(N):
+            fx[i] = max(fx[i], b[i][j])
+
+    i = 0
+    while (i < N):
+        t: List = []
+        s: List = []
+        j = 0
+
+        while (j < N):
+            t.append(-1)
+            s.append(i)
+            j += 1
+
+        s.append(i)
+
+        p = 0
+        q = 0
+
+        while (p <= q and x[i] < 0):
+            k = s[p]
+            j = 0
+            while (j < N and x[i] < 0):
+                if (fx[k] + fy[j] == b[k][j] and t[j] < 0):
+                    q += 1
+                    s[q] = y[j]
+                    t[j] = k
+                    if (s[q] < 0):
+                        p = j
+                        while (p >= 0):
+                            y[j] = t[j]
+                            k = t[j]
+                            p = x[k]
+                            x[k] = j
+                            j = p
+                j += 1
+            p += 1
+
+        if (x[i] < 0):
+            d = sys.maxsize
+            k = 0
+            while (k <= q):
+                j = 0
+                while (j < N):
+                    if (t[j] < 0):
+                        d = min(d, fx[s[k]] + fy[j] - b[s[k]][j])
+                    j += 1
+                k += 1
+            j = 0
+
+            while (j < N):
+                if t[j] < 0:
+                    fy[j] += 0
+                else:
+                    fy[j] += d
+                j += 1
+
+            k = 0
+            while (k <= q):
+                fx[s[k]] -= d
+                k += 1
+        else:
+            i += 1
+
+    return x
+
+
+def hungarian_minimize(costMatrix, satisfactionMatrix, combi_ap_term: List[List[float]]):
+    """
+    costMatrix の合計を最小化する割り当てを求める。
+    本研究では costMatrix = 1 / satisfaction とするため、
+    この最小化は端末満足度の調和平均最大化と等価。
+    """
+    N: int = len(costMatrix[0])
+    max_cost = np.max(costMatrix)
+    scoreMatrix = max_cost - costMatrix
+    x = _hungarian_maximize_assignment(scoreMatrix)
+
+    satisfaction_sum: float = 0
+    reciprocal_sum: float = 0
+    min_satisfaction: float = sys.maxsize
+    wk_solution_station = np.full(N, -1)
+
+    for i in range(N):
+        satis = max(satisfactionMatrix[i][x[i]], EPSILON)
+        satisfaction_sum += satis
+        reciprocal_sum += 1 / satis
+        if satis < min_satisfaction:
+            min_satisfaction = satis
+
+    for i, new_index in enumerate(x):
+        wk_solution_station[new_index] = combi_ap_term[i]
+
+    RESULT = hungarianResult()
+    RESULT.Harmean = N / round(reciprocal_sum, 6)
+    RESULT.maxSum = RESULT.Harmean
+    RESULT.maxSum_r = satisfaction_sum / N
+    RESULT.Sum = satisfaction_sum
+    RESULT.min = min_satisfaction
+    RESULT.combiApTermArray = wk_solution_station
+
+    return RESULT
 
 
 def hungarian(costMatrix, combi_ap_term: List[List[float]]):

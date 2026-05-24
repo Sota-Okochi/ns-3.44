@@ -1,12 +1,12 @@
 {
-	"termNum": 10,
+	"termNum": 80,
 	"appNumMax": 4,
 	"apNumMax": 3,
 	"termCapa": 100,
 	"type": "A",
 	"propagation_type": "FSPL",
 	"appUseSec": 90,
-	"simNumTime": 1,
+	"simNumTime": 5,
 	"initRTT": 20,
 	"output": {
 		"average": {

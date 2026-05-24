@@ -7,8 +7,8 @@
 		"incRTT": 5.0,
 		"incTP": 1.0,
 		"useApp": {
-		"minTime": 60,
-		"maxTime": 120
+			"minTime": 60,
+			"maxTime": 120
 		}
 	},
 	{
@@ -19,8 +19,8 @@
 		"incRTT": 5.0,
 		"incTP": 1.0,
 		"useApp": {
-		"minTime": 3600,
-		"maxTime": 6000
+			"minTime": 3600,
+			"maxTime": 6000
 		}
 	},
 	{
@@ -31,8 +31,8 @@
 		"incRTT": 5.0,
 		"incTP": 1.0,
 		"useApp": {
-		"minTime": 30,
-		"maxTime": 60
+			"minTime": 30,
+			"maxTime": 60
 		}
 	},
 	{
@@ -43,8 +43,8 @@
 		"incRTT": 5.0,
 		"incTP": 1.0,
 		"useApp": {
-		"minTime": 60,
-		"maxTime": 6000
+			"minTime": 60,
+			"maxTime": 6000
 		}
 	}
 ]

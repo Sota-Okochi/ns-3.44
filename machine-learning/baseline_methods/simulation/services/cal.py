@@ -7,7 +7,6 @@ import math
 from simulation.config import load_app_config, load_sim_config
 from simulation.entities.ap import Ap  # 1基地局が持つデータ構造
 from simulation.entities.term import Term  # 端末1台が持つデータ構造
-import simulation.services.model as model
 
 # アプリケーション種類ごとの設定
 confApp = load_app_config()
@@ -44,7 +43,7 @@ def calAppNeed(appNum: int):
 
 # 各基地局の接続時RTT,TPの計算（APインスタンスに設定）
 def calLink(terms: List[Term], aps: List[Ap], sec: float):
-    init_rtt = [20.0, 28.0, 32.0]
+    init_rtt = [30.0, 45.0, 55.0]
     link_rtt = copy.copy(init_rtt)
     init_tp = [65500 * 2 * 8 / init_rtt[0] / 1024, 65500 * 2 *
                8 / init_rtt[1] / 1024, 65500 * 2 * 8 / init_rtt[2] / 1024]
@@ -145,13 +144,11 @@ def calSatisTerm(term: Term, aps: List[Ap]):  # 端末満足度（端末1台算�
 
 
 # 端末満足度（端末1台算出）
-def calSatisTerm_a(term: Term, aps: List[Ap], rate_fspl, rate_nonfspl):
+def calSatisTerm_a(term: Term, aps: List[Ap]):
     satis = 0  # 端末ごとの端末満足度
     satis_p = 0  # 端末満足度逆数（調和平均算出用）
     apRtt = aps[term.apBssid].rtt  # 基地局のRTT
     apTp = aps[term.apBssid].tp  # 基地局のTP
-    apTp1 = apTp * rate_fspl
-    apTp2 = apTp * rate_nonfspl
     # print("tp:"+ str(apTp))
     # print("rtt:"+ str(apRtt))
 
@@ -162,15 +159,11 @@ def calSatisTerm_a(term: Term, aps: List[Ap], rate_fspl, rate_nonfspl):
     if TERM_APP.indicator == 'tp':
         # 指標: TP
         satis = apTp / TERM_APP.needTP
-        satis_fspl = apTp1 / TERM_APP.needTP
-        satis_nonfspl = apTp2 / TERM_APP.needTP
         satis_r = TERM_APP.needTP / apTp  # 逆数（調和平均算出用）
         # print('AP_tp=' + str(apTp)+ ', needTP=' + str(TERM_APP.needTP))
     else:
         # 指標: RTT
         satis = TERM_APP.needRTT / apRtt
-        satis_fspl = TERM_APP.needRTT / apRtt
-        satis_nonfspl = TERM_APP.needRTT / apRtt
         satis_r = apRtt / TERM_APP.needRTT  # 逆数（調和平均算出用）
         # print('AP_rtt=' + str(apRtt)+ ', needRTT=' + str(TERM_APP.needRTT))
 
@@ -179,7 +172,7 @@ def calSatisTerm_a(term: Term, aps: List[Ap], rate_fspl, rate_nonfspl):
     #     satis = 1
     #     satis_r = 1
 
-    return satis, satis_fspl, satis_nonfspl  # 端末満足度を返す
+    return satis  # 端末満足度を返す
 
 
 def calGap(terms: List[Term], aps: List[Ap]):
