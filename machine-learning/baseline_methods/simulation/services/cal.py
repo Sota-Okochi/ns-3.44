@@ -43,7 +43,7 @@ def calAppNeed(appNum: int):
 
 # 各基地局の接続時RTT,TPの計算（APインスタンスに設定）
 def calLink(terms: List[Term], aps: List[Ap], sec: float):
-    init_rtt = [30.0, 45.0, 55.0]
+    init_rtt = [30.0, 38.0, 42.0]
     link_rtt = copy.copy(init_rtt)
     init_tp = [65500 * 2 * 8 / init_rtt[0] / 1024, 65500 * 2 *
                8 / init_rtt[1] / 1024, 65500 * 2 * 8 / init_rtt[2] / 1024]

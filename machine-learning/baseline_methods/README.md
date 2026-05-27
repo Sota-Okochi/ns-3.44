@@ -56,7 +56,8 @@ baseline_methods/
 │       └── result.py
 ├── scripts/
 │   ├── generate_logistic_teacher.py
-│   └── train_logistic.py
+│   ├── train_logistic.py
+│   └── evaluate_logistic.py
 ├── data/
 │   ├── raw/
 │   │   └── logistic_teacher.csv
@@ -91,6 +92,9 @@ baseline_methods/
 - `scripts/train_logistic.py`
   - 教師データ CSV からロジスティック回帰モデルを学習し、ns-3 側で読み込める係数 JSON を出力します。
 
+- `scripts/evaluate_logistic.py`
+  - 学習済みロジスティック回帰 JSON を教師データ CSV に適用し、accuracy、precision、recall、F1、confusion matrix、データ件数を出力・保存します。
+
 ---
 
 ## 実行コマンド
@@ -98,7 +102,10 @@ baseline_methods/
 ### 1. 構文チェック
 
 ```bash
-python -m py_compile scripts/generate_logistic_teacher.py scripts/train_logistic.py
+python -m py_compile \
+  scripts/generate_logistic_teacher.py \
+  scripts/train_logistic.py \
+  scripts/evaluate_logistic.py
 ```
 
 成功した場合、何も表示されません。
@@ -177,6 +184,54 @@ python scripts/train_logistic.py \
 ```
 
 学習後、accuracy、precision、recall、f1-score が標準出力に表示されます。
+
+---
+
+### 7. 学習済みロジスティック回帰モデルの評価
+
+学習済み JSON を教師データ CSV に適用して、分類指標を取得します。
+
+```bash
+python scripts/evaluate_logistic.py \
+  --model data/models/logistic_term80_runs100_seed001.json \
+  --input data/raw/logistic_teacher_term80_runs100_seed001.csv
+```
+
+標準出力に以下が表示されます。
+
+- `num_samples`: 評価に使ったデータ件数
+- `label_distribution`: 教師ラベル `assigned_ap` の分布
+- `prediction_distribution`: モデル予測 AP の分布
+- `accuracy`
+- AP クラスごとの `precision`, `recall`, `f1`, `support`
+- `macro_avg`, `weighted_avg`
+- confusion matrix
+
+デフォルトでは、評価結果 JSON も以下の形式で保存されます。
+
+```text
+data/results/logistic_eval_<model名>_<input名>.json
+```
+
+保存先を指定する場合:
+
+```bash
+python scripts/evaluate_logistic.py \
+  --model data/models/logistic_term80_runs100_seed001.json \
+  --input data/raw/logistic_teacher_term80_runs30_seed1001.csv \
+  --output data/results/logistic_eval_seed1001.json
+```
+
+標準出力だけ確認して保存しない場合:
+
+```bash
+python scripts/evaluate_logistic.py \
+  --model data/models/logistic_term80_runs100_seed001.json \
+  --input data/raw/logistic_teacher_term80_runs30_seed1001.csv \
+  --no-save
+```
+
+注意: この評価は「ハンガリアン法の `assigned_ap` をどれだけ模倣できたか」の分類評価です。QoE 改善の評価には、別途シミュレーション上で調和平均、不満足端末数、平均 TP/RTT、切り替え回数を比較してください。
 
 ---
 
