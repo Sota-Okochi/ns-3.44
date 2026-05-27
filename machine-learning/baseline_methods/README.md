@@ -1,38 +1,299 @@
-# 卒業研究
-## プロジェクト概要
-- Wi-Fi 基地局と端末の接続割り当てをシミュレーションし、ハンガリアン法で端末満足度（RTT/スループット要求に対する達成度）の調和平均を最大化するプロジェクトです。  
-- 自由空間伝搬モデル（FSPL）と、より減衰の大きい非自由空間モデルの双方を用意し、モデル別に求めた最適な接続先の差分や満足度を比較します。  
-- 端末台数・基地局数・アプリ要求仕様を設定ファイルで切り替え、実行時に満足度や不一致数、実行時間をコンソールへ出力します。グラフ出力や結果ファイル保存はコメントを外すことで利用できます。
+# QoE ベース基地局割り当て baseline
 
-## ディレクトリ構成 / ファイル説明
-- `main.py`：シミュレーションのエントリーポイント。端末/基地局生成、乱択による接続・アプリ割り当て、伝搬モデル計算、ハンガリアン法による最適化、結果出力を一括で実行。
-- `config/`：設定 JSON を集約。
-  - `config/sim.json`：シミュレーション条件（端末/基地局数、繰り返し回数、使用時間、初期 RTT など）。
-  - `config/ap.json`：基地局ごとのデータ容量上限や価格などの初期値。
-  - `config/app.json`：アプリ種別ごとの要求指標（RTT または TP）、必要値、利用時間分布。
-- `simulation/config.py`：設定ファイルローダー。どのモジュールからも一貫して `config/` 以下の JSON を参照。
-- `simulation/entities/`：データ構造群 (`Ap`, `Term`, `TERM_AP` など)。
-- `simulation/services/`：作成・乱択・計算ロジック (`create.py`, `rand.py`, `cal.py`, `model.py`)。
-- `simulation/algorithms/`：ハンガリアン法実装 (`hungarian_kai.py`, `hungarian.py`)。
-- `simulation/visualization/`：グラフ描画とファイル出力 (`graph.py`, `output.py`)。
-- `simulation/results/`：結果オブジェクトの定義。
-- `tools/setup_gpu.py`：GPU/ CuPy 環境チェックとセットアップの補助スクリプト（任意）。
+## プロジェクトの説明
 
-## 実行方法
-- 前提：Python 3.10 以上を推奨。依存ライブラリは `numpy`（必須）、グラフ描画を行う場合は `matplotlib` を追加でインストールしてください。  
+このプロジェクトは、複数の基地局と端末が存在する環境で、端末ごとの QoE（Quality of Experience）を考慮した基地局割り当てを検討するための Python baseline です。
+
+
+現在の機械学習側の方針は以下です。
+
+- 教師ラベル: ハンガリアン法が最終的に選んだ AP `assigned_ap`
+- AP 数: 3 台固定
+- 端末数: 基本 80 台
+- 推論手法: ロジスティック回帰
+- ns-3 側では、学習済み係数 JSON/CSV を読み込んで `--method=logistic` として利用する想定
+- AP 容量超過時の補正は現時点では行わない
+
+ロジスティック回帰で使用する特徴量は次の通りです。
+
+```text
+app_type
+current_ap
+num_users_ap0, num_users_ap1, num_users_ap2
+rtt_ap0, rtt_ap1, rtt_ap2
+estimated_tp_ap0, estimated_tp_ap1, estimated_tp_ap2
 ```
-pip install numpy matplotlib
+
+---
+
+## ディレクトリの構造
+
+```text
+baseline_methods/
+├── README.md
+├── main.py
+├── config/
+│   ├── sim.json
+│   ├── ap.json
+│   └── app.json
+├── simulation/
+│   ├── config.py
+│   ├── entities/
+│   │   ├── ap.py
+│   │   ├── term.py
+│   │   └── term_ap.py
+│   ├── services/
+│   │   ├── create.py
+│   │   ├── rand.py
+│   │   └── cal.py
+│   ├── algorithms/
+│   │   ├── hungarian_kai.py
+│   │   └── hungarian.py
+│   ├── visualization/
+│   │   ├── graph.py
+│   │   └── output.py
+│   └── results/
+│       └── result.py
+├── scripts/
+│   ├── generate_logistic_teacher.py
+│   └── train_logistic.py
+├── data/
+│   ├── raw/
+│   │   └── logistic_teacher.csv
+│   ├── models/
+│   │   └── logistic_model.json
+│   └── results/
+└── tools/
+    └── setup_gpu.py
 ```
+
+### 主なファイル
+
+- `main.py`
+  - baseline シミュレーションのエントリーポイントです。
+  - 端末・基地局の生成、ランダムな初期接続、アプリ割り当て、ハンガリアン法による接続先最適化、調和平均の出力を行います。
+
+- `config/sim.json`
+  - 端末数、基地局数、シミュレーション回数、初期 RTT、アプリ利用時間などの設定です。
+
+- `config/app.json`
+  - アプリ種別ごとの要求 TP / RTT を定義します。
+
+- `simulation/services/cal.py`
+  - AP ごとの RTT / TP 計算、端末満足度、調和平均の計算を行います。
+
+- `simulation/algorithms/hungarian_kai.py`
+  - 調和平均最大化を目的としたハンガリアン法ベースの割り当て処理を実装しています。
+
+- `scripts/generate_logistic_teacher.py`
+  - ハンガリアン法の結果を教師ラベルとして、ロジスティック回帰用の教師データ CSV を生成します。
+
+- `scripts/train_logistic.py`
+  - 教師データ CSV からロジスティック回帰モデルを学習し、ns-3 側で読み込める係数 JSON を出力します。
+
+---
+
+## 実行コマンド
+
+### 1. 構文チェック
+
+```bash
+python -m py_compile scripts/generate_logistic_teacher.py scripts/train_logistic.py
 ```
-git clone https://github.com/Sota-Okochi/Bachelor_research.git
-cd Bachelor_research
-```
-- シミュレーションパラメータを必要に応じて `config/sim.json`（端末数や繰り返し回数など）、`config/ap.json`（基地局性能）、`config/app.json`（アプリ要求値）で調整します。
-- プロジェクトの実行
-```
+
+成功した場合、何も表示されません。
+
+---
+
+### 2. baseline シミュレーション実行
+
+```bash
 python main.py
 ```
-- 標準出力に以下が表示されます。
-  - 各シミュレーションでの調和平均（FSPL/非 FSPL）、モデル間の割り当て不一致数、各試行の実行時間
-  - 最終的な調和平均配列や不一致数の配列
-- グラフ出力や結果ファイル保存が必要な場合は、`main.py` 内の `gp.exportGraph` などのコメントを外して利用してください。
+
+標準出力に、割り当て前後の調和平均やハンガリアン法で得られた接続先が表示されます。
+
+注意: `config/sim.json` の `termNum` が 80 の場合、ハンガリアン法の計算時間が非常に長くなる可能性があります。
+
+---
+
+### 3. 小規模な教師データ生成テスト
+
+まずは小さな端末数で動作確認します。
+
+```bash
+python scripts/generate_logistic_teacher.py \
+  --num-runs 1 \
+  --term-num 3 \
+  --output /tmp/logistic_teacher_small.csv
+```
+
+確認例:
+
+```bash
+head -5 /tmp/logistic_teacher_small.csv
+```
+
+---
+
+### 4. 本番用教師データ生成
+
+80端末・100回分の教師データを生成する例です。
+
+```bash
+python scripts/generate_logistic_teacher.py \
+  --num-runs 100 \
+  --output data/raw/logistic_teacher_term80_runs100_seed001.csv
+```
+
+---
+
+### 5. 教師ラベルの分布確認
+
+`assigned_ap` が1種類しかない場合、ロジスティック回帰は学習できません。以下で分布を確認します。
+
+```bash
+python - <<'PY'
+import csv
+from collections import Counter
+
+path = "data/raw/logistic_teacher_term80_runs100_seed001.csv"
+cnt = Counter()
+with open(path, newline="") as f:
+    for row in csv.DictReader(f):
+        cnt[row["assigned_ap"]] += 1
+print(cnt)
+PY
+```
+
+---
+
+### 6. ロジスティック回帰の学習
+
+```bash
+python scripts/train_logistic.py \
+  --input data/raw/logistic_teacher_term80_runs100_seed001.csv \
+  --output data/models/logistic_term80_runs100_seed001.json
+```
+
+学習後、accuracy、precision、recall、f1-score が標準出力に表示されます。
+
+---
+
+## 出力ファイルの説明
+
+### `data/raw/logistic_teacher_*.csv`
+
+ハンガリアン法を教師として作成したロジスティック回帰用の教師データです。
+
+主な列は以下です。
+
+```text
+run_id
+seed
+ue_id
+app_type
+current_ap
+num_users_ap0
+num_users_ap1
+num_users_ap2
+rtt_ap0
+rtt_ap1
+rtt_ap2
+estimated_tp_ap0
+estimated_tp_ap1
+estimated_tp_ap2
+assigned_ap
+```
+
+各列の意味:
+
+- `run_id`
+  - 教師データ生成時の試行番号です。
+
+- `seed`
+  - 乱数 seed です。
+
+- `ue_id`
+  - 端末 ID です。
+
+- `app_type`
+  - 端末が使用しているアプリ種別です。
+
+- `current_ap`
+  - ハンガリアン法適用前の接続先 AP です。
+
+- `num_users_ap0/1/2`
+  - 各 AP に接続している端末数です。
+
+- `rtt_ap0/1/2`
+  - 各 AP の RTT です。
+  - ns-3 側では検査用端末で取得する RTT に対応させる想定です。
+
+- `estimated_tp_ap0/1/2`
+  - 各 AP ごとの予測 TP / 推定 TP です。
+  - 現在の baseline では AP ごとの `ap.tp` を保存しています。
+  - ns-3 側では、各基地局ごとの予測 TP を同じ列として入力する想定です。
+
+- `assigned_ap`
+  - ハンガリアン法が最終的に選んだ AP です。
+  - ロジスティック回帰の教師ラベルです。
+
+---
+
+### `data/models/logistic_*.json`
+
+ロジスティック回帰の学習済みモデルです。ns-3 C++ 側で読み込むことを想定し、係数を JSON として保存します。
+
+主な項目:
+
+```text
+model_type
+feature_columns
+label_column
+classes
+scaler_mean
+scaler_scale
+coef
+intercept
+```
+
+各項目の意味:
+
+- `feature_columns`
+  - 学習時に使用した特徴量の順番です。
+  - ns-3 側でも必ずこの順番で入力ベクトルを作成してください。
+
+- `classes`
+  - 予測対象の AP ID です。
+
+- `scaler_mean`
+  - 標準化に使う平均値です。
+
+- `scaler_scale`
+  - 標準化に使う標準偏差です。
+
+- `coef`
+  - ロジスティック回帰の係数です。
+
+- `intercept`
+  - ロジスティック回帰の切片です。
+
+ns-3 側では、以下の手順で推論します。
+
+```text
+1. feature_columns と同じ順番で特徴量 x を作る
+2. x_scaled = (x - scaler_mean) / scaler_scale
+3. logit = coef * x_scaled + intercept
+4. logit が最大の class を assigned_ap として選ぶ
+```
+
+---
+
+## 注意事項
+
+- 現在の baseline は Python 側の教師データ作成・ロジスティック回帰学習までを対象としています。
+- ns-3.44 の `APselection.cc` への `logistic` 割り当て関数実装は今後の作業です。
+- `estimated_satisfaction_ap0/1/2` は現在使っていません。
+- AP 数は 3 台固定、端末数は基本 80 台固定の前提です。
+- AP 容量超過時の補正は現時点では行いません。
