@@ -19,11 +19,95 @@
 #include <climits>
 #include <fstream>
 #include <iomanip>
+#include <limits>
 #include <random>
+#include <regex>
 
 namespace ns3{
 
 NS_LOG_COMPONENT_DEFINE("APselection");
+
+namespace {
+
+constexpr size_t kLogisticFeatureCount = 11;
+
+bool ExtractJsonArrayBody(const std::string& content,
+                          const std::string& key,
+                          std::string& body)
+{
+    const std::string quotedKey = "\"" + key + "\"";
+    const size_t keyPos = content.find(quotedKey);
+    if (keyPos == std::string::npos)
+    {
+        return false;
+    }
+    const size_t begin = content.find('[', keyPos + quotedKey.size());
+    if (begin == std::string::npos)
+    {
+        return false;
+    }
+
+    int depth = 0;
+    for (size_t pos = begin; pos < content.size(); ++pos)
+    {
+        if (content[pos] == '[')
+        {
+            ++depth;
+        }
+        else if (content[pos] == ']')
+        {
+            --depth;
+            if (depth == 0)
+            {
+                body = content.substr(begin + 1, pos - begin - 1);
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+std::vector<double> ParseJsonNumbers(const std::string& body)
+{
+    static const std::regex numberPattern(
+        R"([-+]?(?:[0-9]*\.[0-9]+|[0-9]+\.?)(?:[eE][-+]?[0-9]+)?)");
+    std::vector<double> values;
+    for (std::sregex_iterator it(body.begin(), body.end(), numberPattern), end;
+         it != end;
+         ++it)
+    {
+        values.push_back(std::stod(it->str()));
+    }
+    return values;
+}
+
+bool ExtractJsonNumbers(const std::string& content,
+                        const std::string& key,
+                        std::vector<double>& values)
+{
+    std::string body;
+    if (!ExtractJsonArrayBody(content, key, body))
+    {
+        return false;
+    }
+    values = ParseJsonNumbers(body);
+    return true;
+}
+
+std::vector<std::string> ParseJsonStrings(const std::string& body)
+{
+    static const std::regex stringPattern(R"json("([^"]*)")json");
+    std::vector<std::string> values;
+    for (std::sregex_iterator it(body.begin(), body.end(), stringPattern), end;
+         it != end;
+         ++it)
+    {
+        values.push_back((*it)[1].str());
+    }
+    return values;
+}
+
+} // namespace
 
 // split関数の定義
 std::vector<std::string> splitString(const std::string &input, const std::string &delimiter) {
@@ -43,6 +127,9 @@ std::vector<std::string> splitString(const std::string &input, const std::string
 
 APselection::APselection(){
 	std::cout << "=== APselection::APselection ===" << std::endl;
+    m_logisticModelPath =
+        "/home/sota/ns-3.44/machine-learning/baseline_methods/data/models/"
+        "logistic_term80_runs50_seed001.json";
 }
 
 APselection::~APselection(){
@@ -75,6 +162,10 @@ void APselection::init(const ApSelectionInput& input){
     m_handoverGraceCycles = input.handoverGraceCycles;
     m_cycleIndex = 1;
     m_masterLogInitialized = false;
+    if (m_assignmentMethod == "logistic")
+    {
+        m_logisticModelLoaded = LoadLogisticModel();
+    }
 
     {
         std::time_t t = std::time(nullptr);
@@ -190,9 +281,9 @@ void APselection::tmain(){
         {
             greedy_assignment();
         }
-        else if (m_assignmentMethod == "ml")
+        else if (m_assignmentMethod == "logistic")
         {
-            ml_assignment();
+            logistic_assignment();
         }
         else
         {
@@ -456,6 +547,220 @@ void APselection::greedy_assignment() {
 
 void APselection::ml_assignment() {
     NS_FATAL_ERROR("ML assignment method is not implemented yet.");
+}
+
+bool APselection::LoadLogisticModel()
+{
+    std::ifstream ifs(m_logisticModelPath);
+    if (!ifs.is_open())
+    {
+        std::cerr << "[Logistic] 学習済みモデルを開けませんでした: "
+                  << m_logisticModelPath << std::endl;
+        return false;
+    }
+    const std::string content((std::istreambuf_iterator<char>(ifs)),
+                              std::istreambuf_iterator<char>());
+    if (content.find("\"model_type\": \"logistic_regression\"") == std::string::npos)
+    {
+        std::cerr << "[Logistic] model_type を確認できませんでした: "
+                  << m_logisticModelPath << std::endl;
+        return false;
+    }
+
+    std::string featureColumnsBody;
+    if (!ExtractJsonArrayBody(content, "feature_columns", featureColumnsBody))
+    {
+        std::cerr << "[Logistic] feature_columns を読み込めませんでした: "
+                  << m_logisticModelPath << std::endl;
+        return false;
+    }
+    const std::vector<std::string> expectedFeatureColumns = {
+        "app_type",
+        "current_ap",
+        "num_users_ap0",
+        "num_users_ap1",
+        "num_users_ap2",
+        "rtt_ap0",
+        "rtt_ap1",
+        "rtt_ap2",
+        "estimated_tp_ap0",
+        "estimated_tp_ap1",
+        "estimated_tp_ap2",
+    };
+    if (ParseJsonStrings(featureColumnsBody) != expectedFeatureColumns)
+    {
+        std::cerr << "[Logistic] feature_columns の順序が想定と一致しません: "
+                  << m_logisticModelPath << std::endl;
+        return false;
+    }
+
+    std::vector<double> classes;
+    std::vector<double> flatCoef;
+    if (!ExtractJsonNumbers(content, "classes", classes) ||
+        !ExtractJsonNumbers(content, "scaler_mean", m_logisticScalerMean) ||
+        !ExtractJsonNumbers(content, "scaler_scale", m_logisticScalerScale) ||
+        !ExtractJsonNumbers(content, "coef", flatCoef) ||
+        !ExtractJsonNumbers(content, "intercept", m_logisticIntercept))
+    {
+        std::cerr << "[Logistic] モデルパラメータを読み込めませんでした: "
+                  << m_logisticModelPath << std::endl;
+        return false;
+    }
+
+    if (classes.size() != 3 ||
+        m_logisticScalerMean.size() != kLogisticFeatureCount ||
+        m_logisticScalerScale.size() != kLogisticFeatureCount ||
+        flatCoef.size() != classes.size() * kLogisticFeatureCount ||
+        m_logisticIntercept.size() != classes.size())
+    {
+        std::cerr << "[Logistic] モデルパラメータの次元が不正です: "
+                  << m_logisticModelPath << std::endl;
+        return false;
+    }
+
+    m_logisticClasses.clear();
+    for (double value : classes)
+    {
+        m_logisticClasses.push_back(static_cast<int>(value));
+    }
+    if (m_logisticClasses != std::vector<int>({0, 1, 2}))
+    {
+        std::cerr << "[Logistic] APクラスは [0, 1, 2] である必要があります" << std::endl;
+        return false;
+    }
+
+    m_logisticCoef.assign(classes.size(), std::vector<double>(kLogisticFeatureCount, 0.0));
+    for (size_t classIdx = 0; classIdx < classes.size(); ++classIdx)
+    {
+        for (size_t featureIdx = 0; featureIdx < kLogisticFeatureCount; ++featureIdx)
+        {
+            m_logisticCoef[classIdx][featureIdx] =
+                flatCoef[classIdx * kLogisticFeatureCount + featureIdx];
+        }
+    }
+
+    std::cout << "[Logistic] 学習済みモデルを読み込みました: "
+              << m_logisticModelPath << std::endl;
+    return true;
+}
+
+void APselection::KeepCurrentAssignment(const std::string& reason)
+{
+    std::cerr << "[Logistic] " << reason
+              << " 現在の割り当てを維持します。" << std::endl;
+    m_lastAssignment = initial_AP;
+    if (m_handoverCallback)
+    {
+        m_handoverCallback(m_lastAssignment);
+    }
+}
+
+void APselection::logistic_assignment()
+{
+    std::cout << "=== APselection::logistic_assignment() ===" << std::endl;
+    if (!m_logisticModelLoaded)
+    {
+        KeepCurrentAssignment("学習済みモデルを利用できませんでした。");
+        return;
+    }
+    if (aps != 3)
+    {
+        KeepCurrentAssignment("AP数が3ではないため推論できませんでした。");
+        return;
+    }
+
+    std::vector<double> numUsers(aps, 0.0);
+    std::vector<double> tpSumMbps(aps, 0.0);
+    std::vector<uint32_t> tpCount(aps, 0);
+    for (int termIdx = 0; termIdx < terms; ++termIdx)
+    {
+        const int apIdx = initial_AP[termIdx] - 1;
+        if (apIdx < 0 || apIdx >= aps)
+        {
+            KeepCurrentAssignment("現在のAP番号が不正なため推論できませんでした。");
+            return;
+        }
+        numUsers[apIdx] += 1.0;
+        if (termIdx < static_cast<int>(m_has_terminal_tp.size()) &&
+            m_has_terminal_tp[termIdx] &&
+            m_terminal_tp[termIdx] > 0.0)
+        {
+            tpSumMbps[apIdx] += m_terminal_tp[termIdx] * APConstants::BPS_TO_MBPS;
+            tpCount[apIdx] += 1;
+        }
+    }
+
+    std::vector<double> estimatedTp(aps, 0.0);
+    for (int apIdx = 0; apIdx < aps; ++apIdx)
+    {
+        if (tpCount[apIdx] == 0)
+        {
+            KeepCurrentAssignment("AP" + std::to_string(apIdx) +
+                                  " の平均TPを出力できませんでした。");
+            return;
+        }
+        estimatedTp[apIdx] = tpSumMbps[apIdx] / static_cast<double>(tpCount[apIdx]);
+        if (!m_has_rtt[apIdx])
+        {
+            KeepCurrentAssignment("AP" + std::to_string(apIdx) +
+                                  " のRTTを取得できませんでした。");
+            return;
+        }
+    }
+
+    std::vector<int> assignment;
+    assignment.reserve(terms);
+    for (int termIdx = 0; termIdx < terms; ++termIdx)
+    {
+        const std::vector<double> features = {
+            static_cast<double>(initial_app[termIdx]),
+            static_cast<double>(initial_AP[termIdx] - 1),
+            numUsers[0],
+            numUsers[1],
+            numUsers[2],
+            m_monitor_rtt[0],
+            m_monitor_rtt[1],
+            m_monitor_rtt[2],
+            estimatedTp[0],
+            estimatedTp[1],
+            estimatedTp[2],
+        };
+
+        int bestClassIdx = -1;
+        double bestLogit = -std::numeric_limits<double>::infinity();
+        for (size_t classIdx = 0; classIdx < m_logisticClasses.size(); ++classIdx)
+        {
+            double logit = m_logisticIntercept[classIdx];
+            for (size_t featureIdx = 0; featureIdx < features.size(); ++featureIdx)
+            {
+                double scale = m_logisticScalerScale[featureIdx];
+                if (scale == 0.0)
+                {
+                    scale = 1.0;
+                }
+                const double standardized =
+                    (features[featureIdx] - m_logisticScalerMean[featureIdx]) / scale;
+                logit += m_logisticCoef[classIdx][featureIdx] * standardized;
+            }
+            if (logit > bestLogit)
+            {
+                bestLogit = logit;
+                bestClassIdx = static_cast<int>(classIdx);
+            }
+        }
+        if (bestClassIdx < 0)
+        {
+            KeepCurrentAssignment("推論結果を算出できませんでした。");
+            return;
+        }
+        assignment.push_back(m_logisticClasses[bestClassIdx] + 1);
+    }
+
+    m_lastAssignment = assignment;
+    if (m_handoverCallback)
+    {
+        m_handoverCallback(assignment);
+    }
 }
 
 void APselection::StartNewCycle(uint32_t cycleIndex)

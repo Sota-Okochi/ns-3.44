@@ -1,0 +1,100 @@
+{
+  "evaluation_type": "logistic_imitation",
+  "evaluated_at": "2026-05-28T16:15:18.725894+00:00",
+  "model_path": "data/models/logistic_term80_runs50_seed001.json",
+  "input_csv": "data/raw/logistic_teacher_term80_runs50_seed001.csv",
+  "model_type": "logistic_regression",
+  "feature_columns": [
+    "app_type",
+    "current_ap",
+    "num_users_ap0",
+    "num_users_ap1",
+    "num_users_ap2",
+    "rtt_ap0",
+    "rtt_ap1",
+    "rtt_ap2",
+    "estimated_tp_ap0",
+    "estimated_tp_ap1",
+    "estimated_tp_ap2"
+  ],
+  "label_column": "assigned_ap",
+  "notes": {
+    "meaning": "Metrics show how well logistic regression imitates Hungarian assigned_ap labels.",
+    "limitation": "QoE improvement must be evaluated separately in simulation."
+  },
+  "num_samples": 4000,
+  "accuracy": 0.93225,
+  "labels": [
+    0,
+    1,
+    2
+  ],
+  "label_distribution": {
+    "0": 2181,
+    "1": 899,
+    "2": 920
+  },
+  "prediction_distribution": {
+    "0": 2084,
+    "1": 989,
+    "2": 927
+  },
+  "per_class": {
+    "0": {
+      "precision": 0.9952015355086372,
+      "recall": 0.9509399358092618,
+      "f1": 0.9725674091441969,
+      "support": 2181,
+      "tp": 2074,
+      "fp": 10,
+      "fn": 107
+    },
+    "1": {
+      "precision": 0.871587462082912,
+      "recall": 0.9588431590656284,
+      "f1": 0.913135593220339,
+      "support": 899,
+      "tp": 862,
+      "fp": 127,
+      "fn": 37
+    },
+    "2": {
+      "precision": 0.8554476806903991,
+      "recall": 0.8619565217391304,
+      "f1": 0.8586897671900379,
+      "support": 920,
+      "tp": 793,
+      "fp": 134,
+      "fn": 127
+    }
+  },
+  "macro_avg": {
+    "precision": 0.9074122260939829,
+    "recall": 0.9239132055380068,
+    "f1": 0.9147975898515246,
+    "support": 4000
+  },
+  "weighted_avg": {
+    "precision": 0.9352758858980108,
+    "recall": 0.93225,
+    "f1": 0.9330182508658532,
+    "support": 4000
+  },
+  "confusion_matrix": [
+    [
+      2074,
+      0,
+      107
+    ],
+    [
+      10,
+      862,
+      27
+    ],
+    [
+      0,
+      127,
+      793
+    ]
+  ]
+}

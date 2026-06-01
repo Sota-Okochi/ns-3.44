@@ -81,6 +81,9 @@ private:
     void random_assignment(); //ランダム法による割り当て
     void greedy_assignment(); // greedy法による割り当て
     void ml_assignment(); // ML法による割り当て
+    void logistic_assignment(); // ロジスティック回帰による割り当て
+    bool LoadLogisticModel();
+    void KeepCurrentAssignment(const std::string& reason);
     void ResetMonitorStats();
     void RecordHarmonicMean(double value);
     void WriteMasterLog();
@@ -110,6 +113,13 @@ private:
     uint32_t m_rngSeed = 1;                    // 割り当て手法用乱数seed
     bool m_masterLogInitialized = false;       // master_log.csv ヘッダー書き込み済みフラグ
     std::string m_masterLogPath;               // 実行ごとのmaster_logファイルパス
+    std::string m_logisticModelPath;            // 学習済みロジスティック回帰モデル
+    bool m_logisticModelLoaded = false;
+    std::vector<int> m_logisticClasses;
+    std::vector<double> m_logisticScalerMean;
+    std::vector<double> m_logisticScalerScale;
+    std::vector<std::vector<double>> m_logisticCoef;
+    std::vector<double> m_logisticIntercept;
 
 };
 
