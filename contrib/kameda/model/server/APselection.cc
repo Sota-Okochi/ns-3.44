@@ -549,6 +549,7 @@ void APselection::ml_assignment() {
     NS_FATAL_ERROR("ML assignment method is not implemented yet.");
 }
 
+// ロジスティック回帰モデルの読み込み
 bool APselection::LoadLogisticModel()
 {
     std::ifstream ifs(m_logisticModelPath);
@@ -639,15 +640,16 @@ bool APselection::LoadLogisticModel()
         }
     }
 
-    std::cout << "[Logistic] 学習済みモデルを読み込みました: "
+    std::cout << "[Logistic] "
               << m_logisticModelPath << std::endl;
     return true;
 }
 
+// 現在の割り当てを維持
 void APselection::KeepCurrentAssignment(const std::string& reason)
 {
     std::cerr << "[Logistic] " << reason
-              << " 現在の割り当てを維持します。" << std::endl;
+              << " 現在の割り当てを維持" << std::endl;
     m_lastAssignment = initial_AP;
     if (m_handoverCallback)
     {
@@ -655,63 +657,50 @@ void APselection::KeepCurrentAssignment(const std::string& reason)
     }
 }
 
+// ロジスティック回帰による割り当て
 void APselection::logistic_assignment()
 {
     std::cout << "=== APselection::logistic_assignment() ===" << std::endl;
     if (!m_logisticModelLoaded)
     {
-        KeepCurrentAssignment("学習済みモデルを利用できませんでした。");
-        return;
-    }
-    if (aps != 3)
-    {
-        KeepCurrentAssignment("AP数が3ではないため推論できませんでした。");
+        KeepCurrentAssignment("学習済みモデルを利用不可");
         return;
     }
 
-    std::vector<double> numUsers(aps, 0.0);
-    std::vector<double> tpSumMbps(aps, 0.0);
-    std::vector<uint32_t> tpCount(aps, 0);
+    std::vector<double> numUsers(aps, 0.0); 
+    std::vector<double> tpSumMbps(aps, 0.0); // 各APの平均TP
+    std::vector<uint32_t> tpCount(aps, 0); // 有効なTPを取得できた端末数
+
     for (int termIdx = 0; termIdx < terms; ++termIdx)
     {
         const int apIdx = initial_AP[termIdx] - 1;
-        if (apIdx < 0 || apIdx >= aps)
-        {
-            KeepCurrentAssignment("現在のAP番号が不正なため推論できませんでした。");
-            return;
-        }
         numUsers[apIdx] += 1.0;
+
         if (termIdx < static_cast<int>(m_has_terminal_tp.size()) &&
             m_has_terminal_tp[termIdx] &&
             m_terminal_tp[termIdx] > 0.0)
         {
-            tpSumMbps[apIdx] += m_terminal_tp[termIdx] * APConstants::BPS_TO_MBPS;
+            tpSumMbps[apIdx] += m_terminal_tp[termIdx] * APConstants::BPS_TO_MBPS; // 各APの平均TPを加算
             tpCount[apIdx] += 1;
         }
     }
 
-    std::vector<double> estimatedTp(aps, 0.0);
+    std::vector<double> estimatedTp(aps, 0.0); // 各APの推定TP
     for (int apIdx = 0; apIdx < aps; ++apIdx)
     {
         if (tpCount[apIdx] == 0)
         {
-            KeepCurrentAssignment("AP" + std::to_string(apIdx) +
-                                  " の平均TPを出力できませんでした。");
+            KeepCurrentAssignment("AP" + std::to_string(apIdx) + " の平均TPを取得不可");
             return;
         }
-        estimatedTp[apIdx] = tpSumMbps[apIdx] / static_cast<double>(tpCount[apIdx]);
-        if (!m_has_rtt[apIdx])
-        {
-            KeepCurrentAssignment("AP" + std::to_string(apIdx) +
-                                  " のRTTを取得できませんでした。");
-            return;
-        }
+        estimatedTp[apIdx] = tpSumMbps[apIdx] / static_cast<double>(tpCount[apIdx]); // 各APの平均TPを計算
     }
 
     std::vector<int> assignment;
-    assignment.reserve(terms);
+    assignment.reserve(terms); 
     for (int termIdx = 0; termIdx < terms; ++termIdx)
     {
+        // 各端末の特徴量を取得
         const std::vector<double> features = {
             static_cast<double>(initial_app[termIdx]),
             static_cast<double>(initial_AP[termIdx] - 1),
@@ -726,28 +715,29 @@ void APselection::logistic_assignment()
             estimatedTp[2],
         };
 
-        int bestClassIdx = -1;
-        double bestLogit = -std::numeric_limits<double>::infinity();
+        int bestClassIdx = -1; // 最適なAPクラス
+        double bestLogit = -std::numeric_limits<double>::infinity(); // 最適なAPクラスのロジット
         for (size_t classIdx = 0; classIdx < m_logisticClasses.size(); ++classIdx)
         {
             double logit = m_logisticIntercept[classIdx];
             for (size_t featureIdx = 0; featureIdx < features.size(); ++featureIdx)
             {
                 double scale = m_logisticScalerScale[featureIdx];
-                if (scale == 0.0)
+                if (scale == 0.0) // 0除算防止
                 {
                     scale = 1.0;
                 }
                 const double standardized =
-                    (features[featureIdx] - m_logisticScalerMean[featureIdx]) / scale;
-                logit += m_logisticCoef[classIdx][featureIdx] * standardized;
+                    (features[featureIdx] - m_logisticScalerMean[featureIdx]) / scale; // 標準化：(現在の値 - 学習データの平均値) / 学習データの標準偏差
+                logit += m_logisticCoef[classIdx][featureIdx] * standardized; // ロジットを計算：係数 * 標準化した値
             }
-            if (logit > bestLogit)
+            if (logit > bestLogit) // 最適なAPクラスを更新
             {
                 bestLogit = logit;
                 bestClassIdx = static_cast<int>(classIdx);
             }
         }
+
         if (bestClassIdx < 0)
         {
             KeepCurrentAssignment("推論結果を算出できませんでした。");
