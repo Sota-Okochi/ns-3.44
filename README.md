@@ -146,9 +146,9 @@ cd ~/ns-3.44
 ```
 
 ```
-./ns3 run "master --method=ml"
+./ns3 run "master --method=logistic"
 ```
-- 現状，実行可能な手法は `random` と `greedy` です．
+- 現状，実行可能な手法は `random` と `greedy` ，`logistic` です．
 - `ml` は深層強化学習連携用の予定枠であり，現時点では未実装または開発中のため，通常の実験では使用しないでください．
 - 乱数 seed などの実験条件は `data/setting.json` で管理します．
 
@@ -159,12 +159,12 @@ cd ~/ns-3.44
 |---|---|
 | `baseStations` | 基地局数 |
 | `terminals` | 端末数 |
+| `rngSeed` | 乱数 seed（初期状態を変更） |
 | `numCycles` | 測定・割り当てサイクル数 |
 | `cycleTimeSec` | 1サイクルの長さ |
 | `monitorStartSec` / `monitorStopSec` | RTT/TP 測定ウィンドウ |
 | `browserNumRequests` | ブラウザ通信のリクエスト数 |
 | `handoverGraceCycles` | ハンドオーバ後の猶予サイクル数 |
-| `rngSeed` | 乱数 seed |
 
 
 ### 予備コマンド
@@ -191,7 +191,7 @@ OUTPUT/master_log_<端末数>_<method>_<YYYYMMDD_HHMMSS>.csv
 
 ```text
 OUTPUT/master_log_10_random_20260523_174000.csv
-OUTPUT/master_log_10_greedy_20260523_202742.csv
+OUTPUT/master_log_10_logistic_20260523_202742.csv
 ```
 
 CSV の列:
@@ -214,29 +214,36 @@ CSV の列:
 
 ```text
 ns-3.44/
-├── master/                        実験の中心となるプログラム
-│   ├── main.cc                    実行を始めるファイル
-│   ├── NetSim.h                   使う変数や設定のまとめ
-│   ├── config.cc                  設定ファイルを読み込む
-│   ├── applications.cc            通信アプリの設定を行う
-│   ├── topology.cc                ネットワークの形を作る
-│   ├── handover.cc                ハンドオーバ処理を行う
-│   ├── RttForwarderApp.cc         RTT結果を転送する処理
-│   └── RttForwarderApp.h          上の処理の宣言
-├── data/                          実験で使う入力データ
-│   ├── setting.json               実験条件の設定
-│   ├── Verbose_Jurassic.dat       映像通信で使うデータ
-│   └── YouTube1080p_2min.dat      動画通信で使うデータ
-├── OUTPUT/                        実行結果の保存先
-├── doc/                           設計や要件のメモ
-├── contrib/                       追加で使う外部モジュール
-│   ├── kameda/                    割り当て処理などの追加機能
-│   └── nr/                        5G関連の追加機能
-├── src/                           ns-3本体の機能
-├── CMakeLists.txt                 ビルド全体の設定
-├── ns3                            configureやbuild用の実行ファイル
-├── VERSION                        ns-3のバージョン情報
-└── README.md                      このプロジェクトの説明
+├── master/                        ns-3上で実験シナリオを構築・実行する中心プログラム
+│   ├── main.cc                    エントリポイント
+│   ├── NetSim.h                   シミュレーションで使うクラス，変数，関数の宣言ヘッダ
+│   ├── config.cc                  setting.jsonの読み込みと初期条件の設定
+│   ├── applications.cc            ブラウザ，動画，音声，ゲームなどの通信アプリの設定
+│   ├── topology.cc                NR，Wi-Fi，ルータ，サーバ間のネットワーク構成の作成
+│   ├── handover.cc                AP割り当て結果に基づくハンドオーバ処理の実行
+│   ├── RttForwarderApp.cc         監視端末が取得したRTT結果を転送する処理
+│   └── RttForwarderApp.h          RTT転送処理で使うクラスと関数の宣言
+├── machine-learning/              割り当て手法の学習，評価，実験データ管理を行うPythonコード
+│   └── baseline_methods/          ロジスティック回帰の比較手法を作成・評価する環境
+│       ├── main.py                エントリポイント
+│       ├── config/                AP，アプリ，シミュレーション条件の設定ファイル
+│       ├── data/                  学習用データ，学習済みモデル，評価結果の保存先
+│       ├── scripts/               教師データ生成，モデル学習，評価を行うスクリプト
+│       └── simulation/            比較手法用シミュレーションの内部実装
+├── data/                          ns-3実験で読み込む設定ファイル
+│   ├── setting.json               端末数，サイクル数，乱数seedなどの基本実験条件
+│   ├── Verbose_Jurassic.dat       映像通信のトラフィック生成に使う入力データ
+│   └── YouTube1080p_2min.dat      YouTube動画通信のトラフィック生成に使う入力データ
+├── OUTPUT/                        CSVログの保存先
+├── doc/                           ネットワーク構成，割り当て方針，DRL設計などの設計資料
+├── contrib/                       標準ns-3に追加して使用する外部・独自モジュール
+│   ├── kameda/                    AP選択や関連処理で利用する追加機能（先行研究）
+│   └── nr/                        5G NRネットワークを構築するための追加モジュール
+├── src/                           ns-3本体が提供する標準モジュール群
+├── CMakeLists.txt                 プロジェクト全体のビルド設定
+├── ns3                            configure，build，runなどを実行する操作用スクリプト
+├── VERSION                        使用しているns-3のバージョン情報
+└── README.md                      本プロジェクトの概要，実行方法，構成の説明
 ```
 
 ## 進捗状況
@@ -254,9 +261,8 @@ ns-3.44/
 | ✅ 完了 | 連続に端末満足度の調和平均の計測 |
 | ✅ 完了 | TPは各端末で取得 |
 | ✅ 完了 | 各アプリケーションのデータ量を設定 |
-| ▶️ 進行中 | 強化学習を実装する上での学習データの収集 |
-| ⬜ 未着手 | 強化学習ベースの手法の検討と実装 |
-| ⬜ 未着手 | ns-3とPythonのソケット通信 |
+| ✅ 完了 | 比較手法であるロジスティック回帰の実装完了 |
+| ▶️ 進行中 | 強化学習ベースの手法の検討と実装 |
 | ⬜ 未着手 | 端末の移動の実装（実環境想定） |
 | ⬜ 未着手 | 端末のアプリケーション変化（実環境想定） |
 
