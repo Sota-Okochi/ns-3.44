@@ -204,11 +204,11 @@ void NetSim::ConfigureApMobility()
         }
         else if (i == 1)
         {
-            posList->Add(Vector(5.0, 0.0, 3.0));
+            posList->Add(Vector(-8.0, 5.0, 3.0));
         }
         else if (i == 2)
         {
-            posList->Add(Vector(-5.0, 0.0, 3.0));
+            posList->Add(Vector(8.0, 5.0, 3.0));
         }
         else
         {
@@ -242,11 +242,17 @@ void NetSim::ConfigureTermMobility()
         }
     }
 
-    // 端末をAPの近く（半径 radius メートル以内）にランダム配置
-    const double radius = 20.0;
+    // Dense station/event-hall scenario.
+    // UEs are split into two dense clusters:
+    //   - 50% AP1-side cluster
+    //   - 50% AP2-side cluster
+    // The cluster centers are intentionally closer to the center than the AP
+    // positions so that all UEs stay inside the overlapping coverage of the
+    // two relatively short-range Wi-Fi APs and the central 5G gNB.
+    const double clusterRadius = 4.5;
+    const Vector ap1SideCenter(-5.0, 2.0, 1.5);
+    const Vector ap2SideCenter(5.0, 2.0, 1.5);
     Ptr<UniformRandomVariable> rng = CreateObject<UniformRandomVariable>();
-    const Vector ap0Center =
-        (!apPositions.empty()) ? apPositions[0] : Vector(0.0, 0.0, 10.0);
 
     for (uint32_t idx = 0; idx < terms.size(); ++idx)
     {
@@ -256,14 +262,22 @@ void NetSim::ConfigureTermMobility()
             continue;
         }
 
-        // AP0 を中心に半径20m以内へ配置
-        Vector apPos = ap0Center;
+        // Exact 50/50 split for even terminal counts. If the terminal count
+        // is odd, AP2-side gets one extra UE.
+        const Vector clusterCenter =
+            (idx < terms.size() / 2) ? ap1SideCenter : ap2SideCenter;
 
-        // AP周囲に一様ランダム配置（円形）
+        // Uniform random placement inside a circular dense cluster.
         double angle = rng->GetValue(0.0, 2.0 * M_PI);
-        double r = radius * std::sqrt(rng->GetValue(0.0, 1.0));
-        double x = apPos.x + r * std::cos(angle);
-        double y = apPos.y + r * std::sin(angle);
+        double r = clusterRadius * std::sqrt(rng->GetValue(0.0, 1.0));
+        double x = clusterCenter.x + r * std::cos(angle);
+        double y = clusterCenter.y + r * std::sin(angle);
+
+        if (idx < m_termData.size())
+        {
+            m_termData[idx].x = x;
+            m_termData[idx].y = y;
+        }
 
         Ptr<ListPositionAllocator> pos = CreateObject<ListPositionAllocator>();
         pos->Add(Vector(x, y, 1.5));
@@ -313,9 +327,9 @@ Vector NetSim::GetMonitorPosition(uint32_t apId) const
     case 0:
         return Vector(0.0, 0.0, 1.5);
     case 1:
-        return Vector(5.0, 0.0, 1.5);
+        return Vector(-8.0, 5.0, 1.5);
     case 2:
-        return Vector(-5.0, 0.0, 1.5);
+        return Vector(8.0, 5.0, 1.5);
     default:
         return Vector(0.0, 0.0, 1.5);
     }
@@ -509,8 +523,8 @@ void NetSim::ConfigureWifiForAP2(){
                 "BeaconInterval", TimeValue(MicroSeconds(52224)));
 
     // AP2 access point and stations both transmit at 15 dBm.
-    phy.Set("TxPowerStart", DoubleValue(15.0));
-    phy.Set("TxPowerEnd", DoubleValue(15.0));
+    phy.Set("TxPowerStart", DoubleValue(20.0));
+    phy.Set("TxPowerEnd", DoubleValue(20.0));
     wifiDevices[apIndex] = wifi.Install(phy, mac, wifiNodes[apIndex].Get(0));
 
     mac.SetType("ns3::StaWifiMac",

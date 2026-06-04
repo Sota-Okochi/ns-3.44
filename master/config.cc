@@ -291,6 +291,7 @@ void NetSim::Init(int argc, char *argv[]){
     {
         return;
     }
+    std::cout << "setting.json seed: \"rngSeed\": " << setting.rngSeed << std::endl;
     APnum = static_cast<uint32_t>(setting.baseStations);
     termNum = static_cast<uint32_t>(setting.terminals);
     m_cycleCount             = static_cast<uint32_t>(setting.numCycles);
