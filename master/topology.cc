@@ -329,8 +329,8 @@ void NetSim::ConfigureNrForAp0()
         return;
     }
 
-    const double nrCenterFreqHz = 3.5e9;   // 3.5 GHz mid-band
-    const double nrChannelBwHz = 100e6;
+    const double nrCenterFreqHz = 3.5e9;   // 周波数帯域の中心
+    const double nrChannelBwHz = 100e6;    // チャネル帯域幅
     const uint8_t nrNumComponentCarriers = 1;
 
     // RLC/UM バッファを拡大し、PDCP破棄を無効化（デフォルト10KBでは即オーバーフロー）
@@ -444,6 +444,9 @@ void NetSim::ConfigureWifiForAP1(){
                 "QosSupported", BooleanValue(true),
                 "BeaconInterval", TimeValue(MicroSeconds(52224)));
 
+    // AP1 access point transmits at 20 dBm; stations transmit at 15 dBm.
+    phy.Set("TxPowerStart", DoubleValue(20.0));
+    phy.Set("TxPowerEnd", DoubleValue(20.0));
     wifiDevices[apIndex] = wifi.Install(phy, mac, wifiNodes[apIndex].Get(0));
 
     mac.SetType("ns3::StaWifiMac",
@@ -451,6 +454,8 @@ void NetSim::ConfigureWifiForAP1(){
                 "ActiveProbing", BooleanValue(true),
                 "QosSupported", BooleanValue(true));
 
+    phy.Set("TxPowerStart", DoubleValue(15.0));
+    phy.Set("TxPowerEnd", DoubleValue(15.0));
     for(uint32_t i=1; i<wifiNodes[apIndex].GetN(); i++){
         NetDeviceContainer temp = wifi.Install(phy, mac, wifiNodes[apIndex].Get(i));
         wifiDevices[apIndex].Add(temp);
@@ -478,6 +483,9 @@ void NetSim::ConfigureWifiForAP2(){
     Ptr<LogDistancePropagationLossModel> loss = CreateObject<LogDistancePropagationLossModel>();
     spectrumChannel->AddPropagationLossModel(loss);
     phy.SetChannel(spectrumChannel);
+    // AP2: 802.11ax on 2.4 GHz band, channel 1, 20 MHz width.
+    // ChannelSettings format: {channel number, channel width (MHz), PHY band, primary20 index}
+    phy.Set("ChannelSettings", StringValue("{1, 20, BAND_2_4GHZ, 0}"));
     phy.Set("RxGain", DoubleValue(0));
     phy.Set("Antennas", UintegerValue(1));
     phy.Set("MaxSupportedTxSpatialStreams", UintegerValue(1));
@@ -486,7 +494,6 @@ void NetSim::ConfigureWifiForAP2(){
 
     WifiHelper wifi;
     wifi.SetStandard(WIFI_STANDARD_80211ax);
-    Config::SetDefault("ns3::WifiPhy::ChannelWidth", UintegerValue(40));
     wifi.SetRemoteStationManager("ns3::IdealWifiManager");
     Config::SetDefault ("ns3::WifiRemoteStationManager::RtsCtsThreshold", UintegerValue (2200));
     wifi.ConfigHeOptions("BssColor", UintegerValue((apIndex % 63) + 1));
@@ -501,6 +508,9 @@ void NetSim::ConfigureWifiForAP2(){
                 "QosSupported", BooleanValue(true),
                 "BeaconInterval", TimeValue(MicroSeconds(52224)));
 
+    // AP2 access point and stations both transmit at 15 dBm.
+    phy.Set("TxPowerStart", DoubleValue(15.0));
+    phy.Set("TxPowerEnd", DoubleValue(15.0));
     wifiDevices[apIndex] = wifi.Install(phy, mac, wifiNodes[apIndex].Get(0));
 
     mac.SetType("ns3::StaWifiMac",
@@ -508,6 +518,8 @@ void NetSim::ConfigureWifiForAP2(){
                 "ActiveProbing", BooleanValue(true),
                 "QosSupported", BooleanValue(true));
 
+    phy.Set("TxPowerStart", DoubleValue(15.0));
+    phy.Set("TxPowerEnd", DoubleValue(15.0));
     for(uint32_t i=1; i<wifiNodes[apIndex].GetN(); i++){
         NetDeviceContainer temp = wifi.Install(phy, mac, wifiNodes[apIndex].Get(i));
         wifiDevices[apIndex].Add(temp);
@@ -562,6 +574,7 @@ void NetSim::ConfigureServerCerLinks()
     }
 }
 
+// 5G経由のCERリンク設定
 void NetSim::ConfigurePgwCerLink()
 {
     if (m_pgwCerNodes.GetN() != 2)
@@ -569,20 +582,41 @@ void NetSim::ConfigurePgwCerLink()
         return;
     }
     PointToPointHelper pointToPoint;
-    pointToPoint.SetDeviceAttribute("DataRate", StringValue("100Mbps"));
-    pointToPoint.SetChannelAttribute("Delay", StringValue("0.1ms"));
-    pointToPoint.SetQueue("ns3::DropTailQueue<Packet>", "MaxSize", StringValue("230p"));
+    pointToPoint.SetDeviceAttribute("DataRate", StringValue("80Mbps"));
+    pointToPoint.SetChannelAttribute("Delay", StringValue("10ms"));
+    pointToPoint.SetQueue("ns3::DropTailQueue<Packet>", "MaxSize", StringValue("400p"));
     m_pgwCerDevices = pointToPoint.Install(m_pgwCerNodes);
 }
 
+// 各Wi-Fi経由のP2Pリンク設定
 void NetSim::ConfigureP2P(uint32_t count){
     std::cout << "==== ConfigureP2P ====" << std::endl;
     NS_LOG_FUNCTION(this);
 
     PointToPointHelper pointToPoint;
-    pointToPoint.SetDeviceAttribute  ("DataRate", StringValue ("40Mbps"));
-    pointToPoint.SetChannelAttribute ("Delay", StringValue ("0.1ms"));
-    pointToPoint.SetQueue ("ns3::DropTailQueue<Packet>", "MaxSize", StringValue ("150p"));
+    std::string dataRate = "40Mbps";
+    std::string delay = "0.1ms";
+    std::string queueSize = "150p";
+
+    // AP1: medium-capacity, low-latency Wi-Fi.
+    if (count == 1)
+    {
+        dataRate = "40Mbps";
+        delay = "3ms";
+        queueSize = "150p";
+    }
+    // AP2: lightweight, lowest-latency Wi-Fi. Video traffic should be difficult,
+    // while browser / RTT-sensitive traffic can still be served for a small number of UEs.
+    else if (count == 2)
+    {
+        dataRate = "20Mbps";
+        delay = "0.1ms";
+        queueSize = "50p";
+    }
+
+    pointToPoint.SetDeviceAttribute("DataRate", StringValue(dataRate));
+    pointToPoint.SetChannelAttribute("Delay", StringValue(delay));
+    pointToPoint.SetQueue("ns3::DropTailQueue<Packet>", "MaxSize", StringValue(queueSize));
     p2pDevices[count] = pointToPoint.Install (p2pNodes[count]);
     // std::stringstream ss;
     // ss << OUTPUT_DIR << "pointToPoint" << count;

@@ -716,7 +716,7 @@ void APselection::logistic_assignment()
         };
 
         int bestClassIdx = -1; // 最適なAPクラス
-        double bestLogit = -std::numeric_limits<double>::infinity(); // 最適なAPクラスのロジット
+        double bestLogit = -std::numeric_limits<double>::infinity(); // 最適なAPクラスのスコア（ロジット）
         for (size_t classIdx = 0; classIdx < m_logisticClasses.size(); ++classIdx)
         {
             double logit = m_logisticIntercept[classIdx];
@@ -740,7 +740,7 @@ void APselection::logistic_assignment()
 
         if (bestClassIdx < 0)
         {
-            KeepCurrentAssignment("推論結果を算出できませんでした。");
+            KeepCurrentAssignment("推論結果を算出不可");
             return;
         }
         assignment.push_back(m_logisticClasses[bestClassIdx] + 1);

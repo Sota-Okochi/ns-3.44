@@ -275,7 +275,7 @@ void NetSim::Init(int argc, char *argv[]){
     NS_LOG_FUNCTION(this);
 
     CommandLine cmd;
-    cmd.AddValue("method", "Assignment method: random, greedy, logistic, ml", m_assignmentMethod);
+    cmd.AddValue("method", "Assignment method: random, greedy, logistic", m_assignmentMethod);
     cmd.AddValue("mob", "1 is constant, 2 is randomwalk", m_mob);
     cmd.Parse(argc, argv);
 
@@ -330,15 +330,15 @@ void NetSim::Init(int argc, char *argv[]){
     {
         TermData data;
         const double appDraw = appRand->GetValue(0.0, 1.0);
-        if (appDraw < 0.40)
+        if (appDraw < 0.25)
         {
             data.use_appli = 1;
         }
-        else if (appDraw < 0.80)
+        else if (appDraw < 0.60)
         {
             data.use_appli = 2;
         }
-        else if (appDraw < 0.86)
+        else if (appDraw < 0.75)
         {
             data.use_appli = 3;
         }
