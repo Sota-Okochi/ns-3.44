@@ -343,7 +343,7 @@ void NetSim::ConfigureNrForAp0()
         return;
     }
 
-    const double nrCenterFreqHz = 3.5e9;   // 周波数帯域の中心
+    const double nrCenterFreqHz = 3.7e9;   // 周波数帯域の中心
     const double nrChannelBwHz = 100e6;    // チャネル帯域幅
     const uint8_t nrNumComponentCarriers = 1;
 
@@ -597,7 +597,7 @@ void NetSim::ConfigurePgwCerLink()
     }
     PointToPointHelper pointToPoint;
     pointToPoint.SetDeviceAttribute("DataRate", StringValue("80Mbps"));
-    pointToPoint.SetChannelAttribute("Delay", StringValue("10ms"));
+    pointToPoint.SetChannelAttribute("Delay", StringValue("15ms"));
     pointToPoint.SetQueue("ns3::DropTailQueue<Packet>", "MaxSize", StringValue("400p"));
     m_pgwCerDevices = pointToPoint.Install(m_pgwCerNodes);
 }
@@ -616,16 +616,16 @@ void NetSim::ConfigureP2P(uint32_t count){
     if (count == 1)
     {
         dataRate = "40Mbps";
-        delay = "3ms";
-        queueSize = "150p";
+        delay = "9ms";
+        queueSize = "200p";
     }
     // AP2: lightweight, lowest-latency Wi-Fi. Video traffic should be difficult,
     // while browser / RTT-sensitive traffic can still be served for a small number of UEs.
     else if (count == 2)
     {
         dataRate = "20Mbps";
-        delay = "0.1ms";
-        queueSize = "50p";
+        delay = "3ms";
+        queueSize = "100p";
     }
 
     pointToPoint.SetDeviceAttribute("DataRate", StringValue(dataRate));
