@@ -22,10 +22,14 @@ int main(int argc, char *argv[]){
     sim.RunSim();
 
     const auto wallClockEnd = std::chrono::steady_clock::now();
-    const std::chrono::duration<double> elapsed = wallClockEnd - wallClockStart;
+    const auto elapsedMinutes =
+        std::chrono::duration_cast<std::chrono::minutes>(wallClockEnd - wallClockStart);
+    const auto hours = elapsedMinutes.count() / 60;
+    const auto minutes = elapsedMinutes.count() % 60;
+
     std::cout << "=====WallClock::Elapsed()=====" << std::endl;
-    std::cout << "simulation_execution_time_sec="
-              << std::fixed << std::setprecision(3) << elapsed.count()
+    std::cout << "simulation_execution_time="
+              << hours << "時間" << minutes << "分"
               << std::endl;
 
     return 0;
