@@ -597,8 +597,8 @@ void NetSim::ConfigurePgwCerLink()
     }
     PointToPointHelper pointToPoint;
     pointToPoint.SetDeviceAttribute("DataRate", StringValue("80Mbps"));
-    pointToPoint.SetChannelAttribute("Delay", StringValue("15ms"));
-    pointToPoint.SetQueue("ns3::DropTailQueue<Packet>", "MaxSize", StringValue("400p"));
+    pointToPoint.SetChannelAttribute("Delay", StringValue("20ms"));
+    pointToPoint.SetQueue("ns3::DropTailQueue<Packet>", "MaxSize", StringValue("600p"));
     m_pgwCerDevices = pointToPoint.Install(m_pgwCerNodes);
 }
 
@@ -616,16 +616,16 @@ void NetSim::ConfigureP2P(uint32_t count){
     if (count == 1)
     {
         dataRate = "40Mbps";
-        delay = "9ms";
-        queueSize = "200p";
+        delay = "14ms";
+        queueSize = "300p";
     }
     // AP2: lightweight, lowest-latency Wi-Fi. Video traffic should be difficult,
     // while browser / RTT-sensitive traffic can still be served for a small number of UEs.
     else if (count == 2)
     {
         dataRate = "20Mbps";
-        delay = "3ms";
-        queueSize = "100p";
+        delay = "7ms";
+        queueSize = "150p";
     }
 
     pointToPoint.SetDeviceAttribute("DataRate", StringValue(dataRate));
