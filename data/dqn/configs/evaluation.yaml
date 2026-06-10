@@ -1,0 +1,51 @@
+# Evaluation configuration for DQN experiments.
+# Evaluation seeds must not be used for training or episode collection.
+
+evaluation:
+  scenario_name: static_80ue_5step
+
+  seeds:
+    - 1001
+    - 1002
+    - 1003
+    - 1004
+    - 1005
+    - 1006
+    - 1007
+    - 1008
+    - 1009
+    - 1010
+
+  methods:
+    - no_switch
+    - random
+    - rulebase
+    - dqn
+
+  metrics:
+    primary:
+      - harmonic_mean
+
+    secondary:
+      - num_unsatisfied_users
+      - average_tp_mbps
+      - average_rtt_ms
+      - switch_count
+      - num_degraded_users
+      - reward
+
+  aggregation:
+    by:
+      - method
+      - seed
+
+    statistics:
+      - mean
+      - std
+      - min
+      - max
+
+  output:
+    result_dir: OUTPUT/dqn/data/results
+    summary_file: evaluation_summary_static_80ue_5step.csv
+    per_seed_file: evaluation_per_seed_static_80ue_5step.csv

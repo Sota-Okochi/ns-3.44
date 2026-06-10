@@ -1,0 +1,21 @@
+# Action CSV format for DQN inference.
+# The initial implementation follows Option A:
+# the target UE is selected outside DQN, and DQN outputs only selected_bs_id.
+
+action_file:
+  path_template: OUTPUT/dqn/data/actions/{scenario_name}_{method}_seed{seed}.csv
+
+  columns:
+    - seed
+    - cycle_id
+    - target_ue_id
+    - selected_bs_id
+
+  selected_bs_id_mapping:
+    0: 5g_gnb
+    1: wifi_ap_1
+    2: wifi_ap_2
+
+  notes:
+    - selected_bs_id is the DQN action.
+    - If selected_bs_id equals the current BS, no handover is performed.

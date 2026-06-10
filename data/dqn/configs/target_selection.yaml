@@ -1,0 +1,27 @@
+# Target UE selection rule for DQN Option A.
+# DQN selects only selected_bs_id; target_ue_id is selected by this rule.
+# Use the same rule for episode collection, DQN inference, and evaluation unless explicitly comparing target-selection policies.
+
+target_selection:
+  policy: lowest_unsatisfied_or_high_satisfaction
+
+  unsatisfied:
+    enabled: true
+    threshold: 0.7
+    select_rule: min_satisfaction
+
+  high_satisfaction:
+    enabled: true
+    threshold: 1.4
+    select_rule: max_satisfaction
+
+  # Priority: first select the lowest-satisfaction UE among unsatisfied UEs.
+  # If no unsatisfied UE exists, select a high-satisfaction UE.
+  priority_order:
+    - unsatisfied
+    - high_satisfaction
+
+  # Fallback: if neither unsatisfied nor high-satisfaction candidates exist,
+  # select the UE with the minimum satisfaction among all users.
+  fallback:
+    if_no_candidate: min_satisfaction_all_users

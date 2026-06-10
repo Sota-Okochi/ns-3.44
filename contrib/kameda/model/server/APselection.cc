@@ -268,8 +268,6 @@ void APselection::tmain(){
     cal_traffic_request();
     // 割り当て前端末満足度の調和平均の計算
     cal_initial_harmonic_mean();
-    // master_log.csv に割り当て前の状態を記録
-    WriteMasterLog();
 
     if (m_totalCycles == 0 || m_cycleIndex < m_totalCycles)
     {
@@ -285,11 +283,22 @@ void APselection::tmain(){
         {
             logistic_assignment();
         }
+        else if (m_assignmentMethod == "no_switch")
+        {
+            m_lastAssignment = initial_AP;
+        }
         else
         {
             NS_FATAL_ERROR("Unknown assignment method: " << m_assignmentMethod);
         }
     }
+    else
+    {
+        m_lastAssignment = initial_AP;
+    }
+
+    // master_log.csv に現在状態と、このサイクルで選択された行動を記録
+    WriteMasterLog();
 
     // std::cout << "=== APselection::tmain() END ===" << std::endl;
 }
@@ -432,54 +441,11 @@ void APselection::random_assignment() {
 void APselection::greedy_assignment() {
     std::cout << "=== APselection::greedy_assignment() ===" << std::endl;
 
-    // master_log を読み込み、現在サイクルの端末満足度を取得
-    const std::string filePath = m_masterLogPath;
-    std::ifstream ifs(filePath);
-    if (!ifs.is_open())
-    {
-        std::cerr << "greedy_assignment: " << filePath << " を開けません" << std::endl;
-        return;
-    }
-
-    // 端末ごとの満足度を格納（0ベースインデックス）
+    // 端末ごとの満足度を現在のTP/RTTとアプリ情報から算出する。
+    // master_log の列変更に影響されないよう、CSV読み込みには依存しない。
     std::vector<double> satisfactionPerTerm(terms, -1.0);
-    std::vector<bool> hasSatisfaction(terms, false);
-
-    std::string line;
-    // ヘッダー行をスキップ
-    std::getline(ifs, line);
-
-    while (std::getline(ifs, line))
-    {
-        std::vector<std::string> cols = splitString(line, ",");
-        if (cols.size() < 7)
-        {
-            continue;
-        }
-        // CSVカラム: サイクル, 端末, AP, アプリ, ネットワーク指標, 通信品質, 端末満足度
-        int cycle = std::stoi(cols[0]);
-        if (cycle != static_cast<int>(m_cycleIndex))
-        {
-            continue;
-        }
-        int termNo = std::stoi(cols[1]);    // 1ベース
-        double satisfaction = std::stod(cols[6]);
-        int termIdx = termNo - 1;           // 0ベースに変換
-        if (termIdx >= 0 && termIdx < terms)
-        {
-            satisfactionPerTerm[termIdx] = satisfaction;
-            hasSatisfaction[termIdx] = true;
-        }
-    }
-    ifs.close();
-
-    // 当該サイクル行が欠損していた端末は、現在のTP/RTTとアプリ情報から満足度を再計算
     for (int i = 0; i < terms; ++i)
     {
-        if (hasSatisfaction[i])
-        {
-            continue;
-        }
         int apIdx = initial_AP[i] - 1;
         satisfactionPerTerm[i] = calculate_satisfaction(i, apIdx);
     }
@@ -543,10 +509,6 @@ void APselection::greedy_assignment() {
     {
         m_handoverCallback(assignment);
     }
-}
-
-void APselection::ml_assignment() {
-    NS_FATAL_ERROR("ML assignment method is not implemented yet.");
 }
 
 // ロジスティック回帰モデルの読み込み
@@ -849,13 +811,101 @@ void APselection::WriteMasterLog()
     if (!m_masterLogInitialized)
     {
         std::ofstream ofs(filePath, std::ios::trunc);
-        ofs << "サイクル, 端末, AP, アプリ, ネットワーク指標, 通信品質, 端末満足度, 計測有効" << std::endl;
+        ofs << "episode_id,"
+            << "seed,"
+            << "cycle_id,"
+            << "ue_id,"
+            << "current_bs_id,"
+            << "app_type,"
+            << "tp_mbps,"
+            << "rtt_ms,"
+            << "satisfaction,"
+            << "satisfaction_class,"
+            << "num_users_on_current_bs,"
+            << "harmonic_mean,"
+            << "num_unsatisfied_users,"
+            << "target_ue_flag,"
+            << "action_selected_bs_id,"
+            << "switch_flag,"
+            << "reward,"
+            << "measurement_valid" << std::endl;
         ofs.close();
         m_masterLogInitialized = true;
     }
 
     std::ofstream ofs(filePath, std::ios::app);
-    ofs << std::fixed << std::setprecision(2);
+    ofs << std::fixed << std::setprecision(6);
+
+    const std::string episodeId =
+        "terms" + std::to_string(terms) +
+        "_method" + m_assignmentMethod +
+        "_seed" + std::to_string(m_rngSeed);
+
+    const double harmonicMean =
+        m_cycleHarmonicMeans.empty() ? 0.0 : m_cycleHarmonicMeans.back();
+    const double reward =
+        (m_cycleHarmonicMeans.size() >= 2)
+            ? (m_cycleHarmonicMeans.back() - m_cycleHarmonicMeans[m_cycleHarmonicMeans.size() - 2])
+            : 0.0;
+
+    std::vector<int> usersPerAp(aps, 0);
+    for (int i = 0; i < terms; ++i)
+    {
+        const int apIdx = initial_AP[i] - 1;
+        if (apIdx >= 0 && apIdx < aps)
+        {
+            usersPerAp[apIdx] += 1;
+        }
+    }
+
+    std::vector<double> satisfactions(terms, APConstants::MIN_SATISFACTION_THRESHOLD);
+    int numUnsatisfiedUsers = 0;
+    int targetUeIdx = -1;
+    double minUnsatisfied = std::numeric_limits<double>::infinity();
+    int highSatisfactionIdx = -1;
+    double maxHighSatisfaction = -std::numeric_limits<double>::infinity();
+    int minAllIdx = -1;
+    double minAllSatisfaction = std::numeric_limits<double>::infinity();
+
+    constexpr double kUnsatisfiedThreshold = 0.7;
+    constexpr double kHighSatisfactionThreshold = 1.4;
+
+    for (int i = 0; i < terms; ++i)
+    {
+        const int apIdx = initial_AP[i] - 1;
+        const double satisfaction = calculate_satisfaction(i, apIdx);
+        satisfactions[i] = satisfaction;
+
+        if (satisfaction < kUnsatisfiedThreshold)
+        {
+            ++numUnsatisfiedUsers;
+            if (satisfaction < minUnsatisfied)
+            {
+                minUnsatisfied = satisfaction;
+                targetUeIdx = i;
+            }
+        }
+        if (satisfaction >= kHighSatisfactionThreshold &&
+            satisfaction > maxHighSatisfaction)
+        {
+            maxHighSatisfaction = satisfaction;
+            highSatisfactionIdx = i;
+        }
+        if (satisfaction < minAllSatisfaction)
+        {
+            minAllSatisfaction = satisfaction;
+            minAllIdx = i;
+        }
+    }
+
+    if (targetUeIdx < 0)
+    {
+        targetUeIdx = highSatisfactionIdx;
+    }
+    if (targetUeIdx < 0)
+    {
+        targetUeIdx = minAllIdx;
+    }
 
     for (int i = 0; i < terms; ++i)
     {
@@ -867,48 +917,57 @@ void APselection::WriteMasterLog()
         bool isTpApp = (appNum == static_cast<int>(APConstants::AppType::BROWSER) ||
                         appNum == static_cast<int>(APConstants::AppType::VIDEO));
 
-        std::string metricLabel = isTpApp ? "TP" : "RTT";
-
-        // 通信品質の値を算出
-        std::string qualityStr;
-        if (isTpApp)
+        double tpMbps = 0.0;
+        if (i >= 0 &&
+            i < static_cast<int>(m_has_terminal_tp.size()) &&
+            m_has_terminal_tp[i] &&
+            m_terminal_tp[i] > 0.0)
         {
-            double measuredTpMbps = 0.0;
-            if (i >= 0 &&
-                i < static_cast<int>(m_has_terminal_tp.size()) &&
-                m_has_terminal_tp[i] &&
-                m_terminal_tp[i] > 0.0)
-            {
-                measuredTpMbps = m_terminal_tp[i] * APConstants::BPS_TO_MBPS;
-            }
-            std::ostringstream ss;
-            ss << std::fixed << std::setprecision(2) << measuredTpMbps << "Mbps";
-            qualityStr = ss.str();
+            tpMbps = m_terminal_tp[i] * APConstants::BPS_TO_MBPS;
         }
-        else
-        {
-            double rttVal = (ap_idx >= 0 &&
-                             ap_idx < static_cast<int>(m_has_rtt.size()) &&
-                             m_has_rtt[ap_idx])
-                                ? m_monitor_rtt[ap_idx]
-                                : 0.0;
-            std::ostringstream ss;
-            ss << std::fixed << std::setprecision(2) << rttVal << "ms";
-            qualityStr = ss.str();
-        }
-
-        double satisfaction = calculate_satisfaction(i, ap_idx);
+        double rttMs = (ap_idx >= 0 &&
+                        ap_idx < static_cast<int>(m_has_rtt.size()) &&
+                        m_has_rtt[ap_idx])
+                           ? m_monitor_rtt[ap_idx]
+                           : 0.0;
+        const double satisfaction = satisfactions[i];
+        const std::string satisfactionClass =
+            (satisfaction < kUnsatisfiedThreshold)
+                ? "unsatisfied"
+                : ((satisfaction >= kHighSatisfactionThreshold)
+                       ? "high_satisfaction"
+                       : "satisfied");
         bool dataValid = isTpApp
             ? (i < static_cast<int>(m_has_terminal_tp.size()) && m_has_terminal_tp[i] && m_terminal_tp[i] > 0.0)
             : (ap_idx >= 0 && ap_idx < static_cast<int>(m_has_rtt.size()) && m_has_rtt[ap_idx]);
+        const int numUsersOnCurrentBs =
+            (ap_idx >= 0 && ap_idx < static_cast<int>(usersPerAp.size()))
+                ? usersPerAp[ap_idx]
+                : 0;
+        const int actionSelectedBsId =
+            (i < static_cast<int>(m_lastAssignment.size()))
+                ? (m_lastAssignment[i] - 1)
+                : ap_idx;
+        const int switchFlag =
+            (actionSelectedBsId >= 0 && ap_idx >= 0 && actionSelectedBsId != ap_idx) ? 1 : 0;
 
-        ofs << m_cycleIndex << ", "
-            << (i + 1) << ", "
-            << ap_1based << ", "
-            << appNum << ", "
-            << metricLabel << ", "
-            << qualityStr << ", "
-            << satisfaction << ", "
+        ofs << episodeId << ","
+            << m_rngSeed << ","
+            << m_cycleIndex << ","
+            << (i + 1) << ","
+            << ap_idx << ","
+            << appNum << ","
+            << tpMbps << ","
+            << rttMs << ","
+            << satisfaction << ","
+            << satisfactionClass << ","
+            << numUsersOnCurrentBs << ","
+            << harmonicMean << ","
+            << numUnsatisfiedUsers << ","
+            << ((i == targetUeIdx) ? 1 : 0) << ","
+            << actionSelectedBsId << ","
+            << switchFlag << ","
+            << reward << ","
             << (dataValid ? 1 : 0) << std::endl;
     }
 

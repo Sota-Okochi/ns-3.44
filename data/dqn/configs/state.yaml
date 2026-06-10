@@ -1,0 +1,27 @@
+# State definition for DQN method.
+# Option A: the target UE is selected outside the DQN, and DQN selects only the destination BS.
+
+state_scope: target_ue_with_global_context
+
+target_ue_features:
+  - current_bs_id
+  - app_type
+  - tp_mbps
+  - rtt_ms
+  - satisfaction
+  - satisfaction_class
+
+bs_context_features:
+  - num_users_on_current_bs
+
+global_features:
+  - harmonic_mean
+  - num_unsatisfied_users
+  - cycle_id
+
+optional_future_features:
+  - previous_bs_id
+  - position_x
+  - position_y
+  - rsrp_or_rssi
+  - switch_count

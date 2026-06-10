@@ -80,7 +80,6 @@ private:
     double calculate_satisfaction(int terminal_idx, int ap_idx);
     void random_assignment(); //ランダム法による割り当て
     void greedy_assignment(); // greedy法による割り当て
-    void ml_assignment(); // ML法による割り当て
     void logistic_assignment(); // ロジスティック回帰による割り当て
     bool LoadLogisticModel();
     void KeepCurrentAssignment(const std::string& reason);

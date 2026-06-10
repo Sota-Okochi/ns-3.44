@@ -1,0 +1,17 @@
+# Path configuration for DQN experiments.
+# Configuration files are placed under data/dqn/configs,
+# while generated logs and results are placed under OUTPUT/dqn/data.
+
+paths:
+  config_dir: data/dqn/configs
+  scenario_config_dir: data/dqn/configs/scenarios
+
+  raw_log_dir: OUTPUT/dqn/data/raw
+  transition_dir: OUTPUT/dqn/data/processed/transitions
+  action_dir: OUTPUT/dqn/data/actions
+  result_dir: OUTPUT/dqn/data/results
+
+  model_checkpoint_dir: models/dqn/checkpoints
+  model_export_dir: models/dqn/exports
+
+  script_dir: scripts/dqn

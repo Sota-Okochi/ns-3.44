@@ -1,0 +1,25 @@
+# DQN training configuration
+# Initial research setting. Values are expected to change during experiments.
+
+algorithm: dqn
+implementation_plan: option_a_selected_bs_only
+
+seed: 1
+num_episodes: 50
+num_steps_per_episode: 5
+
+# DQN hyperparameters: initial placeholders for small-scale verification.
+gamma: 0.95
+learning_rate: 0.0001
+batch_size: 32
+replay_buffer_size: 10000
+train_start_size: 200
+
+epsilon_start: 1.0
+epsilon_end: 0.05
+epsilon_decay_steps: 1000
+
+target_update_interval: 50
+hidden_dims: [128, 128]
+
+save_interval_episodes: 10

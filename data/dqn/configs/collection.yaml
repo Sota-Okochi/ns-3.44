@@ -1,0 +1,32 @@
+# Episode collection configuration for DQN training data.
+# Training seeds must not overlap with evaluation seeds.
+
+collection:
+  scenario_name: static_80ue_5step
+
+  num_episodes: 50
+  num_steps_per_episode: 5
+
+  seeds:
+    start: 1
+    end: 50
+
+  methods:
+    - random
+    - rulebase
+
+  target_selection_config: data/dqn/configs/target_selection.yaml
+  transition_schema: data/dqn/configs/transition.yaml
+
+  action_policy:
+    random:
+      action_space: [0, 1, 2]
+      description: Randomly select destination BS.
+
+    rulebase:
+      description: Use existing rule-based assignment method.
+
+  output:
+    raw_log_dir: OUTPUT/dqn/data/raw
+    transition_dir: OUTPUT/dqn/data/processed/transitions
+    file_prefix: dqn_collect_static_80ue_5step

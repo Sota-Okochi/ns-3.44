@@ -1,0 +1,13 @@
+# Reward definition for initial DQN experiments.
+
+reward:
+  type: delta_harmonic_mean
+  formula: H_after - H_before
+
+  switch_penalty_alpha: 0.0
+  degraded_penalty_beta: 0.0
+
+  required_log_columns:
+    - harmonic_mean_before
+    - harmonic_mean_after
+    - reward

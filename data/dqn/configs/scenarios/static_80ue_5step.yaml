@@ -1,0 +1,52 @@
+# Initial DQN scenario configuration.
+# Research progress may change these values later.
+
+scenario_name: static_80ue_5step
+
+num_ues: 80
+num_base_stations: 3
+
+base_stations:
+  - id: 0
+    type: 5g_gnb
+  - id: 1
+    type: wifi_ap
+  - id: 2
+    type: wifi_ap
+
+num_steps: 5
+# If control_interval_sec is 6, total controlled simulation time is 30 sec.
+control_interval_sec: 6
+sim_time_sec: 30
+
+training:
+  num_episodes: 50
+  train_seed_start: 1
+  train_seed_end: 50
+
+evaluation:
+  seeds: [1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008, 1009, 1010]
+  methods:
+    - no_switch
+    - random
+    - rulebase
+    - dqn
+
+action_space:
+  design: option_a_selected_bs_only
+  description: DQN selects only destination base station for a preselected target UE.
+  actions:
+    0: 5g_gnb
+    1: wifi_ap_1
+    2: wifi_ap_2
+
+target_ue_selection:
+  policy: lowest_unsatisfied_with_high_satisfaction_candidate
+  primary_rule: Select the UE with the minimum satisfaction among unsatisfied UEs.
+  additional_candidate_rule: Also allow extremely high-satisfaction UEs to be selected for load redistribution experiments.
+  unsatisfied_threshold: 1.0
+  high_satisfaction_threshold: 1.5
+
+reward:
+  type: delta_harmonic_mean
+  formula: H_after - H_before
