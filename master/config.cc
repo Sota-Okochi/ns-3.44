@@ -240,6 +240,7 @@ NetSim::NetSim()
     APnum = 1;
     m_mob = 1;
     m_assignmentMethod = "random";
+    m_dqnActionCsvPath = "episodes/dqn/actions/actions_dqn_seed1.csv";
     m_rngSeed = 1;
     server_udpVoice = nullptr;
     server_udpVideo = nullptr;
@@ -275,13 +276,14 @@ void NetSim::Init(int argc, char *argv[]){
     NS_LOG_FUNCTION(this);
 
     CommandLine cmd;
-    cmd.AddValue("method", "Assignment method: no_switch, random, greedy, logistic", m_assignmentMethod);
+    cmd.AddValue("method", "Assignment method: no_switch, random, greedy, logistic, dqn", m_assignmentMethod);
     cmd.AddValue("mob", "1 is constant, 2 is randomwalk", m_mob);
     cmd.Parse(argc, argv);
 
     if (m_assignmentMethod != "no_switch" &&
         m_assignmentMethod != "random" && m_assignmentMethod != "greedy" &&
-        m_assignmentMethod != "logistic" && m_assignmentMethod != "ml")
+        m_assignmentMethod != "logistic" && m_assignmentMethod != "dqn" &&
+        m_assignmentMethod != "ml")
     {
         NS_FATAL_ERROR("Unknown assignment method: " << m_assignmentMethod);
     }
@@ -317,6 +319,7 @@ void NetSim::Init(int argc, char *argv[]){
     m_apSelectionInput.initialRtt = setting.initialRtt;
     m_apSelectionInput.handoverGraceCycles = static_cast<uint32_t>(setting.handoverGraceCycles);
     m_apSelectionInput.assignmentMethod = m_assignmentMethod;
+    m_apSelectionInput.dqnActionCsvPath = m_dqnActionCsvPath;
     m_apSelectionInput.rngSeed = m_rngSeed;
 
     m_termData.clear();

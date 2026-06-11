@@ -31,6 +31,29 @@ namespace {
 
 constexpr size_t kLogisticFeatureCount = 11;
 
+std::string TrimCsvField(const std::string& str)
+{
+    const auto begin = str.find_first_not_of(" \t\n\r");
+    if (begin == std::string::npos)
+    {
+        return "";
+    }
+    const auto end = str.find_last_not_of(" \t\n\r");
+    return str.substr(begin, end - begin + 1);
+}
+
+int FindColumnIndex(const std::vector<std::string>& header, const std::string& name)
+{
+    for (size_t i = 0; i < header.size(); ++i)
+    {
+        if (TrimCsvField(header[i]) == name)
+        {
+            return static_cast<int>(i);
+        }
+    }
+    return -1;
+}
+
 bool ExtractJsonArrayBody(const std::string& content,
                           const std::string& key,
                           std::string& body)
@@ -147,6 +170,7 @@ void APselection::init(const ApSelectionInput& input){
     initial_app = input.useAppli; // 各端末の初期アプリ番号
     initial_AP = input.initialAp; // 各端末の初期接続先
     m_assignmentMethod = input.assignmentMethod;
+    m_dqnActionCsvPath = input.dqnActionCsvPath;
     m_rngSeed = input.rngSeed;
 
 
@@ -165,6 +189,10 @@ void APselection::init(const ApSelectionInput& input){
     if (m_assignmentMethod == "logistic")
     {
         m_logisticModelLoaded = LoadLogisticModel();
+    }
+    if (m_assignmentMethod == "dqn" && !LoadDqnActions())
+    {
+        NS_FATAL_ERROR("Failed to load DQN action CSV: " << m_dqnActionCsvPath);
     }
 
     {
@@ -282,6 +310,10 @@ void APselection::tmain(){
         else if (m_assignmentMethod == "logistic")
         {
             logistic_assignment();
+        }
+        else if (m_assignmentMethod == "dqn")
+        {
+            dqn_assignment();
         }
         else if (m_assignmentMethod == "no_switch")
         {
@@ -503,6 +535,129 @@ void APselection::greedy_assignment() {
         }
     }
     std::cout << "]" << std::endl;
+
+    m_lastAssignment = assignment;
+    if (m_handoverCallback)
+    {
+        m_handoverCallback(assignment);
+    }
+}
+
+bool APselection::LoadDqnActions()
+{
+    m_dqnActions.clear();
+    if (m_dqnActionCsvPath.empty())
+    {
+        std::cerr << "[DQN] action CSV path is empty" << std::endl;
+        return false;
+    }
+
+    std::ifstream ifs(m_dqnActionCsvPath);
+    if (!ifs.is_open())
+    {
+        std::cerr << "[DQN] action CSV を開けません: " << m_dqnActionCsvPath << std::endl;
+        return false;
+    }
+
+    std::string line;
+    if (!std::getline(ifs, line))
+    {
+        std::cerr << "[DQN] action CSV が空です: " << m_dqnActionCsvPath << std::endl;
+        return false;
+    }
+
+    const std::vector<std::string> header = splitString(line, ",");
+    const int seedCol = FindColumnIndex(header, "seed");
+    const int cycleCol = FindColumnIndex(header, "cycle_id");
+    const int targetCol = FindColumnIndex(header, "target_ue_id");
+    const int selectedCol = FindColumnIndex(header, "selected_bs_id");
+    if (cycleCol < 0 || targetCol < 0 || selectedCol < 0)
+    {
+        std::cerr << "[DQN] action CSV に必要列 cycle_id,target_ue_id,selected_bs_id がありません: "
+                  << m_dqnActionCsvPath << std::endl;
+        return false;
+    }
+
+    uint32_t loaded = 0;
+    while (std::getline(ifs, line))
+    {
+        if (TrimCsvField(line).empty())
+        {
+            continue;
+        }
+        std::vector<std::string> cols = splitString(line, ",");
+        const int requiredMaxCol = std::max({seedCol, cycleCol, targetCol, selectedCol});
+        if (static_cast<int>(cols.size()) <= requiredMaxCol)
+        {
+            std::cerr << "[DQN] 列数不足の行をスキップ: " << line << std::endl;
+            continue;
+        }
+
+        const uint32_t cycleId = static_cast<uint32_t>(std::stoul(TrimCsvField(cols[cycleCol])));
+        const int targetUeId = std::stoi(TrimCsvField(cols[targetCol]));
+        const int selectedBsId = std::stoi(TrimCsvField(cols[selectedCol]));
+
+        if (seedCol >= 0)
+        {
+            const uint32_t csvSeed = static_cast<uint32_t>(std::stoul(TrimCsvField(cols[seedCol])));
+            if (csvSeed != m_rngSeed)
+            {
+                std::cerr << "[DQN][WARN] action CSV seed=" << csvSeed
+                          << " differs from setting rngSeed=" << m_rngSeed
+                          << " at cycle " << cycleId << std::endl;
+            }
+        }
+
+        if (targetUeId < 1 || targetUeId > terms)
+        {
+            std::cerr << "[DQN][WARN] target_ue_id 範囲外の行をスキップ: "
+                      << targetUeId << std::endl;
+            continue;
+        }
+        if (selectedBsId < 0 || selectedBsId >= aps)
+        {
+            std::cerr << "[DQN][WARN] selected_bs_id 範囲外の行をスキップ: "
+                      << selectedBsId << std::endl;
+            continue;
+        }
+
+        if (m_dqnActions.find(cycleId) != m_dqnActions.end())
+        {
+            std::cerr << "[DQN][WARN] cycle_id=" << cycleId
+                      << " のactionが複数あります。後勝ちで上書きします。" << std::endl;
+        }
+        m_dqnActions[cycleId] = std::make_pair(targetUeId, selectedBsId);
+        ++loaded;
+    }
+
+    std::cout << "[DQN] loaded actions: " << loaded
+              << " from " << m_dqnActionCsvPath << std::endl;
+    return !m_dqnActions.empty();
+}
+
+void APselection::dqn_assignment()
+{
+    std::cout << "=== APselection::dqn_assignment() ===" << std::endl;
+
+    std::vector<int> assignment = initial_AP;
+    auto it = m_dqnActions.find(m_cycleIndex);
+    if (it == m_dqnActions.end())
+    {
+        std::cerr << "[DQN][WARN] cycle " << m_cycleIndex
+                  << " のactionがありません。現在の割り当てを維持します。" << std::endl;
+    }
+    else
+    {
+        const int targetUeId = it->second.first;     // 1-based
+        const int selectedBsId = it->second.second; // 0-based
+        const int targetIdx = targetUeId - 1;
+        assignment[targetIdx] = selectedBsId + 1; // internal AP ID is 1-based
+
+        std::cout << "[DQN] cycle=" << m_cycleIndex
+                  << " target_ue_id=" << targetUeId
+                  << " selected_bs_id=" << selectedBsId
+                  << " (AP" << assignment[targetIdx] << ")" << std::endl;
+    }
 
     m_lastAssignment = assignment;
     if (m_handoverCallback)

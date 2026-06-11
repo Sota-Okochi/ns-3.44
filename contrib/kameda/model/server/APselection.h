@@ -16,6 +16,7 @@
 #include <sstream>
 #include <chrono>
 #include <iostream>
+#include <map>
 
 namespace ns3 {
 
@@ -56,6 +57,7 @@ struct ApSelectionInput {
     std::vector<int> initialAp;    // 各端末の初期接続先（1ベースのAP番号）
     uint32_t handoverGraceCycles = APConstants::HANDOVER_GRACE_CYCLES;
     std::string assignmentMethod = "random";
+    std::string dqnActionCsvPath;
     uint32_t rngSeed = 1;
 };
 
@@ -81,7 +83,9 @@ private:
     void random_assignment(); //ランダム法による割り当て
     void greedy_assignment(); // greedy法による割り当て
     void logistic_assignment(); // ロジスティック回帰による割り当て
+    void dqn_assignment(); // DQN action CSVによる割り当て
     bool LoadLogisticModel();
+    bool LoadDqnActions();
     void KeepCurrentAssignment(const std::string& reason);
     void ResetMonitorStats();
     void RecordHarmonicMean(double value);
@@ -109,6 +113,8 @@ private:
     
     std::vector<double> traffic_request;      //必要TP, RTT
     std::string m_assignmentMethod = "random"; // 割り当て手法名
+    std::string m_dqnActionCsvPath;             // DQN action CSV
+    std::map<uint32_t, std::pair<int, int>> m_dqnActions; // cycle_id -> (target_ue_id 1-based, selected_bs_id 0-based)
     uint32_t m_rngSeed = 1;                    // 割り当て手法用乱数seed
     bool m_masterLogInitialized = false;       // master_log.csv ヘッダー書き込み済みフラグ
     std::string m_masterLogPath;               // 実行ごとのmaster_logファイルパス

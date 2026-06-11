@@ -28,5 +28,5 @@ collection:
 
   output:
     raw_log_dir: OUTPUT/dqn/data/raw
-    transition_dir: OUTPUT/dqn/data/processed/transitions
+    transition_dir: episodes/dqn/transitions
     file_prefix: dqn_collect_static_80ue_5step

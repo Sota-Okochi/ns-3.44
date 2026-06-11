@@ -7,8 +7,8 @@ paths:
   scenario_config_dir: data/dqn/configs/scenarios
 
   raw_log_dir: OUTPUT/dqn/data/raw
-  transition_dir: OUTPUT/dqn/data/processed/transitions
-  action_dir: OUTPUT/dqn/data/actions
+  transition_dir: episodes/dqn/transitions
+  action_dir: episodes/dqn/actions
   result_dir: OUTPUT/dqn/data/results
 
   model_checkpoint_dir: models/dqn/checkpoints

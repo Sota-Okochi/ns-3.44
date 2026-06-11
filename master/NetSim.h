@@ -138,6 +138,7 @@ private:
 
     int m_mob;
     std::string m_assignmentMethod;
+    std::string m_dqnActionCsvPath;
     uint32_t m_rngSeed;
 
     std::vector<NodeContainer> p2pNodes;

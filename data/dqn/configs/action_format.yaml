@@ -3,7 +3,7 @@
 # the target UE is selected outside DQN, and DQN outputs only selected_bs_id.
 
 action_file:
-  path_template: OUTPUT/dqn/data/actions/{scenario_name}_{method}_seed{seed}.csv
+  path_template: episodes/dqn/actions/{scenario_name}_{method}_seed{seed}.csv
 
   columns:
     - seed
