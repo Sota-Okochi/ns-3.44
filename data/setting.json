@@ -1,7 +1,7 @@
 {
   "baseStations": 3,
-  "terminals": 10,
-  "rngSeed": 1,
+  "terminals": 90,
+  "rngSeed": 3,
   "numCycles": 5,
   "cycleTimeSec": 9.5,
   "monitorStartSec": 1.1,
