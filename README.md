@@ -149,7 +149,7 @@ cd ~/ns-3.44
 ./ns3 run "master --method=logistic"
 ```
 - 現状，実行可能な手法は `random` と `greedy` ，`logistic` です．
-- `ml` は深層強化学習連携用の予定枠であり，現時点では未実装または開発中のため，通常の実験では使用しないでください．
+- `dqn` は現在開発中です．
 - 乱数 seed などの実験条件は `data/setting.json` で管理します．
 
 ### 設定ファイル
