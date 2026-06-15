@@ -7,13 +7,17 @@
 #include "ns3/tcp-socket-factory.h"
 #include "ns3/inet-socket-address.h"
 #include "ns3/config.h"
-#include "ns3/ping-helper.h"
+#include "ns3/icmpv4.h"
+#include "ns3/ipv4-header.h"
+#include "ns3/node.h"
+#include "ns3/uinteger.h"
 
 #include <iostream>
 #include <sstream>
 #include <algorithm>
 #include <numeric>
 #include <limits>
+#include <vector>
 
 namespace ns3 {
 
@@ -29,8 +33,11 @@ APMonitorTerminal::APMonitorTerminal(uint32_t apId, Ipv4Address targetAP, Ipv4Ad
       m_pingInterval(0.2),
       m_pingPayloadSize(1200),        // Pingペイロードサイズ（バイト）
       m_socket(nullptr),
+      m_pingSocket(nullptr),
       m_isMonitoring(false),
       m_appStartTime(Seconds(0.0)),
+      m_pingSeq(0),
+      m_sentPingsInWindow(0),
       m_totalPings(0),
       m_successfulPings(0),
       m_averageRtt(0.0),
@@ -54,12 +61,18 @@ void APMonitorTerminal::StartApplication()
     // RTT監視の開始・停止は NetSim::ScheduleMonitorWindows() で
     // サイクルごとに制御する。StartApplication() では
     // Application の初期化のみ行い、監視は開始しない。
+    EnsurePingSocket();
 }
 
 void APMonitorTerminal::StopApplication()
 {
     NS_LOG_FUNCTION(this);
     StopMonitoring();
+    if (m_pingSocket)
+    {
+        m_pingSocket->Close();
+        m_pingSocket = nullptr;
+    }
 }
 
 void APMonitorTerminal::StartContinuousMonitoring()
@@ -80,11 +93,14 @@ void APMonitorTerminal::StartContinuousMonitoring()
 
     m_totalPings = 0;
     m_successfulPings = 0;
+    m_sentPingsInWindow = 0;
+    m_pingSendTimes.clear();
     m_rttSamples.clear();
     m_minRtt = std::numeric_limits<double>::max();
     m_maxRtt = 0.0;
     
-    // 単回測定を即時開始
+    // サイクル監視窓ごとに1回だけPing測定を開始する。
+    // 次回の監視開始は NetSim::ScheduleMonitorWindows() が次サイクルで行う。
     ScheduleNextMeasurement(Seconds(0.0));
 }
 
@@ -109,6 +125,7 @@ void APMonitorTerminal::StopMonitoring()
     if (m_measurementTimeoutEvent.IsPending()) {
         Simulator::Cancel(m_measurementTimeoutEvent);
     }
+    m_pingSendTimes.clear();
     if (!m_closeEvent.IsPending())
     {
         m_closeEvent = Simulator::Schedule(Seconds(0.1),
@@ -125,21 +142,65 @@ void APMonitorTerminal::SendPeriodicPing()
         return;
     }
     m_pingEvent = EventId();
-    
-    // 前のpingアプリがあれば停止
-    if (m_currentPingApp.GetN() > 0) {
-        m_currentPingApp.Stop(Seconds(Simulator::Now().GetSeconds()));
+
+    if (m_sentPingsInWindow >= m_samplesPerReport)
+    {
+        return;
     }
-    
+
+    if (!EnsurePingSocket())
+    {
+        std::cout << "MONITOR_AP" << m_apId
+                  << " failed to create ICMP socket" << std::endl;
+        return;
+    }
+
     Ipv4Address dst = m_targetAP;
 
-    // V4PingHelperを使用してping送信
-    PingHelper ping(dst);
+    // PingHelper/Applicationを毎サイクル生成せず、APMonitorTerminal自身の
+    // Raw ICMP socketからEcho Requestを送る。
     double intervalSeconds = (m_pingInterval > 0.0) ? m_pingInterval : 0.02;
-    Time pingInterval = Seconds(intervalSeconds);
-    ping.SetAttribute("Interval", TimeValue(pingInterval));
-    ping.SetAttribute("Size", UintegerValue(m_pingPayloadSize));
-    ping.SetAttribute("Count", UintegerValue(m_samplesPerReport));
+    const uint32_t payloadSize = std::max<uint32_t>(m_pingPayloadSize, 16);
+    std::vector<uint8_t> payload(payloadSize, 0);
+    Ptr<Packet> dataPacket = Create<Packet>(payload.data(), payload.size());
+
+    const uint16_t seq = m_pingSeq++;
+    Icmpv4Echo echo;
+    echo.SetIdentifier(GetPingIdentifier());
+    echo.SetSequenceNumber(seq);
+    echo.SetData(dataPacket);
+
+    Ptr<Packet> packet = Create<Packet>();
+    packet->AddHeader(echo);
+
+    Icmpv4Header icmpHeader;
+    icmpHeader.SetType(Icmpv4Header::ICMPV4_ECHO);
+    icmpHeader.SetCode(0);
+    if (Node::ChecksumEnabled())
+    {
+        icmpHeader.EnableChecksum();
+    }
+    packet->AddHeader(icmpHeader);
+
+    int sentBytes = m_pingSocket->SendTo(packet, 0, InetSocketAddress(dst, 0));
+    if (sentBytes > 0)
+    {
+        m_pingSendTimes[seq] = Simulator::Now();
+        m_totalPings++;
+        m_sentPingsInWindow++;
+
+        // 送信ログ
+        // std::cout << "MONITOR_AP" << m_apId << " ping sent to " << dst
+        //           << " at time " << Simulator::Now().GetSeconds()
+        //           << "s (Sample: " << m_sentPingsInWindow << "/"
+        //           << m_samplesPerReport << ")" << std::endl;
+    }
+    else
+    {
+        std::cout << "MONITOR_AP" << m_apId << " ping send failed to "
+                  << dst << " at time " << Simulator::Now().GetSeconds()
+                  << "s" << std::endl;
+    }
 
     double durationSeconds = intervalSeconds * static_cast<double>(m_samplesPerReport);
     if (durationSeconds <= 0.0)
@@ -147,42 +208,20 @@ void APMonitorTerminal::SendPeriodicPing()
         durationSeconds = intervalSeconds;
     }
     Time measurementDuration = Seconds(durationSeconds);
-    ping.SetAttribute("StopTime", TimeValue(measurementDuration));
-    
-    m_currentPingApp = ping.Install(GetNode());
-    
-    // ping実行時間を設定（十分な時間を確保）
-    m_currentPingApp.Start(Seconds(0.0));
-    
-    // RTTコールバックを設定（PingアプリケーションのRttトレースに接続）
-    if (m_currentPingApp.GetN() > 0)
-    {
-        Ptr<Application> app = m_currentPingApp.Get(0);
-        Ptr<Ping> pingApp = DynamicCast<Ping>(app);
-        if (pingApp)
-        {
-            pingApp->TraceConnectWithoutContext("Rtt",
-                                               MakeCallback(&APMonitorTerminal::HandlePingRtt, this));
-        }
-    }
-    
-    m_totalPings++;
-    
-    std::cout << "MONITOR_AP" << m_apId << " ping sent to " << dst 
-              << " at time " << Simulator::Now().GetSeconds() << "s (Total: " << m_totalPings << ")" << std::endl;
 
-    if (m_measurementTimeoutEvent.IsPending())
+    if (!m_measurementTimeoutEvent.IsPending())
     {
-        Simulator::Cancel(m_measurementTimeoutEvent);
+        m_measurementTimeoutEvent = Simulator::Schedule(measurementDuration + MilliSeconds(50),
+                                                       &APMonitorTerminal::HandleMeasurementTimeout,
+                                                       this);
     }
-    m_measurementTimeoutEvent = Simulator::Schedule(measurementDuration + MilliSeconds(50),
-                                                   &APMonitorTerminal::HandleMeasurementTimeout,
-                                                   this);
-}
 
-void APMonitorTerminal::HandlePingRtt(uint16_t /*seq*/, Time rtt)
-{
-    OnRttMeasured(rtt);
+    if (m_sentPingsInWindow < m_samplesPerReport)
+    {
+        m_pingEvent = Simulator::Schedule(Seconds(intervalSeconds),
+                                          &APMonitorTerminal::SendPeriodicPing,
+                                          this);
+    }
 }
 
 void APMonitorTerminal::OnRttMeasured(Time rtt)
@@ -223,6 +262,11 @@ void APMonitorTerminal::ReportRTTToServer()
         Simulator::Cancel(m_measurementTimeoutEvent);
     }
     m_measurementTimeoutEvent = EventId();
+    if (m_pingEvent.IsPending())
+    {
+        Simulator::Cancel(m_pingEvent);
+    }
+    m_pingSendTimes.clear();
 
     if (m_rttSamples.empty()) {
         return;
@@ -262,8 +306,9 @@ void APMonitorTerminal::ReportRTTToServer()
             MakeCallback(&APMonitorTerminal::OnConnectionFailed, this));
     }
 
-    Time nextDelay = Seconds(m_measureInterval > 0.0 ? m_measureInterval : 0.5);
-    ScheduleNextMeasurement(nextDelay);
+    // 以前はここで次回測定を予約していたが、現在はサイクル窓ごとに
+    // 1回だけRTT測定する。次の測定開始は次サイクルの
+    // StartContinuousMonitoring() に任せる。
 }
 
 void APMonitorTerminal::ScheduleNextMeasurement(Time delay)
@@ -282,6 +327,10 @@ void APMonitorTerminal::ScheduleNextMeasurement(Time delay)
 void APMonitorTerminal::HandleMeasurementTimeout()
 {
     m_measurementTimeoutEvent = EventId();
+    if (m_pingEvent.IsPending())
+    {
+        Simulator::Cancel(m_pingEvent);
+    }
     if (!m_isMonitoring)
     {
         return;
@@ -293,14 +342,103 @@ void APMonitorTerminal::HandleMeasurementTimeout()
         return;
     }
 
-    std::cout << "AP" << m_apId << " measurement window expired with no RTT samples - retrying" << std::endl;
-    Time retryDelay = Seconds(m_measureInterval > 0.0 ? m_measureInterval : 0.5);
-    ScheduleNextMeasurement(retryDelay);
+    m_pingSendTimes.clear();
+
+    // サイクル窓ごとに1測定だけ行うため、RTTサンプルが得られない場合も
+    // この窓内では再試行しない。次の測定は次サイクルで開始される。
+    std::cout << "AP" << m_apId
+              << " measurement window expired with no RTT samples" << std::endl;
 }
 
 Ptr<Socket> APMonitorTerminal::CreateTcpSocket()
 {
     return Socket::CreateSocket(GetNode(), TcpSocketFactory::GetTypeId());
+}
+
+bool APMonitorTerminal::EnsurePingSocket()
+{
+    if (m_pingSocket)
+    {
+        return true;
+    }
+
+    Ptr<Node> node = GetNode();
+    if (node == nullptr)
+    {
+        return false;
+    }
+
+    m_pingSocket =
+        Socket::CreateSocket(node, TypeId::LookupByName("ns3::Ipv4RawSocketFactory"));
+    if (m_pingSocket == nullptr)
+    {
+        return false;
+    }
+
+    m_pingSocket->SetAttribute("Protocol", UintegerValue(1)); // ICMP
+    m_pingSocket->SetRecvCallback(MakeCallback(&APMonitorTerminal::HandlePingReply, this));
+    return true;
+}
+
+uint16_t APMonitorTerminal::GetPingIdentifier() const
+{
+    // APMonitorTerminalが生成したICMP Echo Replyだけを識別するためのID。
+    return static_cast<uint16_t>(0xA000u + (m_apId & 0x0FFFu));
+}
+
+void APMonitorTerminal::HandlePingReply(Ptr<Socket> socket)
+{
+    NS_LOG_FUNCTION(this << socket);
+
+    if (socket == nullptr)
+    {
+        return;
+    }
+
+    while (socket->GetRxAvailable() > 0)
+    {
+        Address from;
+        Ptr<Packet> packet = socket->RecvFrom(from);
+        if (packet == nullptr)
+        {
+            continue;
+        }
+
+        if (!InetSocketAddress::IsMatchingType(from))
+        {
+            continue;
+        }
+
+        Ipv4Header ipv4Header;
+        packet->RemoveHeader(ipv4Header);
+
+        Icmpv4Header icmpHeader;
+        packet->RemoveHeader(icmpHeader);
+
+        if (icmpHeader.GetType() != Icmpv4Header::ICMPV4_ECHO_REPLY)
+        {
+            continue;
+        }
+
+        Icmpv4Echo echo;
+        packet->RemoveHeader(echo);
+
+        if (echo.GetIdentifier() != GetPingIdentifier())
+        {
+            continue;
+        }
+
+        const uint16_t seq = echo.GetSequenceNumber();
+        auto sentIt = m_pingSendTimes.find(seq);
+        if (sentIt == m_pingSendTimes.end())
+        {
+            continue;
+        }
+
+        const Time rtt = Simulator::Now() - sentIt->second;
+        m_pingSendTimes.erase(sentIt);
+        OnRttMeasured(rtt);
+    }
 }
 
 void APMonitorTerminal::OnConnectionSucceeded(Ptr<Socket> socket)
@@ -351,7 +489,7 @@ void APMonitorTerminal::FinalizeTransmission()
         m_socket = nullptr;
     }
 
-    // cancel events, ping app stop
+    // cancel pending RTT/report events
     if (m_pingEvent.IsPending())
     {
         Simulator::Cancel(m_pingEvent);
@@ -360,13 +498,13 @@ void APMonitorTerminal::FinalizeTransmission()
     {
         Simulator::Cancel(m_reportEvent);
     }
-
-    if (m_currentPingApp.GetN() > 0)
+    if (m_measurementTimeoutEvent.IsPending())
     {
-        m_currentPingApp.Stop(Seconds(Simulator::Now().GetSeconds()));
+        Simulator::Cancel(m_measurementTimeoutEvent);
     }
+    m_pingSendTimes.clear();
 
-    std::cout << "=== Monitoring stopped for AP" << m_apId << " ===" << std::endl;
+    std::cout << "=== Monitoring stopped for AP" << m_apId << " ===\n";
 }
 
 Time APMonitorTerminal::GetApplicationStartTime() const

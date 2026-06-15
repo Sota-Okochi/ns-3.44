@@ -7,8 +7,9 @@
 #include "ns3/applications-module.h"
 #include "ns3/internet-apps-module.h"
 #include "ns3/internet-module.h"
-#include "ns3/ping.h"
 #include "ns3/packet.h"
+
+#include <map>
 
 namespace ns3 {
 
@@ -39,7 +40,6 @@ public:
      * \brief RTTコールバック関数
      */
     void OnRttMeasured(Time rtt);
-    void HandlePingRtt(uint16_t seq, Time rtt);
 
     /// 監視端末用 Application の開始時刻
     Time GetApplicationStartTime() const;
@@ -83,6 +83,9 @@ private:
     void FinalizeTransmission();
     void ScheduleNextMeasurement(Time delay);
     void HandleMeasurementTimeout();
+    bool EnsurePingSocket();
+    void HandlePingReply(Ptr<Socket> socket);
+    uint16_t GetPingIdentifier() const;
     Ipv4Address GetPrimaryIpv4(Ptr<Node> node) const;
 
     // メンバー変数
@@ -101,11 +104,14 @@ private:
     EventId m_reportEvent;              // レポート送信イベント
     EventId m_closeEvent;               // TCPクローズ用イベント
     EventId m_measurementTimeoutEvent;  // サンプル収集タイムアウト監視
-    ApplicationContainer m_currentPingApp; // 現在のpingアプリケーション
     
     Ptr<Socket> m_socket;               // TCP通信用ソケット
+    Ptr<Socket> m_pingSocket;           // RTT測定用Raw ICMPソケット
+    std::map<uint16_t, Time> m_pingSendTimes; // ICMP seqごとの送信時刻
     bool m_isMonitoring;                // 監視状態フラグ
     Time m_appStartTime;                // アプリケーション開始時刻
+    uint16_t m_pingSeq;                 // ICMP Echo sequence number
+    uint32_t m_sentPingsInWindow;       // 現監視窓で送信済みのICMP Echo数
     
     // 統計情報
     uint32_t m_totalPings;              // 総ping送信数
