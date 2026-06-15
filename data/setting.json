@@ -1,6 +1,6 @@
 {
   "baseStations": 3,
-  "terminals": 100,
+  "terminals": 10,
   "rngSeed": 3,
   "numCycles": 5,
   "cycleTimeSec": 9.5,

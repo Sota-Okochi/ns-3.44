@@ -1,5 +1,7 @@
 #include "NetSim.h"
 
+#include <unordered_map>
+
 NS_LOG_COMPONENT_DEFINE("NetSimApplications");
 
 namespace ns3 {
@@ -1268,53 +1270,51 @@ void NetSim::CollectTerminalThroughput()
         return;
     }
 
-    auto isTerminalAddress = [this](uint32_t termIdx, const Ipv4Address& addr) {
+    // このサイクル時点の端末IPを一度だけ逆引き表にまとめる。
+    std::unordered_map<uint32_t, uint32_t> ipToTermIndex;
+    auto addTerminalAddress = [&ipToTermIndex](uint32_t termIdx, const Ipv4Address& addr) {
         if (addr == Ipv4Address("0.0.0.0") || addr == Ipv4Address("127.0.0.1"))
         {
-            return false;
+            return;
         }
 
-        if (termIdx < m_terminalIpAddresses.size() && m_terminalIpAddresses[termIdx] == addr)
+        // 既存実装は端末番号の小さい順に最初に一致した端末を採用していたため、
+        // 重複IPが万一あっても先に登録された端末を優先する。
+        ipToTermIndex.emplace(addr.Get(), termIdx);
+    };
+
+    for (uint32_t i = 0; i < terms.size(); ++i)
+    {
+        if (i < m_terminalIpAddresses.size())
         {
-            return true;
+            addTerminalAddress(i, m_terminalIpAddresses[i]);
         }
 
-        if (termIdx < m_termAccessState.size())
+        if (i < m_termAccessState.size())
         {
-            const TermAccessState& state = m_termAccessState[termIdx];
-            if (state.nrIpv4 == addr)
-            {
-                return true;
-            }
+            const TermAccessState& state = m_termAccessState[i];
+            addTerminalAddress(i, state.nrIpv4);
             for (const auto& wifiAddr : state.wifiIpv4)
             {
-                if (wifiAddr == addr)
-                {
-                    return true;
-                }
+                addTerminalAddress(i, wifiAddr);
             }
         }
 
-        if (termIdx < terms.size() && terms[termIdx] != nullptr)
+        if (terms[i] != nullptr)
         {
-            Ptr<Ipv4> ipv4 = terms[termIdx]->GetObject<Ipv4>();
+            Ptr<Ipv4> ipv4 = terms[i]->GetObject<Ipv4>();
             if (ipv4 != nullptr)
             {
                 for (uint32_t ifIndex = 0; ifIndex < ipv4->GetNInterfaces(); ++ifIndex)
                 {
                     for (uint32_t a = 0; a < ipv4->GetNAddresses(ifIndex); ++a)
                     {
-                        if (ipv4->GetAddress(ifIndex, a).GetLocal() == addr)
-                        {
-                            return true;
-                        }
+                        addTerminalAddress(i, ipv4->GetAddress(ifIndex, a).GetLocal());
                     }
                 }
             }
         }
-
-        return false;
-    };
+    }
 
     for (const auto& kv : stats)
     {
@@ -1331,15 +1331,10 @@ void NetSim::CollectTerminalThroughput()
         double bits = static_cast<double>(fs.rxBytes) * 8.0;
 
         // フローの宛先が端末であればその端末のTPに加算
-        for (uint32_t i = 0; i < m_terminalIpAddresses.size(); ++i)
+        auto termIt = ipToTermIndex.find(tuple.destinationAddress.Get());
+        if (termIt != ipToTermIndex.end() && termIt->second < perTerm.size())
         {
-            if (!isTerminalAddress(i, tuple.destinationAddress))
-            {
-                continue;
-            }
-
-            perTerm[i].totalBits += bits;
-            break;
+            perTerm[termIt->second].totalBits += bits;
         }
     }
 
@@ -1369,10 +1364,12 @@ void NetSim::CollectTerminalThroughput()
                 const FlowId flowId = kv.first;
                 const FlowMonitor::FlowStats& fs = kv.second;
                 Ipv4FlowClassifier::FiveTuple tuple = m_termFlowClassifier->FindFlow(flowId);
-                for (uint32_t i = 0; i < m_terminalIpAddresses.size(); ++i)
+                auto termIt = ipToTermIndex.find(tuple.destinationAddress.Get());
+                if (termIt == ipToTermIndex.end() || termIt->second >= perTerm.size())
                 {
-                    if (!isTerminalAddress(i, tuple.destinationAddress))
-                        continue;
+                    continue;
+                }
+                uint32_t i = termIt->second;
                     double tpMbps = (fs.rxBytes > 0 && fixedWindowSec > 0.0)
                                         ? (static_cast<double>(fs.rxBytes) * 8.0 / fixedWindowSec / 1e6)
                                         : 0.0;
@@ -1407,8 +1404,6 @@ void NetSim::CollectTerminalThroughput()
                         << fs.timeLastRxPacket.GetSeconds() << ","
                         << tpMbps << ","
                         << diagnosis << "\n";
-                    break;
-                }
             }
         }
     }
