@@ -51,7 +51,9 @@ void APMonitorTerminal::StartApplication()
     NS_LOG_FUNCTION(this);
     std::cout << "=== APMonitorTerminal::StartApplication() - AP" << m_apId << " ===" << std::endl;
     m_appStartTime = Simulator::Now();
-    Simulator::Schedule(Seconds(0.0), &APMonitorTerminal::StartContinuousMonitoring, this);
+    // RTT監視の開始・停止は NetSim::ScheduleMonitorWindows() で
+    // サイクルごとに制御する。StartApplication() では
+    // Application の初期化のみ行い、監視は開始しない。
 }
 
 void APMonitorTerminal::StopApplication()

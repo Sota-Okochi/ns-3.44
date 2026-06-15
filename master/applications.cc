@@ -680,7 +680,7 @@ void NetSim::AttachMonitorApplication(uint32_t apId, Ptr<Node> monitor)
 
     Ptr<APMonitorTerminal> monitorApp = CreateObject<APMonitorTerminal>(apId, rttServerAddress, remoteAddress);
     monitor->AddApplication(monitorApp);
-    monitorApp->SetStartTime(Seconds(1.5));
+    monitorApp->SetStartTime(Seconds(0.0));
     monitorApp->SetStopTime(m_simulationDuration);
     m_monitorApps[apId] = monitorApp;
 }
