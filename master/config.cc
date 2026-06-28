@@ -461,7 +461,23 @@ void NetSim::RunSim(){
     }
 
     FlowMonitorHelper flowmonHelper;
-    Ptr<FlowMonitor> flowMonitor = flowmonHelper.InstallAll();
+    NodeContainer terminalMonitorNodes;
+    for (const auto& term : terms)
+    {
+        if (term != nullptr)
+        {
+            terminalMonitorNodes.Add(term);
+        }
+    }
+    if (server_browser != nullptr)
+    {
+        terminalMonitorNodes.Add(server_browser);
+    }
+    if (server_udpVideo != nullptr)
+    {
+        terminalMonitorNodes.Add(server_udpVideo);
+    }
+    Ptr<FlowMonitor> flowMonitor = flowmonHelper.Install(terminalMonitorNodes);
     Ptr<Ipv4FlowClassifier> flowClassifier = DynamicCast<Ipv4FlowClassifier>(flowmonHelper.GetClassifier());
 
     // 端末別TP計測用にFlowMonitor/Classifierを保持
