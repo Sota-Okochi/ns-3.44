@@ -127,7 +127,7 @@ git clone https://github.com/Sota-Okochi/ns-3.44.git
 ### Pythonバインディングのビルドを有効化
 ```
 cd ~/ns-3.44
-./ns3 configure --enable-examples
+./ns3 configure --build-profile=optimized --enable-examples
 ```
 - `./ns3 configure`でも有効化できますが，サンプルコードを実行することができません．
 ### ビルド  
