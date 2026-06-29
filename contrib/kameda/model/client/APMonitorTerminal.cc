@@ -45,7 +45,6 @@ APMonitorTerminal::APMonitorTerminal(uint32_t apId, Ipv4Address targetAP, Ipv4Ad
       m_maxRtt(0.0)
 {
     NS_LOG_FUNCTION(this);
-    std::cout << "=== APMonitorTerminal created for AP" << m_apId << " ===" << std::endl;
 }
 
 APMonitorTerminal::~APMonitorTerminal()
@@ -89,7 +88,7 @@ void APMonitorTerminal::StartContinuousMonitoring()
     }
 
     m_isMonitoring = true;
-    std::cout << "=== Starting continuous monitoring for AP" << m_apId << " ===" << std::endl;
+    std::cout << "=== Monitoring started for AP" << m_apId << " ===" << std::endl;
 
     m_totalPings = 0;
     m_successfulPings = 0;
@@ -453,8 +452,6 @@ void APMonitorTerminal::OnConnectionSucceeded(Ptr<Socket> socket)
     socket->ShutdownSend();
     socket->Close();
     m_socket = nullptr;
-    
-    std::cout << "=== Monitor data sent to server: " << msg << " ===" << std::endl;
     
     // サンプルをクリア
     m_rttSamples.clear();

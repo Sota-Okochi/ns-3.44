@@ -149,8 +149,7 @@ std::vector<std::string> splitString(const std::string &input, const std::string
 }
 
 APselection::APselection(){
-	std::cout << "=== APselection::APselection ===" << std::endl;
-    m_logisticModelPath =
+	    m_logisticModelPath =
         "/home/sota/ns-3.44/machine-learning/baseline_methods/data/models/"
         "logistic_term80_runs50_seed001.json";
 }
@@ -161,7 +160,6 @@ APselection::~APselection(){
 void APselection::init(const ApSelectionInput& input){
     NS_LOG_FUNCTION(this);
 
-    std::cout << "=== APselection::init() START ===" << std::endl;
 
 
     // --------APselectionのメンバ変数に受け渡し-------------
@@ -178,6 +176,7 @@ void APselection::init(const ApSelectionInput& input){
     m_rtt_sum.assign(aps, 0.0);
     m_rtt_count.assign(aps, 0);
     m_has_rtt.assign(aps, false);
+    m_monitor_ip.assign(aps, "");
     m_terminal_tp.assign(terms, 0.0);
     m_has_terminal_tp.assign(terms, false);
 
@@ -203,7 +202,7 @@ void APselection::init(const ApSelectionInput& input){
         m_masterLogPath = "OUTPUT/master_log_" + std::to_string(terms) + "_" +
                           m_assignmentMethod + "_" + dateBuf + ".csv";
     }
-    std::cout << "master_log path: " << m_masterLogPath << std::endl;
+    std::cout << "ログパス: " << m_masterLogPath << std::endl;
 
     // --------各端末の初期接続先と初期アプリ種別の表示-----------
     /*if (!initial_AP.empty() && !initial_app.empty()){
@@ -216,19 +215,16 @@ void APselection::init(const ApSelectionInput& input){
             }
     }*/
 
-    std::cout << "APs: " << aps << ", Terms: " << terms << std::endl;
+    std::cout << "端末数: " << terms << std::endl;
 }
 
 void APselection::setData(std::string senderIpAddress, std::string recvMessage){
     NS_LOG_FUNCTION(this);
-    std::cout << "=== APselection::setData() called ===" << std::endl;
-    std::cout << "Sender IP: " << senderIpAddress << std::endl;
-    std::cout << "Message: " << recvMessage << std::endl;
 
     //送られたRTTデータから基地局ごとにRTT平均値を求める ここでは基地局ごとにpush_back
     std::vector<std::string> ret2 = splitString(recvMessage, ",");
     if( ret2.size() < 2 || ret2.size() > 3 ) {
-        std::cout << "Invalid message format" << std::endl;
+        std::cout << "[Monitor][WARN] Invalid message format: " << recvMessage << std::endl;
         return;
     }
     std::stringstream ss2(ret2[1]);
@@ -251,7 +247,7 @@ void APselection::setData(std::string senderIpAddress, std::string recvMessage){
         std::vector<std::string> ret = splitString(senderIpAddress, ".");
         if (ret.size() < 3)
         {
-            std::cout << "Invalid IP address format" << std::endl;
+            std::cout << "[Monitor][WARN] Invalid IP address format: " << senderIpAddress << std::endl;
             return;
         }
         std::stringstream ss(ret[2]);
@@ -259,7 +255,7 @@ void APselection::setData(std::string senderIpAddress, std::string recvMessage){
     }
 
     if(apNo < 0 || static_cast<size_t>(apNo) >= m_monitor_rtt.size()) {
-        std::cout << "Invalid AP index: " << apNo << std::endl;
+        std::cout << "[Monitor][WARN] Invalid AP index: " << apNo << std::endl;
         return;
     }
 
@@ -267,30 +263,17 @@ void APselection::setData(std::string senderIpAddress, std::string recvMessage){
     m_rtt_count[apNo] += 1;
     m_monitor_rtt[apNo] = m_rtt_sum[apNo] / static_cast<double>(m_rtt_count[apNo]);
     m_has_rtt[apNo] = true;
-
-    // デバッグ用（各端末のTPの表示）
-    std::cout << "Monitor data stored: AP=" << apNo << ", RTT=" << d
-              << "ms, AVG=" << m_monitor_rtt[apNo] << "ms" << std::endl;
+    if (static_cast<size_t>(apNo) < m_monitor_ip.size())
+    {
+        m_monitor_ip[apNo] = senderIpAddress;
+    }
 }
 
 void APselection::tmain(){
     NS_LOG_FUNCTION(this);
     std::cout << "=== APselection::tmain() START (cycle " << m_cycleIndex << ") ===" << std::endl;
-    std::cout << "APs: " << aps << std::endl;
-    std::cout << "monitors: " << m_monitor_rtt.size() << std::endl;
 
-    
-    for(int i=0; i<aps; i++){
-        if(m_has_rtt[i]){
-            double ave_rtt = m_monitor_rtt[i];
-
-            std::cout << std::fixed << std::setprecision(2);
-            std::cout << "AP:" << i << "\tRTT:" << ave_rtt << "ms" << std::endl;
-        } else {
-            std::cout << "実測のRTT値がありません" << std::endl;
-        }
-    }
-
+    PrintMonitorRttReport();
 
     // アプリ種別の必要TP, RTT
     cal_traffic_request();
@@ -327,6 +310,24 @@ void APselection::tmain(){
     else
     {
         m_lastAssignment = initial_AP;
+    }
+
+    if (!m_lastAssignment.empty())
+    {
+        std::vector<int> optimizedCounts(aps, 0);
+        for (int apNo : m_lastAssignment)
+        {
+            if (apNo >= 1 && apNo <= aps)
+            {
+                optimizedCounts[apNo - 1]++;
+            }
+        }
+
+        std::cout << "=== Optimized terminal counts per AP ===" << std::endl;
+        for (int ap = 0; ap < aps; ++ap)
+        {
+            std::cout << "AP" << (ap + 1) << ": " << optimizedCounts[ap] << " terminals" << std::endl;
+        }
     }
 
     // master_log.csv に現在状態と、このサイクルで選択された行動を記録
@@ -883,10 +884,6 @@ void APselection::StartNewCycle(uint32_t cycleIndex)
             if (m_lastAssignment[i] != initial_AP[i])
             {
                 m_switchCycle[i] = m_cycleIndex;
-                std::cout << "  Term" << (i + 1) << ": AP" << initial_AP[i]
-                          << "→AP" << m_lastAssignment[i]
-                          << " (grace until cycle " << (m_cycleIndex + m_handoverGraceCycles - 1) << ")"
-                          << std::endl;
             }
         }
     }
@@ -914,8 +911,30 @@ void APselection::ResetMonitorStats()
     std::fill(m_rtt_sum.begin(), m_rtt_sum.end(), 0.0);
     std::fill(m_rtt_count.begin(), m_rtt_count.end(), 0);
     std::fill(m_has_rtt.begin(), m_has_rtt.end(), false);
+    std::fill(m_monitor_ip.begin(), m_monitor_ip.end(), "");
     std::fill(m_terminal_tp.begin(), m_terminal_tp.end(), 0.0);
     std::fill(m_has_terminal_tp.begin(), m_has_terminal_tp.end(), false);
+}
+
+void APselection::PrintMonitorRttReport() const
+{
+    std::ios oldState(nullptr);
+    oldState.copyfmt(std::cout);
+
+    for (int i = 0; i < aps; ++i)
+    {
+        if (static_cast<size_t>(i) < m_has_rtt.size() && m_has_rtt[i])
+        {
+            std::cout << std::fixed << std::setprecision(2);
+            std::cout << "AP:" << i << "\tRTT:" << m_monitor_rtt[i] << "ms" << std::endl;
+        }
+        else
+        {
+            std::cout << "AP:" << i << "\tRTT:N/A" << std::endl;
+        }
+    }
+
+    std::cout.copyfmt(oldState);
 }
 
 void APselection::setTerminalTp(int termIdx, double tpBps)
@@ -939,7 +958,7 @@ void APselection::RecordHarmonicMean(double value)
 
     std::cout << std::fixed << std::setprecision(6)
               << "Cycle " << m_cycleIndex
-              << " の端末満足度の調和平均：" << value << std::endl;
+              << " の調和平均：" << value << std::endl;
 }
 
 void APselection::PrintCycleHarmonicMeans()

@@ -12,8 +12,8 @@ int main(int argc, char *argv[]){
     const std::time_t startTime =
         std::chrono::system_clock::to_time_t(wallClockStartSystem);
 
-    std::cout << "=====WallClock::Start()=====" << std::endl;
-    std::cout << "simulation_start_time="
+    std::cout << "============================================================" << std::endl;
+    std::cout << "開始時間: "
               << std::put_time(std::localtime(&startTime), "%Y-%m-%d %H:%M:%S")
               << std::endl;
 
@@ -27,8 +27,8 @@ int main(int argc, char *argv[]){
     const auto hours = elapsedMinutes.count() / 60;
     const auto minutes = elapsedMinutes.count() % 60;
 
-    std::cout << "=====WallClock::Elapsed()=====" << std::endl;
-    std::cout << "simulation_execution_time="
+    std::cout << "============================================================" << std::endl;
+    std::cout << "総実行時間: "
               << hours << "時間" << minutes << "分"
               << std::endl;
 

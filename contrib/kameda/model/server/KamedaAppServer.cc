@@ -107,20 +107,12 @@ void KamedaAppServer::StopApplication(){
 // クライアントからのRTTデータ受信
 void KamedaAppServer::HandleRead(Ptr<Socket> socket){
     NS_LOG_FUNCTION(this);
-    std::cout << "=== KamedaAppServer::HandleRead() - Data received ===" << std::endl;
 
     char buf[1024] = {'\0'};
     Address recvFrom;
     [[maybe_unused]] int recvSize = socket->RecvFrom((uint8_t*)buf, sizeof(buf)/sizeof(char), 0, recvFrom);
 
     std::string recvMessage = buf;
-
-    // 監視端末からのデータかチェック
-    if (recvMessage.find("MONITOR_AP") == 0) {
-        std::cout << "Received MONITOR message: " << recvMessage << std::endl;
-    } else {
-        std::cout << "Received message: 端末" << recvMessage << "ms" << std::endl;
-    }
 
     /*if(recvMessge.find("GET ", 0) != 0){
         NS_FATAL_ERROR("")
@@ -164,57 +156,41 @@ void KamedaAppServer::HandleRead(Ptr<Socket> socket){
 
 // 監視端末からのデータを処理
 void KamedaAppServer::ProcessMonitorData(std::string senderIpAddress, std::string recvMessage) {
-    std::cout << "=== KamedaAppServer::ProcessMonitorData() called ===" << std::endl;
-    std::cout << "Monitor IP: " << senderIpAddress << std::endl;
-    std::cout << "Monitor Message: " << recvMessage << std::endl;
-
     // メッセージをパース: "MONITOR_AP1,331.667"
-    std::cout << "Original message: '" << recvMessage << "'" << std::endl;
     std::vector<std::string> parts = SplitString(recvMessage, ",");
-    std::cout << "Split parts count: " << parts.size() << std::endl;
-    for (size_t i = 0; i < parts.size(); i++) {
-        std::cout << "Part[" << i << "]: '" << parts[i] << "'" << std::endl;
-    }
-    
+
     if (parts.size() < 2 || parts.size() > 3) {
-        std::cout << "Invalid monitor message format" << std::endl;
+        std::cout << "[Monitor][WARN] Invalid monitor message format: "
+                  << recvMessage << std::endl;
         return;
     }
 
     // AP番号を抽出: "MONITOR_AP1" -> "1"
     std::string apPart = parts[0];
     if (apPart.find("MONITOR_AP") != 0) {
-        std::cout << "Invalid monitor AP format" << std::endl;
+        std::cout << "[Monitor][WARN] Invalid monitor AP format: "
+                  << recvMessage << std::endl;
         return;
     }
     
     std::string apNumStr = apPart.substr(10); // "MONITOR_AP"の長さは10
-    std::cout << "Extracted AP number string: '" << apNumStr << "'" << std::endl;
     
     if (apNumStr.empty()) {
-        std::cout << "Empty AP number string" << std::endl;
+        std::cout << "[Monitor][WARN] Empty AP number string: "
+                  << recvMessage << std::endl;
         return;
     }
 
-    int apNo = std::stoi(apNumStr);
-
-    double rttValue = std::stod(parts[1]);
-    std::cout << "Processed Monitor Data: AP=" << apNo << ", RTT=" << rttValue << "ms" << std::endl;
-
-    // APselectionに監視端末データを送信
+    // APselectionに監視端末データを送信する。
+    // senderIpAddress は監視端末自身のIPとして、サイクル末のRTTレポートに表示する。
     if(apselect) {
-        std::stringstream apIpAddress;
-        apIpAddress << "10.1." << apNo << ".1";
-        std::stringstream monitorMsg;
-        monitorMsg << "MONITOR_" << apNo << "," << rttValue;
-        apselect->setData(apIpAddress.str(), monitorMsg.str());
+        apselect->setData(senderIpAddress, recvMessage);
     }
 }
 
 //新規クライアント接続処理
 void KamedaAppServer::HandleAccept(Ptr<Socket> socket, const Address& from){
     NS_LOG_FUNCTION(this << socket << from);
-    std::cout << "=== KamedaAppServer::HandleAccept() - Client connected ===" << std::endl;
 
     socket->SetRecvCallback(MakeCallback(&KamedaAppServer::HandleRead, this));
     m_socketList.push_back(socket);
@@ -308,7 +284,6 @@ void KamedaAppServer::Ending(){
     if(apselect) {
         std::cout << "=== Starting AP selection optimization ===" << std::endl;
         apselect->tmain();
-        std::cout << "=== AP selection optimization completed ===" << std::endl;
     }
 
     if (m_handoverCallback && apselect && m_cycleIndex < m_cycleCount - 1)

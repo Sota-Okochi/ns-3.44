@@ -1456,11 +1456,6 @@ void NetSim::RebindTerminalApps(uint32_t termIdx, Ipv4Address newIp)
         ScheduleFutureBrowserBursts(termIdx, appState.primaryPort, appState.browserGeneration,
                                     postHandoverStart);
 
-        std::cout << "[RebindBrowser] term=" << termIdx
-                  << " newIP=" << newIp
-                  << " keep existing sink on port=" << appState.primaryPort
-                  << " generation=" << appState.browserGeneration
-                  << std::endl;
         return;
     }
 
@@ -1542,12 +1537,7 @@ void NetSim::ReinstallBrowserApp(uint32_t termIdx, Ipv4Address newIp, Time start
         m_termAppStates[termIdx].clientApps.push_back(sinkApps.Get(0));
     }
 
-    std::cout << "[ReinstallBrowser] term=" << termIdx << " newIP=" << newIp
-              << " port=" << port
-              << " startDelay=" << startTime.GetSeconds()
-              << " stopDelay=" << stopTime.GetSeconds()
-              << " now=" << Simulator::Now().GetSeconds()
-              << std::endl;
+    // Reinstall details are intentionally not printed to keep console logs concise.
 }
 
 void NetSim::ReinstallVideoApp(uint32_t termIdx, Ipv4Address newIp, Time startTime, Time stopTime)
@@ -1586,12 +1576,7 @@ void NetSim::ReinstallVideoApp(uint32_t termIdx, Ipv4Address newIp, Time startTi
         m_termAppStates[termIdx].serverApps.push_back(serverApps.Get(0));
     }
 
-    std::cout << "[ReinstallVideo] term=" << termIdx << " newIP=" << newIp
-              << " port=" << port
-              << " startDelay=" << startTime.GetSeconds()
-              << " stopDelay=" << stopTime.GetSeconds()
-              << " now=" << Simulator::Now().GetSeconds()
-              << std::endl;
+    // Reinstall details are intentionally not printed to keep console logs concise.
 }
 
 void NetSim::ReinstallVoiceApp(uint32_t termIdx, Ipv4Address newIp, Time startTime, Time stopTime)
@@ -1666,8 +1651,7 @@ void NetSim::ReinstallVoiceApp(uint32_t termIdx, Ipv4Address newIp, Time startTi
         m_termAppStates[termIdx].clientApps.push_back(downlinkApps.Get(0));
     }
 
-    std::cout << "[ReinstallVoice] term=" << termIdx << " newIP=" << newIp
-              << " port=" << port << "/" << downlinkPort << std::endl;
+    // Reinstall details are intentionally not printed to keep console logs concise.
 }
 
 void NetSim::ReinstallOnlineGameApp(uint32_t termIdx, Ipv4Address newIp, Time startTime, Time stopTime)
@@ -1754,8 +1738,7 @@ void NetSim::ReinstallOnlineGameApp(uint32_t termIdx, Ipv4Address newIp, Time st
         m_termAppStates[termIdx].clientApps.push_back(downlinkSinkApps.Get(0));
     }
 
-    std::cout << "[ReinstallOnlineGame] term=" << termIdx << " newIP=" << newIp
-              << " port=" << uplinkPort << "/" << downlinkPort << std::endl;
+    // Reinstall details are intentionally not printed to keep console logs concise.
 }
 
 } // namespace ns3

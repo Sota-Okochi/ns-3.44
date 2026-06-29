@@ -294,7 +294,7 @@ void NetSim::Init(int argc, char *argv[]){
     {
         return;
     }
-    std::cout << "setting.json seed: \"rngSeed\": " << setting.rngSeed << std::endl;
+    std::cout << "シード値(setting.json/\"rngSeed\"): " << setting.rngSeed << std::endl;
     APnum = static_cast<uint32_t>(setting.baseStations);
     termNum = static_cast<uint32_t>(setting.terminals);
     m_cycleCount             = static_cast<uint32_t>(setting.numCycles);
@@ -394,7 +394,7 @@ void NetSim::Init(int argc, char *argv[]){
                 ++apCounts[apIndex];
             }
         }
-        std::cout << "=== Baseline terminal counts per AP (first " << printLimit << ") ===" << std::endl;
+        std::cout << "=== Initial terminal counts per AP ===" << std::endl;
         for (uint32_t i = 0; i < apCounts.size(); ++i)
         {
             std::cout << "AP" << (i + 1) << ": " << apCounts[i] << " terminals" << std::endl;
@@ -405,7 +405,6 @@ void NetSim::Init(int argc, char *argv[]){
 
 
 void NetSim::Configure(){
-    std::cout << "==== Configure ====" << std::endl;
     NS_LOG_FUNCTION(this);
 
     //LogComponentEnable("KamedaAppClient", LOG_LEVEL_INFO);

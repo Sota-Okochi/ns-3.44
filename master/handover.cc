@@ -70,14 +70,7 @@ void NetSim::HandoverRequest(const std::vector<int>& assignment)
 
         if (!switchList.empty())
         {
-            std::cout << "[Handover] " << switchList.size()
-                      << " terminals need handover at t="
-                      << Simulator::Now().GetSeconds() << "s" << std::endl;
             ApplyHandoverBatch(switchList);
-        }
-        else
-        {
-            std::cout << "[Handover] No AP changes detected" << std::endl;
         }
     }
 
@@ -97,7 +90,7 @@ void NetSim::HandoverRequest(const std::vector<int>& assignment)
                 std::min(assignment.size(), m_apSelectionInput.initialAp.size()),
                 m_apSelectionInput.initialAp.begin());
 
-    PrintAssignmentSummary(assignment);
+    // Detailed handover status is recorded in master_log; suppress console noise.
 }
 
 void NetSim::PrintAssignmentSummary(const std::vector<int>& assignment) const
@@ -116,11 +109,7 @@ void NetSim::PrintAssignmentSummary(const std::vector<int>& assignment) const
         }
     }
 
-    std::cout << "[Handover] New terminal assignment summary:" << std::endl;
-    for (size_t i = 0; i < counts.size(); ++i)
-    {
-        std::cout << "  AP" << (i + 1) << ": " << counts[i] << " terminals" << std::endl;
-    }
+    // Console output intentionally disabled.
 }
 
 void NetSim::ApplyHandoverBatch(const std::vector<std::pair<uint32_t, int>>& switchList)
@@ -234,9 +223,7 @@ void NetSim::WifiToWifiHandover(uint32_t termIdx, int oldAp, int newAp)
     Ipv4Address newIp = state.wifiIpv4[newApIdx];
     ApplyHandoverState(termIdx, newAp, RatType::WIFI, newIp);
 
-    std::cout << "[WiFi→WiFi] term=" << termIdx
-              << " AP" << oldAp << "→AP" << newAp
-              << " IP=" << newIp << std::endl;
+    (void)oldAp;
 }
 
 void NetSim::NrToWifiHandover(uint32_t termIdx, int newAp)
@@ -255,9 +242,7 @@ void NetSim::NrToWifiHandover(uint32_t termIdx, int newAp)
     Ipv4Address newIp = state.wifiIpv4[newApIdx];
     ApplyHandoverState(termIdx, newAp, RatType::WIFI, newIp);
 
-    std::cout << "[NR→WiFi] term=" << termIdx
-              << " AP1→AP" << newAp
-              << " IP=" << newIp << std::endl;
+    (void)newIp;
 }
 
 void NetSim::WifiToNrHandover(uint32_t termIdx)
@@ -272,9 +257,7 @@ void NetSim::WifiToNrHandover(uint32_t termIdx)
     Ipv4Address newIp = state.nrIpv4;
     ApplyHandoverState(termIdx, 1, RatType::NR, newIp);
 
-    std::cout << "[WiFi→NR] term=" << termIdx
-              << " AP" << oldAp << "→AP1"
-              << " IP=" << newIp << std::endl;
+    (void)oldAp;
 }
 
 RatType NetSim::GetRatTypeForAp(int apNo) const
