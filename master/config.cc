@@ -276,12 +276,12 @@ void NetSim::Init(int argc, char *argv[]){
     NS_LOG_FUNCTION(this);
 
     CommandLine cmd;
-    cmd.AddValue("method", "Assignment method: no_switch, random, greedy, logistic, dqn", m_assignmentMethod);
+    cmd.AddValue("method", "Assignment method: no_switch, random, rulebase, logistic, dqn", m_assignmentMethod);
     cmd.AddValue("mob", "1 is constant, 2 is randomwalk", m_mob);
     cmd.Parse(argc, argv);
 
     if (m_assignmentMethod != "no_switch" &&
-        m_assignmentMethod != "random" && m_assignmentMethod != "greedy" &&
+        m_assignmentMethod != "random" && m_assignmentMethod != "rulebase" &&
         m_assignmentMethod != "logistic" && m_assignmentMethod != "dqn" &&
         m_assignmentMethod != "ml")
     {

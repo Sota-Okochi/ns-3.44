@@ -286,9 +286,9 @@ void APselection::tmain(){
         {
             random_assignment();
         }
-        else if (m_assignmentMethod == "greedy")
+        else if (m_assignmentMethod == "rulebase")
         {
-            greedy_assignment();
+            rulebase_assignment();
         }
         else if (m_assignmentMethod == "logistic")
         {
@@ -373,7 +373,7 @@ void APselection::cal_initial_harmonic_mean(){
     }
     if (sum_inverse_satisfaction <= 0.0)
     {
-        std::cout << "割り当て前端末満足度の調和平均：計測値が不足しているため 0 として扱います" << std::endl;
+        std::cout << "割り当て前端末満足度の調和平均計測値が不足しているため 0 として扱います" << std::endl;
         initial_harmonic_mean = 0.0;
     }
     else
@@ -470,9 +470,9 @@ void APselection::random_assignment() {
     }
 }
 
-// 方策による割り当て（3分類し、不満足端末のみ再割り当て）
-void APselection::greedy_assignment() {
-    std::cout << "=== APselection::greedy_assignment() ===" << std::endl;
+// ルールベース割り当て（3分類し、不満足端末のみランダム再割り当て）
+void APselection::rulebase_assignment() {
+    std::cout << "=== APselection::rulebase_assignment() ===" << std::endl;
 
     // 端末ごとの満足度を現在のTP/RTTとアプリ情報から算出する。
     // master_log の列変更に影響されないよう、CSV読み込みには依存しない。

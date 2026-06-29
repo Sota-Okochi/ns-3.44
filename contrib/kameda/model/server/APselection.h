@@ -81,7 +81,7 @@ private:
     void cal_initial_harmonic_mean(); // 端末満足度の調和平均の計算
     double calculate_satisfaction(int terminal_idx, int ap_idx);
     void random_assignment(); //ランダム法による割り当て
-    void greedy_assignment(); // greedy法による割り当て
+    void rulebase_assignment(); // ルールベース法による割り当て
     void logistic_assignment(); // ロジスティック回帰による割り当て
     void dqn_assignment(); // DQN action CSVによる割り当て
     bool LoadLogisticModel();
