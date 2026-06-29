@@ -46,6 +46,6 @@ evaluation:
       - max
 
   output:
-    result_dir: OUTPUT/dqn/data/results
+    result_dir: results/dqn
     summary_file: evaluation_summary_static_80ue_5step.csv
     per_seed_file: evaluation_per_seed_static_80ue_5step.csv

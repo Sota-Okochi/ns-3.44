@@ -27,6 +27,6 @@ collection:
       description: Use existing rule-based assignment method.
 
   output:
-    raw_log_dir: OUTPUT/dqn/data/raw
+    raw_log_dir: data/raw/dqn
     transition_dir: episodes/dqn/transitions
     file_prefix: dqn_collect_static_80ue_5step

@@ -91,7 +91,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--result-dir",
-        default="OUTPUT/dqn/data/results",
+        default="results/dqn",
         help="Directory to save training loss CSV/metadata.",
     )
     parser.add_argument("--epochs", type=int, help="Override number of offline training epochs.")

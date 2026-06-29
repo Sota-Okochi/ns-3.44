@@ -1,0 +1,20 @@
+{
+  "checkpoint": "models/dqn/checkpoints/dqn_static_80ue_5step_20260612_004628.pt",
+  "loss_csv": "results/dqn/train_loss_dqn_static_80ue_5step_20260612_004628.csv",
+  "num_transitions": 40,
+  "batch_size": 32,
+  "epochs": 50,
+  "device": "cpu",
+  "input_files": [
+    "episodes/dqn/transitions/transitions_flag_only_master_log_10_random_20260611_225124.csv",
+    "episodes/dqn/transitions/transitions_flag_only_master_log_10_random_20260611_225135.csv",
+    "episodes/dqn/transitions/transitions_flag_only_master_log_10_random_20260611_225146.csv",
+    "episodes/dqn/transitions/transitions_flag_only_master_log_10_random_20260611_225155.csv",
+    "episodes/dqn/transitions/transitions_flag_only_master_log_10_random_20260611_225206.csv",
+    "episodes/dqn/transitions/transitions_flag_only_master_log_10_random_20260611_235130.csv",
+    "episodes/dqn/transitions/transitions_flag_only_master_log_10_random_20260611_235138.csv",
+    "episodes/dqn/transitions/transitions_flag_only_master_log_10_random_20260611_235148.csv",
+    "episodes/dqn/transitions/transitions_flag_only_master_log_10_random_20260611_235159.csv",
+    "episodes/dqn/transitions/transitions_flag_only_master_log_10_random_20260611_235219.csv"
+  ]
+}

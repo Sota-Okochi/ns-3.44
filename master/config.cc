@@ -277,6 +277,9 @@ void NetSim::Init(int argc, char *argv[]){
 
     CommandLine cmd;
     cmd.AddValue("method", "Assignment method: no_switch, random, rulebase, logistic, dqn", m_assignmentMethod);
+    cmd.AddValue("dqnActionCsv",
+                 "DQN action CSV path used when --method=dqn",
+                 m_dqnActionCsvPath);
     cmd.AddValue("mob", "1 is constant, 2 is randomwalk", m_mob);
     cmd.Parse(argc, argv);
 

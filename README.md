@@ -150,6 +150,7 @@ cd ~/ns-3.44
 ```
 - 現状，実行可能な手法は `random` と `rulebase` ，`logistic` です．
 - `dqn` は現在開発中です．
+- `dqn` 実行時の action CSV は `--dqnActionCsv=<path>` で指定できます．省略時は `episodes/dqn/actions/actions_dqn_seed1.csv` を読み込みます．
 - 乱数 seed などの実験条件は `data/setting.json` で管理します．
 
 ### 設定ファイル
@@ -178,6 +179,14 @@ cd ~/ns-3.44
 ## 出力ログ
 
 実行結果は `OUTPUT/` 以下に保存されます．主要なログは `master_log` です．
+ただし，DQN の学習データ・学習結果・モデルは `OUTPUT/` の掃除で誤削除しないように，`OUTPUT/` の外に保存します．
+
+```text
+episodes/dqn/transitions/  # DQN学習用 transition
+episodes/dqn/actions/      # DQN推論結果 action CSV
+results/dqn/               # DQN学習loss・metadata
+models/dqn/checkpoints/    # DQNモデル checkpoint
+```
 
 ### master_log
 
