@@ -1013,8 +1013,7 @@ void APselection::WriteMasterLog()
     if (!m_masterLogInitialized)
     {
         std::ofstream ofs(filePath, std::ios::trunc);
-        ofs << "episode_id,"
-            << "seed,"
+        ofs << "seed,"
             << "cycle_id,"
             << "ue_id,"
             << "current_bs_id,"
@@ -1022,14 +1021,11 @@ void APselection::WriteMasterLog()
             << "tp_mbps,"
             << "rtt_ms,"
             << "satisfaction,"
-            << "satisfaction_class,"
             << "num_users_on_current_bs,"
             << "harmonic_mean,"
             << "num_unsatisfied_users,"
             << "target_ue_flag,"
             << "action_selected_bs_id,"
-            << "switch_flag,"
-            << "reward,"
             << "measurement_valid" << std::endl;
         ofs.close();
         m_masterLogInitialized = true;
@@ -1038,17 +1034,8 @@ void APselection::WriteMasterLog()
     std::ofstream ofs(filePath, std::ios::app);
     ofs << std::fixed << std::setprecision(6);
 
-    const std::string episodeId =
-        "terms" + std::to_string(terms) +
-        "_method" + m_assignmentMethod +
-        "_seed" + std::to_string(m_rngSeed);
-
     const double harmonicMean =
         m_cycleHarmonicMeans.empty() ? 0.0 : m_cycleHarmonicMeans.back();
-    const double reward =
-        (m_cycleHarmonicMeans.size() >= 2)
-            ? (m_cycleHarmonicMeans.back() - m_cycleHarmonicMeans[m_cycleHarmonicMeans.size() - 2])
-            : 0.0;
 
     std::vector<int> usersPerAp(aps, 0);
     for (int i = 0; i < terms; ++i)
@@ -1133,12 +1120,6 @@ void APselection::WriteMasterLog()
                            ? m_monitor_rtt[ap_idx]
                            : 0.0;
         const double satisfaction = satisfactions[i];
-        const std::string satisfactionClass =
-            (satisfaction < kUnsatisfiedThreshold)
-                ? "unsatisfied"
-                : ((satisfaction >= kHighSatisfactionThreshold)
-                       ? "high_satisfaction"
-                       : "satisfied");
         bool dataValid = isTpApp
             ? (i < static_cast<int>(m_has_terminal_tp.size()) && m_has_terminal_tp[i] && m_terminal_tp[i] > 0.0)
             : (ap_idx >= 0 && ap_idx < static_cast<int>(m_has_rtt.size()) && m_has_rtt[ap_idx]);
@@ -1150,11 +1131,8 @@ void APselection::WriteMasterLog()
             (i < static_cast<int>(m_lastAssignment.size()))
                 ? (m_lastAssignment[i] - 1)
                 : ap_idx;
-        const int switchFlag =
-            (actionSelectedBsId >= 0 && ap_idx >= 0 && actionSelectedBsId != ap_idx) ? 1 : 0;
 
-        ofs << episodeId << ","
-            << m_rngSeed << ","
+        ofs << m_rngSeed << ","
             << m_cycleIndex << ","
             << (i + 1) << ","
             << ap_idx << ","
@@ -1162,14 +1140,11 @@ void APselection::WriteMasterLog()
             << tpMbps << ","
             << rttMs << ","
             << satisfaction << ","
-            << satisfactionClass << ","
             << numUsersOnCurrentBs << ","
             << harmonicMean << ","
             << numUnsatisfiedUsers << ","
             << ((i == targetUeIdx) ? 1 : 0) << ","
             << actionSelectedBsId << ","
-            << switchFlag << ","
-            << reward << ","
             << (dataValid ? 1 : 0) << std::endl;
     }
 

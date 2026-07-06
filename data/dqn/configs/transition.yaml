@@ -5,7 +5,6 @@
 
 transition:
   id_columns:
-    - episode_id
     - seed
     - cycle_id
     - target_ue_id
@@ -16,14 +15,12 @@ transition:
     - tp_mbps
     - rtt_ms
     - satisfaction
-    - satisfaction_class
     - num_users_on_current_bs
     - harmonic_mean
     - num_unsatisfied_users
 
   action_columns:
     - action_selected_bs_id
-    - switch_flag
 
   reward_columns:
     - reward

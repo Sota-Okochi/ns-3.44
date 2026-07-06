@@ -129,7 +129,6 @@ DQN 実行後に、`OUTPUT/<端末数>/` 以下の `master_log` を確認しま�
 - `harmonic_mean` が記録されているか確認する
 - `target_ue_flag` が各 cycle で立っているか確認する
 - `action_selected_bs_id` が出力されているか確認する
-- `switch_flag` により切り替え有無を確認する
 - `measurement_valid` が極端に 0 ばかりでないか確認する
 
 確認する主な列:
@@ -144,8 +143,6 @@ harmonic_mean
 num_unsatisfied_users
 target_ue_flag
 action_selected_bs_id
-switch_flag
-reward
 measurement_valid
 ```
 
@@ -169,7 +166,7 @@ DQN 単体では有効性を判断できないため、同じ seed・同じ設�
 - 平均 TP
 - 平均 RTT
 - 切り替え回数
-- reward
+- reward（transition 作成時に `harmonic_mean` 差分から再計算）
 - seed 間のばらつき
 
 例:

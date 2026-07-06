@@ -28,19 +28,16 @@ REQUIRED_COLUMNS = {
     "tp_mbps",
     "rtt_ms",
     "satisfaction",
-    "satisfaction_class",
     "num_users_on_current_bs",
     "harmonic_mean",
     "num_unsatisfied_users",
     "target_ue_flag",
     "action_selected_bs_id",
-    "switch_flag",
     "measurement_valid",
 }
 
 OUTPUT_COLUMNS = [
     # identifiers
-    "episode_id",
     "source_file",
     "seed",
     "cycle_id",
@@ -52,14 +49,12 @@ OUTPUT_COLUMNS = [
     "tp_mbps",
     "rtt_ms",
     "satisfaction",
-    "satisfaction_class",
     "num_users_on_current_bs",
     "harmonic_mean",
     "num_unsatisfied_users",
     "target_ue_flag",
     # action a_t
     "action_selected_bs_id",
-    "switch_flag",
     # reward r_t, recomputed as H_{t+1} - H_t
     "reward",
     # next state s_{t+1}: same UE in next cycle
@@ -69,7 +64,6 @@ OUTPUT_COLUMNS = [
     "next_tp_mbps",
     "next_rtt_ms",
     "next_satisfaction",
-    "next_satisfaction_class",
     "next_num_users_on_current_bs",
     "next_harmonic_mean",
     "next_num_unsatisfied_users",
@@ -182,12 +176,6 @@ def select_current_rows(
     return [row for row in cycle_rows if as_int(row, "target_ue_flag") == 1]
 
 
-def make_episode_id(path: Path, row: Dict[str, str]) -> str:
-    if row.get("episode_id"):
-        return row["episode_id"]
-    return path.stem
-
-
 def build_transitions_for_file(
     path: Path, target_mode: str, strict_one_flag: bool = False
 ) -> List[Dict[str, str]]:
@@ -231,7 +219,6 @@ def build_transitions_for_file(
 
             reward = as_float(nxt, "harmonic_mean") - as_float(cur, "harmonic_mean")
             transition = {
-                "episode_id": make_episode_id(path, cur),
                 "source_file": path.name,
                 "seed": cur["seed"],
                 "cycle_id": cur["cycle_id"],
@@ -242,13 +229,11 @@ def build_transitions_for_file(
                 "tp_mbps": cur["tp_mbps"],
                 "rtt_ms": cur["rtt_ms"],
                 "satisfaction": cur["satisfaction"],
-                "satisfaction_class": cur["satisfaction_class"],
                 "num_users_on_current_bs": cur["num_users_on_current_bs"],
                 "harmonic_mean": cur["harmonic_mean"],
                 "num_unsatisfied_users": cur["num_unsatisfied_users"],
                 "target_ue_flag": cur["target_ue_flag"],
                 "action_selected_bs_id": cur["action_selected_bs_id"],
-                "switch_flag": cur["switch_flag"],
                 "reward": f"{reward:.6f}",
                 "next_cycle_id": nxt["cycle_id"],
                 "next_current_bs_id": nxt["current_bs_id"],
@@ -256,7 +241,6 @@ def build_transitions_for_file(
                 "next_tp_mbps": nxt["tp_mbps"],
                 "next_rtt_ms": nxt["rtt_ms"],
                 "next_satisfaction": nxt["satisfaction"],
-                "next_satisfaction_class": nxt["satisfaction_class"],
                 "next_num_users_on_current_bs": nxt["num_users_on_current_bs"],
                 "next_harmonic_mean": nxt["harmonic_mean"],
                 "next_num_unsatisfied_users": nxt["num_unsatisfied_users"],

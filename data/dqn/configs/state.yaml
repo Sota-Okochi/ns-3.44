@@ -9,7 +9,6 @@ target_ue_features:
   - tp_mbps
   - rtt_ms
   - satisfaction
-  - satisfaction_class
 
 bs_context_features:
   - num_users_on_current_bs
