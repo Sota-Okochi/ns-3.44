@@ -471,7 +471,7 @@ void NetSim::ConfigureWifiForAP1(){
         wifiDevices[apIndex].Add(temp);
     }
     std::stringstream ss;
-    ss << OUTPUT_DIR << "wifi" << apIndex;
+    ss << m_outputDir << "wifi" << apIndex;
 }
 
 void NetSim::ConfigureWifiForAP2(){
@@ -534,7 +534,7 @@ void NetSim::ConfigureWifiForAP2(){
         wifiDevices[apIndex].Add(temp);
     }
     std::stringstream ss;
-    ss << OUTPUT_DIR << "wifi" << apIndex;
+    ss << m_outputDir << "wifi" << apIndex;
 }
 
 void NetSim::ConfigureP2PDevices()
@@ -627,7 +627,7 @@ void NetSim::ConfigureP2P(uint32_t count){
     pointToPoint.SetQueue("ns3::DropTailQueue<Packet>", "MaxSize", StringValue(queueSize));
     p2pDevices[count] = pointToPoint.Install (p2pNodes[count]);
     // std::stringstream ss;
-    // ss << OUTPUT_DIR << "pointToPoint" << count;
+    // ss << m_outputDir << "pointToPoint" << count;
     // pointToPoint.EnablePcapAll(ss.str());
 }
 

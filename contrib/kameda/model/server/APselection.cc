@@ -9,6 +9,7 @@
 #include "ns3/tcp-socket-factory.h"
 #include "ns3/packet.h"
 #include "ns3/ipv4.h"
+#include "ns3/system-path.h"
 
 #include "ns3/APselection.h"
 
@@ -170,6 +171,12 @@ void APselection::init(const ApSelectionInput& input){
     m_assignmentMethod = input.assignmentMethod;
     m_dqnActionCsvPath = input.dqnActionCsvPath;
     m_rngSeed = input.rngSeed;
+    m_outputDir = input.outputDir;
+    if (!m_outputDir.empty() && m_outputDir.back() != '/')
+    {
+        m_outputDir += "/";
+    }
+    SystemPath::MakeDirectories(m_outputDir);
 
 
     m_monitor_rtt.assign(aps, 0.0);
@@ -199,7 +206,7 @@ void APselection::init(const ApSelectionInput& input){
         std::tm *tm_local = std::localtime(&t);
         char dateBuf[32];
         std::strftime(dateBuf, sizeof(dateBuf), "%Y%m%d_%H%M%S", tm_local);
-        m_masterLogPath = "OUTPUT/master_log_" + std::to_string(terms) + "_" +
+        m_masterLogPath = m_outputDir + "master_log_" + std::to_string(terms) + "_" +
                           m_assignmentMethod + "_" + dateBuf + ".csv";
     }
     std::cout << "ログパス: " << m_masterLogPath << std::endl;
@@ -285,6 +292,10 @@ void APselection::tmain(){
         if (m_assignmentMethod == "random")
         {
             random_assignment();
+        }
+        else if (m_assignmentMethod == "all5g")
+        {
+            all5g_assignment();
         }
         else if (m_assignmentMethod == "rulebase")
         {
@@ -462,6 +473,23 @@ void APselection::random_assignment() {
         }
     }
     std::cout << "]" << std::endl;
+
+    m_lastAssignment = assignment;
+    if (m_handoverCallback)
+    {
+        m_handoverCallback(assignment);
+    }
+}
+
+// 1回目の切り替え処理で全端末を5G基地局（内部AP番号: 1, AP0/NR）へ接続し、
+// 以降のサイクルでは同じ割り当てを維持する baseline。
+void APselection::all5g_assignment() {
+    std::cout << "=== APselection::all5g_assignment() ===" << std::endl;
+
+    std::vector<int> assignment(terms, 1);
+
+    std::cout << "全端末を5G基地局へ割り当て、cycle="
+              << m_cycleIndex << std::endl;
 
     m_lastAssignment = assignment;
     if (m_handoverCallback)

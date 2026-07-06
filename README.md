@@ -178,7 +178,7 @@ cd ~/ns-3.44
 
 ## 出力ログ
 
-実行結果は `OUTPUT/` 以下に保存されます．主要なログは `master_log` です．
+実行結果は `OUTPUT/<端末数>/` 以下に保存されます．主要なログは `master_log` です．該当する端末数のディレクトリがない場合は自動作成されます．
 ただし，DQN の学習データ・学習結果・モデルは `OUTPUT/` の掃除で誤削除しないように，`OUTPUT/` の外に保存します．
 
 ```text
@@ -193,14 +193,14 @@ models/dqn/checkpoints/    # DQNモデル checkpoint
 ファイル名規則:
 
 ```text
-OUTPUT/master_log_<端末数>_<method>_<YYYYMMDD_HHMMSS>.csv
+OUTPUT/<端末数>/master_log_<端末数>_<method>_<YYYYMMDD_HHMMSS>.csv
 ```
 
 例:
 
 ```text
-OUTPUT/master_log_10_random_20260523_174000.csv
-OUTPUT/master_log_10_logistic_20260523_202742.csv
+OUTPUT/10/master_log_10_random_20260523_174000.csv
+OUTPUT/10/master_log_10_logistic_20260523_202742.csv
 ```
 
 CSV の列:

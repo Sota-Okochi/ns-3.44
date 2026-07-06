@@ -242,6 +242,7 @@ NetSim::NetSim()
     m_assignmentMethod = "random";
     m_dqnActionCsvPath = "episodes/dqn/actions/actions_dqn_seed1.csv";
     m_rngSeed = 1;
+    m_outputDir = OUTPUT_ROOT_DIR;
     server_udpVoice = nullptr;
     server_udpVideo = nullptr;
     server_rtt = nullptr;
@@ -265,8 +266,9 @@ NetSim::NetSim()
     m_browserPostHandoverDelay   = Seconds(0.0);
     m_terminalTpWindowStart = Seconds(0.0);
 
-    // Ensure OUTPUT directory exists before writing trace or log files
-    SystemPath::MakeDirectories(OUTPUT_DIR);
+    // Ensure root OUTPUT directory exists.  The terminal-count subdirectory is
+    // selected after setting.json is loaded in Init().
+    SystemPath::MakeDirectories(OUTPUT_ROOT_DIR);
 }
 
 NetSim::~NetSim(){
@@ -276,7 +278,7 @@ void NetSim::Init(int argc, char *argv[]){
     NS_LOG_FUNCTION(this);
 
     CommandLine cmd;
-    cmd.AddValue("method", "Assignment method: no_switch, random, rulebase, logistic, dqn", m_assignmentMethod);
+    cmd.AddValue("method", "Assignment method: no_switch, random, all5g, rulebase, logistic, dqn", m_assignmentMethod);
     cmd.AddValue("dqnActionCsv",
                  "DQN action CSV path used when --method=dqn",
                  m_dqnActionCsvPath);
@@ -284,7 +286,8 @@ void NetSim::Init(int argc, char *argv[]){
     cmd.Parse(argc, argv);
 
     if (m_assignmentMethod != "no_switch" &&
-        m_assignmentMethod != "random" && m_assignmentMethod != "rulebase" &&
+        m_assignmentMethod != "random" && m_assignmentMethod != "all5g" &&
+        m_assignmentMethod != "rulebase" &&
         m_assignmentMethod != "logistic" && m_assignmentMethod != "dqn" &&
         m_assignmentMethod != "ml")
     {
@@ -300,6 +303,9 @@ void NetSim::Init(int argc, char *argv[]){
     std::cout << "シード値(setting.json/\"rngSeed\"): " << setting.rngSeed << std::endl;
     APnum = static_cast<uint32_t>(setting.baseStations);
     termNum = static_cast<uint32_t>(setting.terminals);
+    m_outputDir = OUTPUT_ROOT_DIR + std::to_string(termNum) + "/";
+    SystemPath::MakeDirectories(m_outputDir);
+    std::cout << "出力ディレクトリ: " << m_outputDir << std::endl;
     m_cycleCount             = static_cast<uint32_t>(setting.numCycles);
     m_cycleDuration          = Seconds(setting.cycleTimeSec);
     m_monitorStartOffset     = Seconds(setting.monitorStartSec);
@@ -324,6 +330,7 @@ void NetSim::Init(int argc, char *argv[]){
     m_apSelectionInput.assignmentMethod = m_assignmentMethod;
     m_apSelectionInput.dqnActionCsvPath = m_dqnActionCsvPath;
     m_apSelectionInput.rngSeed = m_rngSeed;
+    m_apSelectionInput.outputDir = m_outputDir;
 
     m_termData.clear();
     m_apSelectionInput.useAppli.clear();
@@ -447,14 +454,14 @@ void NetSim::RunSim(){
     // Keep per-cycle FlowMonitor diagnostics scoped to this simulation run.
     if (kEnableFlowOutputLogs)
     {
-        const std::string flowCsvPath = std::string(OUTPUT_DIR) + "flow_per_cycle.csv";
+        const std::string flowCsvPath = std::string(m_outputDir) + "flow_per_cycle.csv";
         std::ofstream resetFlowCsv(flowCsvPath, std::ios::trunc);
         if (!resetFlowCsv.good())
         {
             NS_LOG_WARN("Failed to reset flow diagnostics CSV: " << flowCsvPath);
         }
 
-        const std::string browserCsvPath = std::string(OUTPUT_DIR) + "browser_send_events.csv";
+        const std::string browserCsvPath = std::string(m_outputDir) + "browser_send_events.csv";
         std::ofstream resetBrowserCsv(browserCsvPath, std::ios::trunc);
         if (!resetBrowserCsv.good())
         {
@@ -528,7 +535,7 @@ void NetSim::CheckFlowMonitor(Ptr<FlowMonitor> monitor, Ptr<Ipv4FlowClassifier> 
 
     monitor->CheckForLostPackets();
 
-    const std::string throughputFile = std::string(OUTPUT_DIR) + "monitor-flow-throughput.csv";
+    const std::string throughputFile = std::string(m_outputDir) + "monitor-flow-throughput.csv";
     bool writeHeader = false;
     {
         std::ifstream check(throughputFile);
@@ -599,7 +606,7 @@ void NetSim::CheckFlowMonitor(Ptr<FlowMonitor> monitor, Ptr<Ipv4FlowClassifier> 
     }
 
     std::ostringstream filename;
-    filename << OUTPUT_DIR << "monitor-flow";
+    filename << m_outputDir << "monitor-flow";
     filename << "_" << m_assignmentMethod;
     filename << ".xml";
 

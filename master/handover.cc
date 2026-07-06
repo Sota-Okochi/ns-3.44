@@ -275,7 +275,7 @@ void NetSim::LogHandoverEvent(double timeSec, uint32_t termId, int oldAp, int ne
     return;
 
     static bool headerWritten = false;
-    const std::string filePath = std::string(OUTPUT_DIR) + "handover-events.csv";
+    const std::string filePath = std::string(m_outputDir) + "handover-events.csv";
 
     std::ofstream ofs(filePath, std::ios::app);
     if (!ofs.good())

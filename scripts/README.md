@@ -1,6 +1,6 @@
 # DQN 実行手順メモ
 
-この README は、`--method=dqn` を実行して `OUTPUT/master_log_*_dqn_*.csv` を得るまでに必要な作業を記録するためのメモです。
+この README は、`--method=dqn` を実行して `OUTPUT/<端末数>/master_log_*_dqn_*.csv` を得るまでに必要な作業を記録するためのメモです。
 
 前提として、ns-3 の configure / build は完了しており、`./ns3 run "master --method=random"` など既存手法が実行できる状態から始めます。
 
@@ -14,7 +14,7 @@ DQN は `random` や `rulebase` などの実行ログから transition データ
 - 学習用 seed と評価用 seed を分ける
 - `random` を複数 seed で実行する
 - 必要に応じて `rulebase` も複数 seed で実行する
-- 生成された `OUTPUT/master_log_<端末数>_<method>_<日時>.csv` を確認する
+- 生成された `OUTPUT/<端末数>/master_log_<端末数>_<method>_<日時>.csv` を確認する
 
 例:
 
@@ -30,7 +30,7 @@ DQN は `random` や `rulebase` などの実行ログから transition データ
 記載予定:
 
 - 使用スクリプトは `scripts/dqn/dataset/build_transitions.py`
-- 入力は `OUTPUT/master_log_*.csv`
+- 入力は `OUTPUT/<端末数>/master_log_*.csv`
 - 出力先は `episodes/dqn/transitions/`
 - 基本は `--target-mode flag_only` を使う
 - transition CSV に必要な列が揃っているか確認する
@@ -39,7 +39,7 @@ DQN は `random` や `rulebase` などの実行ログから transition データ
 
 ```bash
 python3 scripts/dqn/dataset/build_transitions.py \
-  --input "OUTPUT/master_log_50_random_*.csv" "OUTPUT/master_log_50_rulebase_*.csv" \
+  --input "OUTPUT/50/master_log_50_random_*.csv" "OUTPUT/50/master_log_50_rulebase_*.csv" \
   --output-dir episodes/dqn/transitions \
   --target-mode flag_only
 ```
@@ -96,7 +96,7 @@ python3 scripts/dqn/train/train_dqn.py \
 
 ```bash
 python3 scripts/dqn/infer/infer_actions.py \
-  --input OUTPUT/master_log_50_no_switch_YYYYMMDD_HHMMSS.csv \
+  --input OUTPUT/50/master_log_50_no_switch_YYYYMMDD_HHMMSS.csv \
   --checkpoint models/dqn/checkpoints/学習済みモデル.pt \
   --output episodes/dqn/actions/actions_dqn_seed3.csv \
   --target-mode flag_only
@@ -121,11 +121,11 @@ python3 scripts/dqn/infer/infer_actions.py \
 
 ## 7. DQN 実行結果を確認する
 
-DQN 実行後に、`OUTPUT/` 以下の `master_log` を確認します。
+DQN 実行後に、`OUTPUT/<端末数>/` 以下の `master_log` を確認します。
 
 記載予定:
 
-- `OUTPUT/master_log_<端末数>_dqn_<日時>.csv` が生成されたか確認する
+- `OUTPUT/<端末数>/master_log_<端末数>_dqn_<日時>.csv` が生成されたか確認する
 - `harmonic_mean` が記録されているか確認する
 - `target_ue_flag` が各 cycle で立っているか確認する
 - `action_selected_bs_id` が出力されているか確認する
@@ -202,4 +202,3 @@ DQN 実行時に間違えやすい点をまとめます。
 ## 未確認事項
 
 この README は手順整理用の初稿です。ここに書いたコマンドの一連実行は、まだこの作業では未実行です。
-

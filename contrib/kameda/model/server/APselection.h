@@ -58,6 +58,7 @@ struct ApSelectionInput {
     uint32_t handoverGraceCycles = APConstants::HANDOVER_GRACE_CYCLES;
     std::string assignmentMethod = "random";
     std::string dqnActionCsvPath;
+    std::string outputDir = "OUTPUT/";
     uint32_t rngSeed = 1;
 };
 
@@ -81,6 +82,7 @@ private:
     void cal_initial_harmonic_mean(); // 端末満足度の調和平均の計算
     double calculate_satisfaction(int terminal_idx, int ap_idx);
     void random_assignment(); //ランダム法による割り当て
+    void all5g_assignment(); // 1回目の切り替えで全端末を5G(NR/AP1)へ割り当てる
     void rulebase_assignment(); // ルールベース法による割り当て
     void logistic_assignment(); // ロジスティック回帰による割り当て
     void dqn_assignment(); // DQN action CSVによる割り当て
@@ -116,6 +118,7 @@ private:
     std::vector<double> traffic_request;      //必要TP, RTT
     std::string m_assignmentMethod = "random"; // 割り当て手法名
     std::string m_dqnActionCsvPath;             // DQN action CSV
+    std::string m_outputDir = "OUTPUT/";        // master_log 出力先
     std::map<uint32_t, std::pair<int, int>> m_dqnActions; // cycle_id -> (target_ue_id 1-based, selected_bs_id 0-based)
     uint32_t m_rngSeed = 1;                    // 割り当て手法用乱数seed
     bool m_masterLogInitialized = false;       // master_log.csv ヘッダー書き込み済みフラグ

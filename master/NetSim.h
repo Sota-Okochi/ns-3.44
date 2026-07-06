@@ -34,7 +34,7 @@
 namespace ns3 {
 
 const std::string INPUT_DIR = std::string(PROJECT_SOURCE_PATH) + "/data/";
-const std::string OUTPUT_DIR = std::string(PROJECT_SOURCE_PATH) + "/OUTPUT/";
+const std::string OUTPUT_ROOT_DIR = std::string(PROJECT_SOURCE_PATH) + "/OUTPUT/";
 
 // 監視端末の最大数（Wi-Fi AP 数と合わせて使用）
 constexpr uint32_t kMaxMonitorTerminals = 3;
@@ -140,6 +140,7 @@ private:
     std::string m_assignmentMethod;
     std::string m_dqnActionCsvPath;
     uint32_t m_rngSeed;
+    std::string m_outputDir;  // OUTPUT/<端末数>/（実行ログ・補助ログの出力先）
 
     std::vector<NodeContainer> p2pNodes;
     std::vector<NodeContainer> wifiNodes;

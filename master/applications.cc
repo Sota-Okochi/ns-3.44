@@ -94,7 +94,7 @@ void NetSim::LogBrowserBulkDiagnostic(uint32_t termIdx,
         return;
     }
 
-    const std::string csvPath = std::string(OUTPUT_DIR) + "browser_bulk_diagnostics.csv";
+    const std::string csvPath = std::string(m_outputDir) + "browser_bulk_diagnostics.csv";
     bool writeHeader = false;
     {
         std::ifstream chk(csvPath);
@@ -224,7 +224,7 @@ void NetSim::LogBrowserTcpEvent(const std::string& context,
         return;
     }
 
-    const std::string csvPath = std::string(OUTPUT_DIR) + "browser_tcp_events.csv";
+    const std::string csvPath = std::string(m_outputDir) + "browser_tcp_events.csv";
     bool writeHeader = false;
     {
         std::ifstream chk(csvPath);
@@ -464,7 +464,7 @@ void NetSim::ScheduleBrowserDownloadForTerminal(uint32_t termIdx,
     {
         const uint32_t cycleNum =
             static_cast<uint32_t>(Simulator::Now().GetSeconds() / m_cycleDuration.GetSeconds()) + 1;
-        const std::string csvPath = std::string(OUTPUT_DIR) + "browser_send_events.csv";
+        const std::string csvPath = std::string(m_outputDir) + "browser_send_events.csv";
         bool writeHeader = false;
         {
             std::ifstream chk(csvPath);
@@ -1343,7 +1343,7 @@ void NetSim::CollectTerminalThroughput()
     {
         const uint32_t cycleNum =
             static_cast<uint32_t>(Simulator::Now().GetSeconds() / m_cycleDuration.GetSeconds()) + 1;
-        const std::string flowCsvPath = std::string(OUTPUT_DIR) + "flow_per_cycle.csv";
+        const std::string flowCsvPath = std::string(m_outputDir) + "flow_per_cycle.csv";
         bool writeHeader = false;
         {
             std::ifstream chk(flowCsvPath);
