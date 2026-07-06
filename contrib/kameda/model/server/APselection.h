@@ -84,8 +84,22 @@ private:
     void random_assignment(); //ランダム法による割り当て
     void all5g_assignment(); // 1回目の切り替えで全端末を5G(NR/AP1)へ割り当てる
     void rulebase_assignment(); // ルールベース法による割り当て
+    void greedy_assignment(); // greedy法による割り当て
     void logistic_assignment(); // ロジスティック回帰による割り当て
     void dqn_assignment(); // DQN action CSVによる割り当て
+    double calculate_harmonic_mean_for_assignment(const std::vector<int>& assignment);
+    double estimate_satisfaction_for_assignment(int terminal_idx,
+                                                int ap_idx,
+                                                const std::vector<int>& assignment);
+    double estimate_tp_mbps_for_assignment(int terminal_idx,
+                                           int ap_idx,
+                                           const std::vector<int>& assignment);
+    double estimate_rtt_ms_for_assignment(int terminal_idx, int ap_idx) const;
+    std::vector<int> count_users_per_ap(const std::vector<int>& assignment) const;
+    void PrepareDecisionLogState(const std::vector<int>& assignmentBefore,
+                                 const std::vector<int>& assignmentAfter,
+                                 double hBefore,
+                                 double hAfterEstimated);
     bool LoadLogisticModel();
     bool LoadDqnActions();
     void KeepCurrentAssignment(const std::string& reason);
@@ -108,12 +122,17 @@ private:
     std::vector<int> initial_app;       //各端末の初期アプリ番号
     std::vector<int> initial_AP;       //各端末の初期接続先
     std::vector<int> m_lastAssignment;      // 直近の割当結果（1ベース）
+    std::vector<int> m_assignmentBeforeAction; // 当該サイクルの割当実行前（1ベース）
+    std::vector<int> m_assignmentAfterAction;  // 当該サイクルの割当実行後/選択結果（1ベース）
     std::vector<uint32_t> m_switchCycle;   // 端末ごとのハンドオーバ発生サイクル（0=未切り替え）
     uint32_t m_cycleIndex = 0;             // 現在のサイクル番号（1スタート）
     uint32_t m_totalCycles = 0;            // 総サイクル数（0=制限なし）
     uint32_t m_handoverGraceCycles = APConstants::HANDOVER_GRACE_CYCLES;
     std::function<void(const std::vector<int>&)> m_handoverCallback;
     std::vector<double> m_cycleHarmonicMeans; // サイクルごとの調和平均
+    double m_hBeforeAction = 0.0;             // 当該サイクルの切り替え前H
+    double m_hAfterEstimated = 0.0;           // 当該サイクルの推定切り替え後H
+    double m_lastReward = 0.0;                // m_hAfterEstimated - m_hBeforeAction
     
     std::vector<double> traffic_request;      //必要TP, RTT
     std::string m_assignmentMethod = "random"; // 割り当て手法名

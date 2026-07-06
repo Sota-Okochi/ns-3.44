@@ -188,6 +188,11 @@ void APselection::init(const ApSelectionInput& input){
     m_has_terminal_tp.assign(terms, false);
 
     m_lastAssignment = initial_AP;
+    m_assignmentBeforeAction = initial_AP;
+    m_assignmentAfterAction = initial_AP;
+    m_hBeforeAction = 0.0;
+    m_hAfterEstimated = 0.0;
+    m_lastReward = 0.0;
     m_switchCycle.assign(terms, 0);
     m_handoverGraceCycles = input.handoverGraceCycles;
     m_cycleIndex = 1;
@@ -286,6 +291,12 @@ void APselection::tmain(){
     cal_traffic_request();
     // 割り当て前端末満足度の調和平均の計算
     cal_initial_harmonic_mean();
+    {
+        const double hBefore =
+            m_cycleHarmonicMeans.empty() ? calculate_harmonic_mean_for_assignment(initial_AP)
+                                         : m_cycleHarmonicMeans.back();
+        PrepareDecisionLogState(initial_AP, initial_AP, hBefore, hBefore);
+    }
 
     if (m_totalCycles == 0 || m_cycleIndex < m_totalCycles)
     {
@@ -300,6 +311,10 @@ void APselection::tmain(){
         else if (m_assignmentMethod == "rulebase")
         {
             rulebase_assignment();
+        }
+        else if (m_assignmentMethod == "greedy")
+        {
+            greedy_assignment();
         }
         else if (m_assignmentMethod == "logistic")
         {
@@ -447,6 +462,207 @@ double APselection::calculate_satisfaction(int terminal_idx, int ap_idx) {
     return satis;
 }
 
+std::vector<int>
+APselection::count_users_per_ap(const std::vector<int>& assignment) const
+{
+    std::vector<int> usersPerAp(aps, 0);
+    for (int apNo : assignment)
+    {
+        const int apIdx = apNo - 1;
+        if (apIdx >= 0 && apIdx < aps)
+        {
+            usersPerAp[apIdx] += 1;
+        }
+    }
+    return usersPerAp;
+}
+
+double
+APselection::estimate_rtt_ms_for_assignment(int terminal_idx, int ap_idx) const
+{
+    if (ap_idx < 0 || ap_idx >= static_cast<int>(m_monitor_rtt.size()))
+    {
+        return traffic_request[terminal_idx];
+    }
+    double measuredRtt = m_has_rtt[ap_idx] ? m_monitor_rtt[ap_idx] : traffic_request[terminal_idx];
+    if (measuredRtt <= 0.0)
+    {
+        measuredRtt = traffic_request[terminal_idx];
+    }
+    return measuredRtt;
+}
+
+double
+APselection::estimate_tp_mbps_for_assignment(int terminal_idx,
+                                             int ap_idx,
+                                             const std::vector<int>& assignment)
+{
+    if (terminal_idx < 0 || terminal_idx >= terms || ap_idx < 0 || ap_idx >= aps)
+    {
+        return 0.0;
+    }
+
+    const int appNum = initial_app[terminal_idx];
+
+    // 第1候補: 候補APに接続している同一アプリ端末の平均TP
+    double sameAppSum = 0.0;
+    uint32_t sameAppCount = 0;
+    double tpAppSum = 0.0;
+    uint32_t tpAppCount = 0;
+    for (int i = 0; i < terms; ++i)
+    {
+        if (i == terminal_idx)
+        {
+            continue;
+        }
+        // TPサンプルは「現在そのAPに接続して実測できた端末」から取る。
+        // 候補割当で移動予定の端末の旧AP TPを、移動先APのサンプルとして混ぜない。
+        if (i >= static_cast<int>(initial_AP.size()) || initial_AP[i] - 1 != ap_idx)
+        {
+            continue;
+        }
+        if (i >= static_cast<int>(m_has_terminal_tp.size()) ||
+            !m_has_terminal_tp[i] ||
+            i >= static_cast<int>(m_terminal_tp.size()) ||
+            m_terminal_tp[i] <= 0.0)
+        {
+            continue;
+        }
+
+        const int peerApp = initial_app[i];
+        const bool peerTpApp =
+            (peerApp == static_cast<int>(APConstants::AppType::BROWSER) ||
+             peerApp == static_cast<int>(APConstants::AppType::VIDEO));
+        if (!peerTpApp)
+        {
+            continue;
+        }
+
+        const double peerTpMbps = m_terminal_tp[i] * APConstants::BPS_TO_MBPS;
+        tpAppSum += peerTpMbps;
+        tpAppCount += 1;
+
+        if (peerApp == appNum)
+        {
+            sameAppSum += peerTpMbps;
+            sameAppCount += 1;
+        }
+    }
+
+    double estimatedTpMbps = 0.0;
+    if (sameAppCount > 0)
+    {
+        estimatedTpMbps = sameAppSum / static_cast<double>(sameAppCount);
+    }
+    else if (tpAppCount > 0)
+    {
+        // 第2候補: 候補AP上のTP系アプリ平均
+        estimatedTpMbps = tpAppSum / static_cast<double>(tpAppCount);
+    }
+    else if (terminal_idx < static_cast<int>(m_has_terminal_tp.size()) &&
+             m_has_terminal_tp[terminal_idx] &&
+             terminal_idx < static_cast<int>(m_terminal_tp.size()) &&
+             m_terminal_tp[terminal_idx] > 0.0)
+    {
+        // 第3候補: 端末自身の現在TP
+        estimatedTpMbps = m_terminal_tp[terminal_idx] * APConstants::BPS_TO_MBPS;
+    }
+    else
+    {
+        // 第4候補: satisfaction floor 相当のTP
+        estimatedTpMbps = traffic_request[terminal_idx] * APConstants::SATISFACTION_FLOOR;
+    }
+
+    // 候補割当前後の接続台数比で負荷影響を簡易補正する。
+    // 移動先APでは usersBefore/usersAfter < 1、移動元APでは > 1、変更なしAPでは 1 になる。
+    const std::vector<int> usersBefore = count_users_per_ap(initial_AP);
+    const std::vector<int> usersAfter = count_users_per_ap(assignment);
+    const int usersBeforeAp = (ap_idx < static_cast<int>(usersBefore.size())) ? usersBefore[ap_idx] : 0;
+    const int usersAfterAp = (ap_idx < static_cast<int>(usersAfter.size())) ? usersAfter[ap_idx] : 0;
+    if (usersBeforeAp > 0 && usersAfterAp > 0)
+    {
+        estimatedTpMbps *= static_cast<double>(usersBeforeAp) /
+                           static_cast<double>(usersAfterAp);
+    }
+
+    return estimatedTpMbps;
+}
+
+double
+APselection::estimate_satisfaction_for_assignment(int terminal_idx,
+                                                  int ap_idx,
+                                                  const std::vector<int>& assignment)
+{
+    if (terminal_idx < 0 || terminal_idx >= terms ||
+        ap_idx < 0 || ap_idx >= aps ||
+        terminal_idx >= static_cast<int>(traffic_request.size()))
+    {
+        return APConstants::MIN_SATISFACTION_THRESHOLD;
+    }
+
+    const int appNum = initial_app[terminal_idx];
+    if (appNum == static_cast<int>(APConstants::AppType::BROWSER) ||
+        appNum == static_cast<int>(APConstants::AppType::VIDEO))
+    {
+        const double needTp = traffic_request[terminal_idx];
+        if (needTp <= 0.0)
+        {
+            return APConstants::MIN_SATISFACTION_THRESHOLD;
+        }
+        return estimate_tp_mbps_for_assignment(terminal_idx, ap_idx, assignment) / needTp;
+    }
+
+    const double needRtt = traffic_request[terminal_idx];
+    const double estimatedRtt = estimate_rtt_ms_for_assignment(terminal_idx, ap_idx);
+    if (estimatedRtt <= 0.0)
+    {
+        return APConstants::MIN_SATISFACTION_THRESHOLD;
+    }
+    return needRtt / estimatedRtt;
+}
+
+double
+APselection::calculate_harmonic_mean_for_assignment(const std::vector<int>& assignment)
+{
+    if (assignment.empty())
+    {
+        return 0.0;
+    }
+
+    double sumInverseSatisfaction = 0.0;
+    int validTerms = 0;
+    const int evalTerms = std::min(terms, static_cast<int>(assignment.size()));
+    for (int i = 0; i < evalTerms; ++i)
+    {
+        const int apIdx = assignment[i] - 1;
+        const double satisfaction =
+            estimate_satisfaction_for_assignment(i, apIdx, assignment);
+        const double effectiveSatisfaction =
+            std::max(satisfaction, APConstants::MIN_SATISFACTION_THRESHOLD);
+        sumInverseSatisfaction += 1.0 / effectiveSatisfaction;
+        validTerms += 1;
+    }
+
+    if (validTerms == 0 || sumInverseSatisfaction <= 0.0)
+    {
+        return 0.0;
+    }
+    return static_cast<double>(validTerms) / sumInverseSatisfaction;
+}
+
+void
+APselection::PrepareDecisionLogState(const std::vector<int>& assignmentBefore,
+                                     const std::vector<int>& assignmentAfter,
+                                     double hBefore,
+                                     double hAfterEstimated)
+{
+    m_assignmentBeforeAction = assignmentBefore;
+    m_assignmentAfterAction = assignmentAfter;
+    m_hBeforeAction = hBefore;
+    m_hAfterEstimated = hAfterEstimated;
+    m_lastReward = m_hAfterEstimated - m_hBeforeAction;
+}
+
 // ランダムにAPを割り当てるダミー処理
 void APselection::random_assignment() {
     std::cout << "=== APselection::random_assignment() ===" << std::endl;
@@ -475,6 +691,10 @@ void APselection::random_assignment() {
     std::cout << "]" << std::endl;
 
     m_lastAssignment = assignment;
+    const double hBefore =
+        m_cycleHarmonicMeans.empty() ? calculate_harmonic_mean_for_assignment(initial_AP)
+                                     : m_cycleHarmonicMeans.back();
+    PrepareDecisionLogState(initial_AP, assignment, hBefore, hBefore);
     if (m_handoverCallback)
     {
         m_handoverCallback(assignment);
@@ -492,6 +712,10 @@ void APselection::all5g_assignment() {
               << m_cycleIndex << std::endl;
 
     m_lastAssignment = assignment;
+    const double hBefore =
+        m_cycleHarmonicMeans.empty() ? calculate_harmonic_mean_for_assignment(initial_AP)
+                                     : m_cycleHarmonicMeans.back();
+    PrepareDecisionLogState(initial_AP, assignment, hBefore, hBefore);
     if (m_handoverCallback)
     {
         m_handoverCallback(assignment);
@@ -566,6 +790,90 @@ void APselection::rulebase_assignment() {
     std::cout << "]" << std::endl;
 
     m_lastAssignment = assignment;
+    const double hBefore =
+        m_cycleHarmonicMeans.empty() ? calculate_harmonic_mean_for_assignment(initial_AP)
+                                     : m_cycleHarmonicMeans.back();
+    PrepareDecisionLogState(initial_AP, assignment, hBefore, hBefore);
+    if (m_handoverCallback)
+    {
+        m_handoverCallback(assignment);
+    }
+}
+
+// greedy割り当て（不満足端末を候補に、調和平均の推定改善量が最大の1切り替えを採用）
+void APselection::greedy_assignment()
+{
+    std::cout << "=== APselection::greedy_assignment() ===" << std::endl;
+
+    constexpr double kUnsatisfiedThreshold = 0.8;
+    constexpr double kMinImprovement = 1e-6;
+
+    std::vector<int> assignment = initial_AP;
+    const double hBefore =
+        m_cycleHarmonicMeans.empty() ? calculate_harmonic_mean_for_assignment(assignment)
+                                     : m_cycleHarmonicMeans.back();
+
+    int bestTerm = -1;
+    int bestAp = -1; // 1-based
+    double bestHAfter = hBefore;
+    double bestDelta = 0.0;
+
+    for (int termIdx = 0; termIdx < terms; ++termIdx)
+    {
+        if (termIdx >= static_cast<int>(assignment.size()))
+        {
+            continue;
+        }
+        const int currentAp = assignment[termIdx]; // 1-based
+        const double currentSatisfaction =
+            calculate_satisfaction(termIdx, currentAp - 1);
+
+        // 初期greedyでは、切り替え過多を避けるため不満足端末のみ候補にする。
+        if (currentSatisfaction >= kUnsatisfiedThreshold)
+        {
+            continue;
+        }
+
+        for (int ap = 1; ap <= aps; ++ap)
+        {
+            if (ap == currentAp)
+            {
+                continue;
+            }
+
+            std::vector<int> candidate = assignment;
+            candidate[termIdx] = ap;
+            const double hAfter = calculate_harmonic_mean_for_assignment(candidate);
+            const double delta = hAfter - hBefore;
+            if (delta > bestDelta)
+            {
+                bestDelta = delta;
+                bestHAfter = hAfter;
+                bestTerm = termIdx;
+                bestAp = ap;
+            }
+        }
+    }
+
+    if (bestTerm >= 0 && bestAp >= 1 && bestDelta > kMinImprovement)
+    {
+        std::cout << "[Greedy] switch term=" << (bestTerm + 1)
+                  << " AP" << assignment[bestTerm]
+                  << " -> AP" << bestAp
+                  << " h_before=" << hBefore
+                  << " h_after_estimated=" << bestHAfter
+                  << " reward=" << bestDelta << std::endl;
+        assignment[bestTerm] = bestAp;
+    }
+    else
+    {
+        std::cout << "[Greedy] no improving switch found"
+                  << " h_before=" << hBefore << std::endl;
+        bestHAfter = hBefore;
+    }
+
+    m_lastAssignment = assignment;
+    PrepareDecisionLogState(initial_AP, assignment, hBefore, bestHAfter);
     if (m_handoverCallback)
     {
         m_handoverCallback(assignment);
@@ -689,6 +997,10 @@ void APselection::dqn_assignment()
     }
 
     m_lastAssignment = assignment;
+    const double hBefore =
+        m_cycleHarmonicMeans.empty() ? calculate_harmonic_mean_for_assignment(initial_AP)
+                                     : m_cycleHarmonicMeans.back();
+    PrepareDecisionLogState(initial_AP, assignment, hBefore, hBefore);
     if (m_handoverCallback)
     {
         m_handoverCallback(assignment);
@@ -797,6 +1109,10 @@ void APselection::KeepCurrentAssignment(const std::string& reason)
     std::cerr << "[Logistic] " << reason
               << " 現在の割り当てを維持" << std::endl;
     m_lastAssignment = initial_AP;
+    const double hBefore =
+        m_cycleHarmonicMeans.empty() ? calculate_harmonic_mean_for_assignment(initial_AP)
+                                     : m_cycleHarmonicMeans.back();
+    PrepareDecisionLogState(initial_AP, m_lastAssignment, hBefore, hBefore);
     if (m_handoverCallback)
     {
         m_handoverCallback(m_lastAssignment);
@@ -893,6 +1209,10 @@ void APselection::logistic_assignment()
     }
 
     m_lastAssignment = assignment;
+    const double hBefore =
+        m_cycleHarmonicMeans.empty() ? calculate_harmonic_mean_for_assignment(initial_AP)
+                                     : m_cycleHarmonicMeans.back();
+    PrepareDecisionLogState(initial_AP, assignment, hBefore, hBefore);
     if (m_handoverCallback)
     {
         m_handoverCallback(assignment);
@@ -1016,6 +1336,7 @@ void APselection::WriteMasterLog()
         ofs << "seed,"
             << "cycle_id,"
             << "ue_id,"
+            << "previous_bs_id,"
             << "current_bs_id,"
             << "app_type,"
             << "tp_mbps,"
@@ -1026,6 +1347,9 @@ void APselection::WriteMasterLog()
             << "num_unsatisfied_users,"
             << "target_ue_flag,"
             << "action_selected_bs_id,"
+            << "switch_flag,"
+            << "h_after_estimated,"
+            << "reward,"
             << "measurement_valid" << std::endl;
         ofs.close();
         m_masterLogInitialized = true;
@@ -1100,6 +1424,10 @@ void APselection::WriteMasterLog()
     {
         int ap_1based = initial_AP[i];
         int ap_idx = ap_1based - 1;
+        const int previousBsId =
+            (i < static_cast<int>(m_assignmentBeforeAction.size()))
+                ? (m_assignmentBeforeAction[i] - 1)
+                : ap_idx;
         int appNum = initial_app[i];
 
         // TP系(1,2) か RTT系(3,4) か判定
@@ -1131,10 +1459,16 @@ void APselection::WriteMasterLog()
             (i < static_cast<int>(m_lastAssignment.size()))
                 ? (m_lastAssignment[i] - 1)
                 : ap_idx;
+        const int switchFlag = (previousBsId != actionSelectedBsId) ? 1 : 0;
+        const double hAfterEstimated =
+            (m_hAfterEstimated > 0.0) ? m_hAfterEstimated : harmonicMean;
+        const double reward =
+            (m_hAfterEstimated > 0.0) ? m_lastReward : 0.0;
 
         ofs << m_rngSeed << ","
             << m_cycleIndex << ","
             << (i + 1) << ","
+            << previousBsId << ","
             << ap_idx << ","
             << appNum << ","
             << tpMbps << ","
@@ -1145,6 +1479,9 @@ void APselection::WriteMasterLog()
             << numUnsatisfiedUsers << ","
             << ((i == targetUeIdx) ? 1 : 0) << ","
             << actionSelectedBsId << ","
+            << switchFlag << ","
+            << hAfterEstimated << ","
+            << reward << ","
             << (dataValid ? 1 : 0) << std::endl;
     }
 

@@ -278,7 +278,7 @@ void NetSim::Init(int argc, char *argv[]){
     NS_LOG_FUNCTION(this);
 
     CommandLine cmd;
-    cmd.AddValue("method", "Assignment method: no_switch, random, all5g, rulebase, logistic, dqn", m_assignmentMethod);
+    cmd.AddValue("method", "Assignment method: no_switch, random, all5g, rulebase, greedy, logistic, dqn", m_assignmentMethod);
     cmd.AddValue("dqnActionCsv",
                  "DQN action CSV path used when --method=dqn",
                  m_dqnActionCsvPath);
@@ -288,6 +288,7 @@ void NetSim::Init(int argc, char *argv[]){
     if (m_assignmentMethod != "no_switch" &&
         m_assignmentMethod != "random" && m_assignmentMethod != "all5g" &&
         m_assignmentMethod != "rulebase" &&
+        m_assignmentMethod != "greedy" &&
         m_assignmentMethod != "logistic" && m_assignmentMethod != "dqn" &&
         m_assignmentMethod != "ml")
     {
