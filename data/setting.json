@@ -10,7 +10,7 @@
   "browserSecondBurstSec": 2.1,
   "browserBurstIntervalSec": 1.0,
   "browserNumRequests": 4,
-  "browserRequestSize": 512000,
+  "browserRequestSize": 768000,
   "cycleEndMarginSec": 0.5,
   "handoverGraceCycles": 0,
   "browserPostHandoverDelaySec": 0.0
