@@ -148,7 +148,7 @@ cd ~/ns-3.44
 ```
 ./ns3 run "master --method=logistic"
 ```
-- 現状，実行可能な手法は `random` と `rulebase` ，`logistic` です．
+- 現状，実行可能な手法は `random` と `rulebase`，`all5g`, `greedy`, `logistic` です．
 - `dqn` は現在開発中です．
 - `dqn` 実行時の action CSV は `--dqnActionCsv=<path>` で指定できます．省略時は `episodes/dqn/actions/actions_dqn_seed1.csv` を読み込みます．
 - 乱数 seed などの実験条件は `data/setting.json` で管理します．
