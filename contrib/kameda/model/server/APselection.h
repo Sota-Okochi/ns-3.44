@@ -85,6 +85,7 @@ private:
     void all5g_assignment(); // 1回目の切り替えで全端末を5G(NR/AP1)へ割り当てる
     void rulebase_assignment(); // ルールベース法による割り当て
     void greedy_assignment(); // greedy法による割り当て
+    void multi_greedy_assignment(); // 複数端末greedy法による割り当て
     void logistic_assignment(); // ロジスティック回帰による割り当て
     void dqn_assignment(); // DQN action CSVによる割り当て
     double calculate_harmonic_mean_for_assignment(const std::vector<int>& assignment);
@@ -128,6 +129,7 @@ private:
     uint32_t m_cycleIndex = 0;             // 現在のサイクル番号（1スタート）
     uint32_t m_totalCycles = 0;            // 総サイクル数（0=制限なし）
     uint32_t m_handoverGraceCycles = APConstants::HANDOVER_GRACE_CYCLES;
+    uint32_t m_MaxSwitches = 1;       // multi_greedyで1サイクルに切り替える最大端末数
     std::function<void(const std::vector<int>&)> m_handoverCallback;
     std::vector<double> m_cycleHarmonicMeans; // サイクルごとの調和平均
     double m_hBeforeAction = 0.0;             // 当該サイクルの切り替え前H

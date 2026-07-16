@@ -84,7 +84,7 @@ satisfaction < 0.8
 1 サイクル内で切り替え可能な最大端末数を `MaxSwitches` で制御する。
 
 ```cpp
-uint32_t MaxSwitches;
+uint32_t m_MaxSwitches;
 ```
 
 意味:
@@ -101,14 +101,12 @@ MaxSwitches = 3 なら、最大 3 端末まで切り替え
 uint32_t m_MaxSwitches = 1;
 ```
 
-`MaxSwitches` は **設定ファイルからのみ** 調整できるようにする。コマンドライン引数には追加しない。
+`MaxSwitches` は `APselection.h` の `m_MaxSwitches` で指定する。`setting.json` やコマンドライン引数では指定しない。
 
 例:
 
-```json
-{
-  "MaxSwitches": 3
-}
+```cpp
+uint32_t m_MaxSwitches = 3;
 ```
 
 ## 4. multi_greedy のアルゴリズム
@@ -339,14 +337,7 @@ void multi_greedy_assignment();
 uint32_t m_MaxSwitches = 1;
 ```
 
-`MaxSwitches` を `ApSelectionInput` 経由で受け取るため、以下も追加する。
-
-```cpp
-struct ApSelectionInput {
-    ...
-    uint32_t MaxSwitches = 1;
-};
-```
+`MaxSwitches` は `ApSelectionInput` には追加しない。`APselection.h` の `m_MaxSwitches` に統一する。
 
 ### 6.2 `APselection.cc`
 
@@ -359,15 +350,7 @@ else if (m_assignmentMethod == "multi_greedy")
 }
 ```
 
-`APselection::init()` で `MaxSwitches` を受け取る。
-
-```cpp
-m_MaxSwitches = input.MaxSwitches;
-if (m_MaxSwitches == 0)
-{
-    m_MaxSwitches = 1;
-}
-```
+`APselection::init()` では `MaxSwitches` を受け取らない。`multi_greedy_assignment()` は `APselection.h` の `m_MaxSwitches` を参照する。
 
 `multi_greedy_assignment()` を新規実装する。
 
@@ -379,31 +362,13 @@ method 許可リストへ追加する。
 multi_greedy
 ```
 
-設定ファイル読み込み用の構造体へ `MaxSwitches` を追加する。
+`MaxSwitches` は `master/config.cc` では扱わない。
 
-```cpp
-struct BaselineSetting
-{
-    ...
-    int MaxSwitches = 1;
-};
-```
+- `BaselineSetting` に `MaxSwitches` を追加しない。
+- `setting.json` から `MaxSwitches` を読み込まない。
+- `m_apSelectionInput` に `MaxSwitches` を渡さない。
 
-`LoadBaselineSetting()` で `setting.json` から読み込む。
-
-```cpp
-if (ExtractJsonInt(content, "MaxSwitches", tmp))
-{
-    setting.MaxSwitches = tmp;
-}
-```
-
-`m_apSelectionInput.MaxSwitches` へ渡す。`MaxSwitches` はコマンドライン引数では受け取らない。
-
-```cpp
-m_apSelectionInput.MaxSwitches =
-    static_cast<uint32_t>(std::max(1, setting.MaxSwitches));
-```
+`MaxSwitches` を変更する場合は、`contrib/kameda/model/server/APselection.h` の `m_MaxSwitches` を直接変更する。
 
 ## 7. ログ設計
 
@@ -475,10 +440,10 @@ delta = H_after - hCurrent を計算する
 
 ```text
 method=greedy
-setting.json で MaxSwitches=1 に設定し、method=multi_greedy で実行
-setting.json で MaxSwitches=2 に設定し、method=multi_greedy で実行
-setting.json で MaxSwitches=3 に設定し、method=multi_greedy で実行
-setting.json で MaxSwitches=5 に設定し、method=multi_greedy で実行
+APselection.h で m_MaxSwitches=1 に設定し、method=multi_greedy で実行
+APselection.h で m_MaxSwitches=2 に設定し、method=multi_greedy で実行
+APselection.h で m_MaxSwitches=3 に設定し、method=multi_greedy で実行
+APselection.h で m_MaxSwitches=5 に設定し、method=multi_greedy で実行
 method=no_switch
 method=rulebase
 ```
@@ -505,8 +470,8 @@ H が上がっても一部端末が大きく悪化していないか
 ## 10. テスト観点
 
 - `method=greedy` の挙動が変わらないこと。
-- `setting.json` で `MaxSwitches=1` に設定し、`method=multi_greedy` で実行した場合、最大 1 端末のみ切り替わること。
-- `setting.json` で `MaxSwitches=3` に設定し、`method=multi_greedy` で実行した場合、1 サイクル最大 3 端末までしか切り替わらないこと。
+- `APselection.h` で `m_MaxSwitches=1` に設定し、`method=multi_greedy` で実行した場合、最大 1 端末のみ切り替わること。
+- `APselection.h` で `m_MaxSwitches=3` に設定し、`method=multi_greedy` で実行した場合、1 サイクル最大 3 端末までしか切り替わらないこと。
 - 候補端末が `satisfaction < 0.8` の端末だけであること。
 - 同一端末が同一サイクル内で複数回選ばれないこと。
 - 改善候補がなければ 0 件切り替えで終了すること。

@@ -316,6 +316,10 @@ void APselection::tmain(){
         {
             greedy_assignment();
         }
+        else if (m_assignmentMethod == "multi_greedy")
+        {
+            multi_greedy_assignment();
+        }
         else if (m_assignmentMethod == "logistic")
         {
             logistic_assignment();
@@ -874,6 +878,120 @@ void APselection::greedy_assignment()
 
     m_lastAssignment = assignment;
     PrepareDecisionLogState(initial_AP, assignment, hBefore, bestHAfter);
+    if (m_handoverCallback)
+    {
+        m_handoverCallback(assignment);
+    }
+}
+
+void APselection::multi_greedy_assignment()
+{
+    std::cout << "=== APselection::multi_greedy_assignment() ===" << std::endl;
+
+    constexpr double kUnsatisfiedThreshold = 0.8;
+    constexpr double kMinImprovement = 1e-6;
+
+    std::vector<int> assignment = initial_AP;
+    const double hBefore =
+        m_cycleHarmonicMeans.empty() ? calculate_harmonic_mean_for_assignment(assignment)
+                                     : m_cycleHarmonicMeans.back();
+
+    double hCurrent = hBefore;
+    uint32_t switchCount = 0;
+    std::vector<int> selectedTerms;
+
+    while (switchCount < m_MaxSwitches)
+    {
+        int bestTerm = -1;
+        int bestAp = -1; // 1-based
+        double bestHAfter = hCurrent;
+        double bestDelta = 0.0;
+
+        for (int termIdx = 0; termIdx < terms; ++termIdx)
+        {
+            if (termIdx >= static_cast<int>(assignment.size()))
+            {
+                continue;
+            }
+            if (std::find(selectedTerms.begin(), selectedTerms.end(), termIdx) !=
+                selectedTerms.end())
+            {
+                continue;
+            }
+
+            const int currentAp = assignment[termIdx]; // 1-based
+            if (currentAp < 1 || currentAp > aps)
+            {
+                continue;
+            }
+
+            const double currentSatisfaction =
+                estimate_satisfaction_for_assignment(termIdx, currentAp - 1, assignment);
+
+            // multi_greedyでは、不満足端末のみを切り替え候補にする。
+            if (currentSatisfaction >= kUnsatisfiedThreshold)
+            {
+                continue;
+            }
+
+            for (int ap = 1; ap <= aps; ++ap)
+            {
+                if (ap == currentAp)
+                {
+                    continue;
+                }
+
+                std::vector<int> candidate = assignment;
+                candidate[termIdx] = ap;
+                const double hAfter = calculate_harmonic_mean_for_assignment(candidate);
+                const double delta = hAfter - hCurrent;
+                if (delta > bestDelta)
+                {
+                    bestDelta = delta;
+                    bestHAfter = hAfter;
+                    bestTerm = termIdx;
+                    bestAp = ap;
+                }
+            }
+        }
+
+        if (bestTerm < 0 || bestAp < 1 || bestDelta <= kMinImprovement)
+        {
+            break;
+        }
+
+        std::cout << "[MultiGreedy] step=" << (switchCount + 1)
+                  << "/" << m_MaxSwitches
+                  << " switch term=" << (bestTerm + 1)
+                  << " AP" << assignment[bestTerm]
+                  << " -> AP" << bestAp
+                  << " h_before_step=" << hCurrent
+                  << " h_after_step=" << bestHAfter
+                  << " delta=" << bestDelta << std::endl;
+
+        assignment[bestTerm] = bestAp;
+        hCurrent = bestHAfter;
+        selectedTerms.push_back(bestTerm);
+        switchCount++;
+    }
+
+    if (switchCount == 0)
+    {
+        std::cout << "[MultiGreedy] no improving switch found"
+                  << " h_before=" << hBefore
+                  << " MaxSwitches=" << m_MaxSwitches << std::endl;
+    }
+    else
+    {
+        std::cout << "[MultiGreedy] selected_switches=" << switchCount
+                  << " MaxSwitches=" << m_MaxSwitches
+                  << " h_before=" << hBefore
+                  << " h_after_estimated=" << hCurrent
+                  << " reward=" << (hCurrent - hBefore) << std::endl;
+    }
+
+    m_lastAssignment = assignment;
+    PrepareDecisionLogState(initial_AP, assignment, hBefore, hCurrent);
     if (m_handoverCallback)
     {
         m_handoverCallback(assignment);
