@@ -215,6 +215,12 @@ void APselection::init(const ApSelectionInput& input){
                           m_assignmentMethod + "_" + dateBuf + ".csv";
     }
     std::cout << "ログパス: " << m_masterLogPath << std::endl;
+    std::cout << "割り当て手法(method): " << m_assignmentMethod << std::endl;
+    if (m_assignmentMethod == "multi_greedy")
+    {
+        std::cout << "[MultiGreedy] 1サイクルあたりの最大切り替え端末数: "
+                  << m_MaxSwitches << " 台" << std::endl;
+    }
 
     // --------各端末の初期接続先と初期アプリ種別の表示-----------
     /*if (!initial_AP.empty() && !initial_app.empty()){
