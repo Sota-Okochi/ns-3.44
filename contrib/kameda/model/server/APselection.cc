@@ -221,6 +221,11 @@ void APselection::init(const ApSelectionInput& input){
         std::cout << "[MultiGreedy] 1サイクルあたりの最大切り替え端末数: "
                   << m_MaxSwitches << " 台" << std::endl;
     }
+    if (m_assignmentMethod == "multi_offload")
+    {
+        std::cout << "[MultiOffload] 1サイクルあたりの最大offload端末数: "
+                  << m_MaxSwitches << " 台" << std::endl;
+    }
 
     // --------各端末の初期接続先と初期アプリ種別の表示-----------
     /*if (!initial_AP.empty() && !initial_app.empty()){
@@ -325,6 +330,10 @@ void APselection::tmain(){
         else if (m_assignmentMethod == "multi_greedy")
         {
             multi_greedy_assignment();
+        }
+        else if (m_assignmentMethod == "multi_offload")
+        {
+            multi_offload_assignment();
         }
         else if (m_assignmentMethod == "logistic")
         {
@@ -990,6 +999,281 @@ void APselection::multi_greedy_assignment()
     else
     {
         std::cout << "[MultiGreedy] selected_switches=" << switchCount
+                  << " MaxSwitches=" << m_MaxSwitches
+                  << " h_before=" << hBefore
+                  << " h_after_estimated=" << hCurrent
+                  << " reward=" << (hCurrent - hBefore) << std::endl;
+    }
+
+    m_lastAssignment = assignment;
+    PrepareDecisionLogState(initial_AP, assignment, hBefore, hCurrent);
+    if (m_handoverCallback)
+    {
+        m_handoverCallback(assignment);
+    }
+}
+
+void APselection::multi_offload_assignment()
+{
+    std::cout << "=== APselection::multi_offload_assignment() ===" << std::endl;
+
+    constexpr double kUnsatisfiedThreshold = 0.8;
+    constexpr double kMinImprovement = 1e-6;
+    // TP/RTT推定には揺らぎがあるため、対象UE自身の満足度低下は0.1まで候補として許容する。
+    constexpr double kSatisfactionDropTolerance = 0.1;
+    constexpr double kUserWeight = 0.5;
+    constexpr double kRttWeight = 0.3;
+    constexpr double kQoeWeight = 0.2;
+
+    struct ApLoadInfo
+    {
+        int ap = -1; // 1-based
+        int users = 0;
+        double rttMs = 0.0;
+        bool hasRtt = false;
+        double avgSatisfaction = 0.0;
+        int unsatisfiedUsers = 0;
+        double unsatisfiedRatio = 0.0;
+        double score = 0.0;
+    };
+
+    std::vector<int> assignment = initial_AP;
+    const double hBefore =
+        m_cycleHarmonicMeans.empty() ? calculate_harmonic_mean_for_assignment(assignment)
+                                     : m_cycleHarmonicMeans.back();
+    double hCurrent = hBefore;
+    uint32_t switchCount = 0;
+    std::vector<int> selectedTerms;
+
+    if (aps <= 1 || assignment.empty())
+    {
+        std::cout << "[MultiOffload] no switch target: aps=" << aps
+                  << " assignment_size=" << assignment.size() << std::endl;
+        m_lastAssignment = assignment;
+        PrepareDecisionLogState(initial_AP, assignment, hBefore, hCurrent);
+        if (m_handoverCallback)
+        {
+            m_handoverCallback(assignment);
+        }
+        return;
+    }
+
+    auto buildApLoadInfo = [&]() {
+        std::vector<ApLoadInfo> infos(aps);
+        for (int apIdx = 0; apIdx < aps; ++apIdx)
+        {
+            infos[apIdx].ap = apIdx + 1;
+            infos[apIdx].hasRtt =
+                (apIdx < static_cast<int>(m_has_rtt.size())) && m_has_rtt[apIdx];
+            infos[apIdx].rttMs =
+                (infos[apIdx].hasRtt && apIdx < static_cast<int>(m_monitor_rtt.size()))
+                    ? m_monitor_rtt[apIdx]
+                    : 0.0;
+        }
+
+        std::vector<double> satisfactionSum(aps, 0.0);
+        const int evalTerms = std::min(terms, static_cast<int>(assignment.size()));
+        for (int termIdx = 0; termIdx < evalTerms; ++termIdx)
+        {
+            const int ap = assignment[termIdx]; // 1-based
+            const int apIdx = ap - 1;
+            if (apIdx < 0 || apIdx >= aps)
+            {
+                continue;
+            }
+            const double satisfaction =
+                estimate_satisfaction_for_assignment(termIdx, apIdx, assignment);
+            infos[apIdx].users += 1;
+            satisfactionSum[apIdx] += satisfaction;
+            if (satisfaction < kUnsatisfiedThreshold)
+            {
+                infos[apIdx].unsatisfiedUsers += 1;
+            }
+        }
+
+        int maxUsers = 0;
+        double maxMeasuredRtt = 0.0;
+        for (int apIdx = 0; apIdx < aps; ++apIdx)
+        {
+            maxUsers = std::max(maxUsers, infos[apIdx].users);
+            if (infos[apIdx].hasRtt)
+            {
+                maxMeasuredRtt = std::max(maxMeasuredRtt, infos[apIdx].rttMs);
+            }
+        }
+
+        for (int apIdx = 0; apIdx < aps; ++apIdx)
+        {
+            if (infos[apIdx].users > 0)
+            {
+                infos[apIdx].avgSatisfaction =
+                    satisfactionSum[apIdx] / static_cast<double>(infos[apIdx].users);
+                infos[apIdx].unsatisfiedRatio =
+                    static_cast<double>(infos[apIdx].unsatisfiedUsers) /
+                    static_cast<double>(infos[apIdx].users);
+            }
+
+            const double normalizedUsers =
+                (maxUsers > 0) ? static_cast<double>(infos[apIdx].users) /
+                                     static_cast<double>(maxUsers)
+                               : 0.0;
+            const double normalizedRtt =
+                (infos[apIdx].hasRtt && maxMeasuredRtt > 0.0)
+                    ? infos[apIdx].rttMs / maxMeasuredRtt
+                    : 0.0;
+            infos[apIdx].score = kUserWeight * normalizedUsers +
+                                 kRttWeight * normalizedRtt +
+                                 kQoeWeight * infos[apIdx].unsatisfiedRatio;
+        }
+        return infos;
+    };
+
+    auto selectCongestedAp = [](const std::vector<ApLoadInfo>& infos) {
+        int bestAp = -1;
+        double bestScore = -std::numeric_limits<double>::infinity();
+        int bestUsers = -1;
+        double bestRtt = -1.0;
+        double bestAvgSatisfaction = std::numeric_limits<double>::infinity();
+
+        for (const auto& info : infos)
+        {
+            if (info.users <= 0)
+            {
+                continue;
+            }
+
+            const bool better =
+                (info.score > bestScore + 1e-12) ||
+                (std::abs(info.score - bestScore) <= 1e-12 &&
+                 (info.users > bestUsers ||
+                  (info.users == bestUsers &&
+                   (info.rttMs > bestRtt ||
+                    (std::abs(info.rttMs - bestRtt) <= 1e-12 &&
+                     info.avgSatisfaction < bestAvgSatisfaction)))));
+
+            if (better)
+            {
+                bestAp = info.ap;
+                bestScore = info.score;
+                bestUsers = info.users;
+                bestRtt = info.rttMs;
+                bestAvgSatisfaction = info.avgSatisfaction;
+            }
+        }
+        return bestAp;
+    };
+
+    while (switchCount < m_MaxSwitches)
+    {
+        const std::vector<ApLoadInfo> loadInfos = buildApLoadInfo();
+        const int congestedAp = selectCongestedAp(loadInfos); // 1-based
+        if (congestedAp < 1)
+        {
+            std::cout << "[MultiOffload] no congested AP found" << std::endl;
+            break;
+        }
+
+        const ApLoadInfo& congestedInfo = loadInfos[congestedAp - 1];
+        std::cout << "[MultiOffload] step=" << (switchCount + 1)
+                  << "/" << m_MaxSwitches
+                  << " congested_ap=AP" << congestedAp
+                  << " score=" << congestedInfo.score
+                  << " users=" << congestedInfo.users
+                  << " rtt_ms=" << congestedInfo.rttMs
+                  << " has_rtt=" << (congestedInfo.hasRtt ? 1 : 0)
+                  << " avg_satisfaction=" << congestedInfo.avgSatisfaction
+                  << " unsatisfied_ratio=" << congestedInfo.unsatisfiedRatio
+                  << std::endl;
+
+        int bestTerm = -1;
+        int bestAp = -1; // 1-based
+        double bestHAfter = hCurrent;
+        double bestDeltaH = 0.0;
+        double bestSBefore = 0.0;
+        double bestSAfter = 0.0;
+
+        const int evalTerms = std::min(terms, static_cast<int>(assignment.size()));
+        for (int termIdx = 0; termIdx < evalTerms; ++termIdx)
+        {
+            if (assignment[termIdx] != congestedAp)
+            {
+                continue;
+            }
+            if (std::find(selectedTerms.begin(), selectedTerms.end(), termIdx) !=
+                selectedTerms.end())
+            {
+                continue;
+            }
+
+            const double sBefore =
+                estimate_satisfaction_for_assignment(termIdx, congestedAp - 1, assignment);
+
+            for (int targetAp = 1; targetAp <= aps; ++targetAp)
+            {
+                if (targetAp == congestedAp)
+                {
+                    continue;
+                }
+
+                std::vector<int> candidate = assignment;
+                candidate[termIdx] = targetAp;
+
+                const double sAfter =
+                    estimate_satisfaction_for_assignment(termIdx, targetAp - 1, candidate);
+                if (sAfter + kSatisfactionDropTolerance < sBefore)
+                {
+                    continue;
+                }
+
+                const double hAfter = calculate_harmonic_mean_for_assignment(candidate);
+                const double deltaH = hAfter - hCurrent;
+                if (deltaH > bestDeltaH)
+                {
+                    bestDeltaH = deltaH;
+                    bestHAfter = hAfter;
+                    bestTerm = termIdx;
+                    bestAp = targetAp;
+                    bestSBefore = sBefore;
+                    bestSAfter = sAfter;
+                }
+            }
+        }
+
+        if (bestTerm < 0 || bestAp < 1 || bestDeltaH <= kMinImprovement)
+        {
+            std::cout << "[MultiOffload] no improving offload found"
+                      << " congested_ap=AP" << congestedAp
+                      << " h_before_step=" << hCurrent
+                      << " tolerance=" << kSatisfactionDropTolerance << std::endl;
+            break;
+        }
+
+        std::cout << "[MultiOffload] step=" << (switchCount + 1)
+                  << "/" << m_MaxSwitches
+                  << " switch term=" << (bestTerm + 1)
+                  << " AP" << assignment[bestTerm]
+                  << " -> AP" << bestAp
+                  << " s_before=" << bestSBefore
+                  << " s_after=" << bestSAfter
+                  << " h_before_step=" << hCurrent
+                  << " h_after_step=" << bestHAfter
+                  << " delta=" << bestDeltaH << std::endl;
+
+        assignment[bestTerm] = bestAp;
+        hCurrent = bestHAfter;
+        selectedTerms.push_back(bestTerm);
+        switchCount++;
+    }
+
+    if (switchCount == 0)
+    {
+        std::cout << "[MultiOffload] no switch selected"
+                  << " h_before=" << hBefore
+                  << " MaxSwitches=" << m_MaxSwitches << std::endl;
+    }
+    else
+    {
+        std::cout << "[MultiOffload] selected_switches=" << switchCount
                   << " MaxSwitches=" << m_MaxSwitches
                   << " h_before=" << hBefore
                   << " h_after_estimated=" << hCurrent

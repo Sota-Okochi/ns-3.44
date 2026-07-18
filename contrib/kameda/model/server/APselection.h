@@ -86,6 +86,7 @@ private:
     void rulebase_assignment(); // ルールベース法による割り当て
     void greedy_assignment(); // greedy法による割り当て
     void multi_greedy_assignment(); // 複数端末greedy法による割り当て
+    void multi_offload_assignment(); // 混雑AP視点の複数端末offload法
     void logistic_assignment(); // ロジスティック回帰による割り当て
     void dqn_assignment(); // DQN action CSVによる割り当て
     double calculate_harmonic_mean_for_assignment(const std::vector<int>& assignment);
