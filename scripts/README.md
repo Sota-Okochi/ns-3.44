@@ -6,14 +6,16 @@
 
 ## 1. DQN 学習用の master_log を集める
 
-DQN は `random` や `rulebase` などの実行ログから transition データを作って学習するため、まず学習用の `master_log` を収集します。
+DQN は `random`、`rulebase`、`multi_greedy`、`multi_offload` などの実行ログから transition データを作って学習するため、まず学習用の `master_log` を収集します。
 
 記載予定:
 
 - `data/setting.json` の `rngSeed`、`terminals`、`numCycles` などを確認する
 - 学習用 seed と評価用 seed を分ける
-- `random` を複数 seed で実行する
-- 必要に応じて `rulebase` も複数 seed で実行する
+- 小規模な学習用データとして、同じ seed で4手法を実行する
+  - seed 0〜11 の12 seed
+  - `random`, `rulebase`, `multi_greedy`, `multi_offload` の4手法
+  - 合計 12 seed × 4 methods = 48 master_log
 - 生成された `OUTPUT/<端末数>/master_log_<端末数>_<method>_<日時>.csv` を確認する
 
 例:
@@ -21,6 +23,8 @@ DQN は `random` や `rulebase` などの実行ログから transition データ
 ```bash
 ./ns3 run "master --method=random"
 ./ns3 run "master --method=rulebase"
+./ns3 run "master --method=multi_greedy"
+./ns3 run "master --method=multi_offload"
 ```
 
 ## 2. master_log から transition CSV を作る
@@ -129,12 +133,14 @@ DQN 実行後に、`OUTPUT/<端末数>/` 以下の `master_log` を確認しま�
 - `harmonic_mean` が記録されているか確認する
 - `target_ue_flag` が各 cycle で立っているか確認する
 - `action_selected_bs_id` が出力されているか確認する
+- `method` に実行手法名（例: `random`, `rulebase`, `multi_greedy`, `multi_offload`, `dqn`）が記録されているか確認する
 - `measurement_valid` が極端に 0 ばかりでないか確認する
 
 確認する主な列:
 
 ```text
 seed
+method
 cycle_id
 ue_id
 current_bs_id
@@ -155,6 +161,8 @@ DQN 単体では有効性を判断できないため、同じ seed・同じ設�
 - `no_switch`
 - `random`
 - `rulebase`
+- `multi_greedy`
+- `multi_offload`
 - `dqn`
 
 を同じ条件で実行する。
@@ -175,6 +183,8 @@ DQN 単体では有効性を判断できないため、同じ seed・同じ設�
 ./ns3 run "master --method=no_switch"
 ./ns3 run "master --method=random"
 ./ns3 run "master --method=rulebase"
+./ns3 run "master --method=multi_greedy"
+./ns3 run "master --method=multi_offload"
 ./ns3 run "master --method=dqn --dqnActionCsv=episodes/dqn/actions/actions_dqn_seed3.csv"
 ```
 
