@@ -1742,6 +1742,7 @@ void APselection::WriteMasterLog()
     {
         std::ofstream ofs(filePath, std::ios::trunc);
         ofs << "seed,"
+            << "method,"
             << "cycle_id,"
             << "ue_id,"
             << "previous_bs_id,"
@@ -1874,6 +1875,7 @@ void APselection::WriteMasterLog()
             (m_hAfterEstimated > 0.0) ? m_lastReward : 0.0;
 
         ofs << m_rngSeed << ","
+            << m_assignmentMethod << ","
             << m_cycleIndex << ","
             << (i + 1) << ","
             << previousBsId << ","
