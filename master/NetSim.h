@@ -140,7 +140,7 @@ private:
     std::string m_assignmentMethod;
     std::string m_dqnActionCsvPath;
     uint32_t m_rngSeed;
-    std::string m_outputDir;  // OUTPUT/<端末数>/（実行ログ・補助ログの出力先）
+    std::string m_outputDir;  // OUTPUT/<端末数>/<手法>/（実行ログ・補助ログの出力先）
 
     std::vector<NodeContainer> p2pNodes;
     std::vector<NodeContainer> wifiNodes;

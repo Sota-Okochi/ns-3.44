@@ -12,12 +12,10 @@ cmake-cache/
 *.log
 .ccache/
 
-# ns-3 specific
-OUTPUT/
+
 *.pcap
 *.tr
 *.xml
-*.csv
 
 # IDE / OS
 .vscode/
@@ -39,5 +37,3 @@ CLAUDE.md
 .claude
 
 .codex
-
-*build

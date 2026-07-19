@@ -130,7 +130,7 @@ private:
     uint32_t m_cycleIndex = 0;             // 現在のサイクル番号（1スタート）
     uint32_t m_totalCycles = 0;            // 総サイクル数（0=制限なし）
     uint32_t m_handoverGraceCycles = APConstants::HANDOVER_GRACE_CYCLES;
-    uint32_t m_MaxSwitches = 1;       // multi_greedyで1サイクルに切り替える最大端末数
+    uint32_t m_MaxSwitches = 8;       // multi_greedyで1サイクルに切り替える最大端末数
     std::function<void(const std::vector<int>&)> m_handoverCallback;
     std::vector<double> m_cycleHarmonicMeans; // サイクルごとの調和平均
     double m_hBeforeAction = 0.0;             // 当該サイクルの切り替え前H

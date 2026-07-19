@@ -306,7 +306,7 @@ void NetSim::Init(int argc, char *argv[]){
     std::cout << "シード値(setting.json/\"rngSeed\"): " << setting.rngSeed << std::endl;
     APnum = static_cast<uint32_t>(setting.baseStations);
     termNum = static_cast<uint32_t>(setting.terminals);
-    m_outputDir = OUTPUT_ROOT_DIR + std::to_string(termNum) + "/";
+    m_outputDir = OUTPUT_ROOT_DIR + std::to_string(termNum) + "/" + m_assignmentMethod + "/";
     SystemPath::MakeDirectories(m_outputDir);
     std::cout << "出力ディレクトリ: " << m_outputDir << std::endl;
     m_cycleCount             = static_cast<uint32_t>(setting.numCycles);
