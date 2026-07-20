@@ -1,6 +1,6 @@
 # DQN 実行手順メモ
 
-この README は、`--method=dqn` を実行して `OUTPUT/<端末数>/master_log_*_dqn_*.csv` を得るまでに必要な作業を記録するためのメモです。
+この README は、`--method=dqn` を実行して `OUTPUT/<端末数>/dqn/master_log_<seed>_*.csv` を得るまでに必要な作業を記録するためのメモです。
 
 前提として、ns-3 の configure / build は完了しており、`./ns3 run "master --method=random"` など既存手法が実行できる状態から始めます。
 
@@ -16,7 +16,7 @@ DQN は `random`、`rulebase`、`multi_greedy`、`multi_offload` などの実行
   - seed 0〜11 の12 seed
   - `random`, `rulebase`, `multi_greedy`, `multi_offload` の4手法
   - 合計 12 seed × 4 methods = 48 master_log
-- 生成された `OUTPUT/<端末数>/master_log_<端末数>_<method>_<日時>.csv` を確認する
+- 生成された `OUTPUT/<端末数>/<method>/master_log_<seed>_<日時>.csv` を確認する
 
 例:
 
@@ -34,7 +34,7 @@ DQN は `random`、`rulebase`、`multi_greedy`、`multi_offload` などの実行
 記載予定:
 
 - 使用スクリプトは `scripts/dqn/dataset/build_transitions.py`
-- 入力は `OUTPUT/<端末数>/master_log_*.csv`
+- 入力は `OUTPUT/<端末数>/<method>/master_log_*.csv`
 - 出力先は `episodes/dqn/transitions/`
 - 基本は `--target-mode flag_only` を使う
 - transition CSV に必要な列が揃っているか確認する
@@ -43,7 +43,7 @@ DQN は `random`、`rulebase`、`multi_greedy`、`multi_offload` などの実行
 
 ```bash
 python3 scripts/dqn/dataset/build_transitions.py \
-  --input "OUTPUT/50/master_log_50_random_*.csv" "OUTPUT/50/master_log_50_rulebase_*.csv" \
+  --input "OUTPUT/50/random/master_log_*.csv" "OUTPUT/50/rulebase/master_log_*.csv" \
   --output-dir episodes/dqn/transitions \
   --target-mode flag_only
 ```
@@ -100,7 +100,7 @@ python3 scripts/dqn/train/train_dqn.py \
 
 ```bash
 python3 scripts/dqn/infer/infer_actions.py \
-  --input OUTPUT/50/master_log_50_no_switch_YYYYMMDD_HHMMSS.csv \
+  --input OUTPUT/50/no_switch/master_log_<seed>_YYYYMMDD_HHMMSS.csv \
   --checkpoint models/dqn/checkpoints/学習済みモデル.pt \
   --output episodes/dqn/actions/actions_dqn_seed3.csv \
   --target-mode flag_only
@@ -129,7 +129,7 @@ DQN 実行後に、`OUTPUT/<端末数>/` 以下の `master_log` を確認しま�
 
 記載予定:
 
-- `OUTPUT/<端末数>/master_log_<端末数>_dqn_<日時>.csv` が生成されたか確認する
+- `OUTPUT/<端末数>/dqn/master_log_<seed>_<日時>.csv` が生成されたか確認する
 - `harmonic_mean` が記録されているか確認する
 - `target_ue_flag` が各 cycle で立っているか確認する
 - `action_selected_bs_id` が出力されているか確認する

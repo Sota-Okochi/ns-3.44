@@ -151,8 +151,8 @@ std::vector<std::string> splitString(const std::string &input, const std::string
 
 APselection::APselection(){
 	    m_logisticModelPath =
-        "/home/sota/ns-3.44/machine-learning/baseline_methods/data/models/"
-        "logistic_term80_runs50_seed001.json";
+        std::string(PROJECT_SOURCE_PATH) +
+        "/baseline_methods/data/models/logistic_term80_runs50_seed001.json";
 }
 
 APselection::~APselection(){
@@ -211,8 +211,8 @@ void APselection::init(const ApSelectionInput& input){
         std::tm *tm_local = std::localtime(&t);
         char dateBuf[32];
         std::strftime(dateBuf, sizeof(dateBuf), "%Y%m%d_%H%M%S", tm_local);
-        m_masterLogPath = m_outputDir + "master_log_" + std::to_string(terms) + "_" +
-                          m_assignmentMethod + "_" + dateBuf + ".csv";
+        m_masterLogPath = m_outputDir + "master_log_" + std::to_string(m_rngSeed) + "_" +
+                          dateBuf + ".csv";
     }
     std::cout << "ログパス: " << m_masterLogPath << std::endl;
     std::cout << "割り当て手法(method): " << m_assignmentMethod << std::endl;

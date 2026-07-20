@@ -193,14 +193,14 @@ models/dqn/checkpoints/    # DQNモデル checkpoint
 ファイル名規則:
 
 ```text
-OUTPUT/<端末数>/master_log_<端末数>_<method>_<YYYYMMDD_HHMMSS>.csv
+OUTPUT/<端末数>/<method>/master_log_<seed>_<YYYYMMDD_HHMMSS>.csv
 ```
 
 例:
 
 ```text
-OUTPUT/10/master_log_10_random_20260523_174000.csv
-OUTPUT/10/master_log_10_logistic_20260523_202742.csv
+OUTPUT/10/random/master_log_1_20260523_174000.csv
+OUTPUT/10/logistic/master_log_1_20260523_202742.csv
 ```
 
 CSV の列:
@@ -232,13 +232,12 @@ ns-3.44/
 │   ├── handover.cc                AP割り当て結果に基づくハンドオーバ処理の実行
 │   ├── RttForwarderApp.cc         監視端末が取得したRTT結果を転送する処理
 │   └── RttForwarderApp.h          RTT転送処理で使うクラスと関数の宣言
-├── machine-learning/              割り当て手法の学習，評価，実験データ管理を行うPythonコード
-│   └── baseline_methods/          ロジスティック回帰の比較手法を作成・評価する環境
-│       ├── main.py                エントリポイント
-│       ├── config/                AP，アプリ，シミュレーション条件の設定ファイル
-│       ├── data/                  学習用データ，学習済みモデル，評価結果の保存先
-│       ├── scripts/               教師データ生成，モデル学習，評価を行うスクリプト
-│       └── simulation/            比較手法用シミュレーションの内部実装
+├── baseline_methods/              ロジスティック回帰の比較手法を作成・評価する環境
+│   ├── main.py                    エントリポイント
+│   ├── config/                    AP，アプリ，シミュレーション条件の設定ファイル
+│   ├── data/                      学習用データ，学習済みモデル，評価結果の保存先
+│   ├── scripts/                   教師データ生成，モデル学習，評価を行うスクリプト
+│   └── simulation/                比較手法用シミュレーションの内部実装
 ├── data/                          ns-3実験で読み込む設定ファイル
 │   ├── setting.json               端末数，サイクル数，乱数seedなどの基本実験条件
 │   ├── Verbose_Jurassic.dat       映像通信のトラフィック生成に使う入力データ
