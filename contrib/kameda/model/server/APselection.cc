@@ -766,19 +766,19 @@ void APselection::rulebase_assignment() {
     {
         const double satisfaction = satisfactionPerTerm[i];
 
-        if (satisfaction > 1.2)
+        if (satisfaction > 1.0)
         {
             superSatisfiedCount++;
             continue;
         }
 
-        if (satisfaction >= 0.8)
+        if (satisfaction >= 0.5)
         {
             satisfiedCount++;
             continue;
         }
 
-        // 不満足端末（<0.8）のみ切り替え対象
+        // 不満足端末（<0.5）のみ切り替え対象
         unsatisfiedCount++;
         int currentAp = initial_AP[i]; // 1ベース
         std::vector<int> candidates;
@@ -1017,13 +1017,13 @@ void APselection::multi_offload_assignment()
 {
     std::cout << "=== APselection::multi_offload_assignment() ===" << std::endl;
 
-    constexpr double kUnsatisfiedThreshold = 0.8;
+    constexpr double kUnsatisfiedThreshold = 0.5;
     constexpr double kMinImprovement = 1e-6;
     // TP/RTT推定には揺らぎがあるため、対象UE自身の満足度低下は0.1まで候補として許容する。
     constexpr double kSatisfactionDropTolerance = 0.1;
-    constexpr double kUserWeight = 0.5;
-    constexpr double kRttWeight = 0.3;
-    constexpr double kQoeWeight = 0.2;
+    constexpr double kUserWeight = 0.4;
+    constexpr double kRttWeight = 0.1;
+    constexpr double kQoeWeight = 0.5;
 
     struct ApLoadInfo
     {
