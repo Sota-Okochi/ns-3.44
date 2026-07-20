@@ -1017,13 +1017,19 @@ void APselection::multi_offload_assignment()
 {
     std::cout << "=== APselection::multi_offload_assignment() ===" << std::endl;
 
-    constexpr double kUnsatisfiedThreshold = 0.5;
     constexpr double kMinImprovement = 1e-6;
+    // multi_offload は「不満足UEを直接救う」のではなく、
+    // 混雑APから移してもQoEが壊れにくいUEを逃がしてリソースを空ける方策。
     // TP/RTT推定には揺らぎがあるため、対象UE自身の満足度低下は0.1まで候補として許容する。
     constexpr double kSatisfactionDropTolerance = 0.1;
-    constexpr double kUserWeight = 0.4;
-    constexpr double kRttWeight = 0.1;
-    constexpr double kQoeWeight = 0.5;
+    // offload対象は、移動元で既にQoEに余裕があるUEに限定する。
+    // 低満足UEを直接救う探索に寄せると multi_greedy と役割が重なるため。
+    constexpr double kOffloadableSourceThreshold = 0.8;
+    // 移動後もこの値以上なら「満足維持」とみなす。
+    constexpr double kMaintainSatisfactionThreshold = 0.8;
+    // 混雑AP選択は低満足UEの有無ではなく、AP負荷（接続数・監視RTT）を中心に行う。
+    constexpr double kUserWeight = 0.8;
+    constexpr double kRttWeight = 0.2;
 
     struct ApLoadInfo
     {
@@ -1032,8 +1038,6 @@ void APselection::multi_offload_assignment()
         double rttMs = 0.0;
         bool hasRtt = false;
         double avgSatisfaction = 0.0;
-        int unsatisfiedUsers = 0;
-        double unsatisfiedRatio = 0.0;
         double score = 0.0;
     };
 
@@ -1085,10 +1089,6 @@ void APselection::multi_offload_assignment()
                 estimate_satisfaction_for_assignment(termIdx, apIdx, assignment);
             infos[apIdx].users += 1;
             satisfactionSum[apIdx] += satisfaction;
-            if (satisfaction < kUnsatisfiedThreshold)
-            {
-                infos[apIdx].unsatisfiedUsers += 1;
-            }
         }
 
         int maxUsers = 0;
@@ -1108,9 +1108,6 @@ void APselection::multi_offload_assignment()
             {
                 infos[apIdx].avgSatisfaction =
                     satisfactionSum[apIdx] / static_cast<double>(infos[apIdx].users);
-                infos[apIdx].unsatisfiedRatio =
-                    static_cast<double>(infos[apIdx].unsatisfiedUsers) /
-                    static_cast<double>(infos[apIdx].users);
             }
 
             const double normalizedUsers =
@@ -1122,8 +1119,7 @@ void APselection::multi_offload_assignment()
                     ? infos[apIdx].rttMs / maxMeasuredRtt
                     : 0.0;
             infos[apIdx].score = kUserWeight * normalizedUsers +
-                                 kRttWeight * normalizedRtt +
-                                 kQoeWeight * infos[apIdx].unsatisfiedRatio;
+                                 kRttWeight * normalizedRtt;
         }
         return infos;
     };
@@ -1182,7 +1178,6 @@ void APselection::multi_offload_assignment()
                   << " rtt_ms=" << congestedInfo.rttMs
                   << " has_rtt=" << (congestedInfo.hasRtt ? 1 : 0)
                   << " avg_satisfaction=" << congestedInfo.avgSatisfaction
-                  << " unsatisfied_ratio=" << congestedInfo.unsatisfiedRatio
                   << std::endl;
 
         int bestTerm = -1;
@@ -1207,6 +1202,10 @@ void APselection::multi_offload_assignment()
 
             const double sBefore =
                 estimate_satisfaction_for_assignment(termIdx, congestedAp - 1, assignment);
+            if (sBefore < kOffloadableSourceThreshold)
+            {
+                continue;
+            }
 
             for (int targetAp = 1; targetAp <= aps; ++targetAp)
             {
@@ -1220,7 +1219,11 @@ void APselection::multi_offload_assignment()
 
                 const double sAfter =
                     estimate_satisfaction_for_assignment(termIdx, targetAp - 1, candidate);
-                if (sAfter + kSatisfactionDropTolerance < sBefore)
+                const bool toleratedDrop =
+                    (sAfter + kSatisfactionDropTolerance >= sBefore);
+                const bool keepsSatisfaction =
+                    (sAfter >= kMaintainSatisfactionThreshold);
+                if (!toleratedDrop && !keepsSatisfaction)
                 {
                     continue;
                 }
@@ -1244,7 +1247,10 @@ void APselection::multi_offload_assignment()
             std::cout << "[MultiOffload] no improving offload found"
                       << " congested_ap=AP" << congestedAp
                       << " h_before_step=" << hCurrent
-                      << " tolerance=" << kSatisfactionDropTolerance << std::endl;
+                      << " tolerance=" << kSatisfactionDropTolerance
+                      << " source_threshold=" << kOffloadableSourceThreshold
+                      << " maintain_threshold=" << kMaintainSatisfactionThreshold
+                      << std::endl;
             break;
         }
 

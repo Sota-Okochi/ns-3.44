@@ -54,10 +54,11 @@ void multi_offload_assignment();
 
 処理手順は以下を基本とする。
 
-1. AP ごとの接続数、RTT、所属 UE の満足度を計算する。
-2. 最も悪い AP を混雑 AP として選ぶ。
-3. その AP 上の UE のうち、切り替えても満足度が下がらない、または上がる UE を候補にする。
-4. その UE を別 AP に移したとき、全体 `H` が最大になる移動を採用する。
+1. AP ごとの接続数、RTT、所属 UE の平均満足度（診断・タイブレーク用）を計算する。
+2. 接続数と監視 RTT を中心に、混雑 AP を選ぶ。低満足 UE の比率は混雑 AP スコアに入れない。
+3. その AP 上の **全 UE** を候補にする。不満足 UE かどうかでは絞り込まない。
+4. 各候補 UE について、他 AP へ移した後も自身の満足度低下が小さい、または満足状態を維持できるかを確認する。
+5. その UE を別 AP に移したとき、全体 `H` が最大になる移動を採用する。
 
 重要な点は、**候補生成は混雑 AP 視点、採用判断は全体 `H` 視点**に分けることである。
 
@@ -121,7 +122,6 @@ estimate_satisfaction_for_assignment(termIdx, currentAp - 1, assignment)
 ```text
 load_score(ap) = w_users * normalized_user_count(ap)
                + w_rtt   * normalized_rtt(ap)
-               + w_qoe   * unsatisfied_ratio(ap)
 ```
 
 各項目:
@@ -129,22 +129,18 @@ load_score(ap) = w_users * normalized_user_count(ap)
 ```text
 normalized_user_count(ap) = users_on_ap / max_users_on_any_ap
 normalized_rtt(ap)        = rtt_ap / max_rtt_among_measured_ap
-unsatisfied_ratio(ap)     = num_unsatisfied_on_ap / users_on_ap
 ```
 
 初期重み:
 
 ```text
-w_users = 0.5
-w_rtt   = 0.3
-w_qoe   = 0.2
+w_users = 0.8
+w_rtt   = 0.2
 ```
 
-不満足判定閾値は既存 greedy と揃える。
-
-```text
-satisfaction < 0.8
-```
+`multi_offload` は「不満足 UE を直接救う」方策ではないため、
+混雑 AP スコアには不満足 UE 比率を入れない。平均満足度はログ確認と、
+スコア同点時のタイブレークにのみ使う。
 
 ### 5.2 実装を簡単に始める場合
 
@@ -173,8 +169,9 @@ satisfaction < 0.8
 ```text
 1. 現在 AP が congestedAp である
 2. 移動先 AP が現在 AP と異なる
-3. 移動後の対象 UE 満足度が、移動前満足度から許容低下幅以内である
-4. 全体 H が悪化しない、または改善する
+3. 移動前の対象 UE 満足度が offload 可能しきい値以上である
+4. 移動後の対象 UE 満足度が、移動前満足度から許容低下幅以内、または満足維持しきい値以上である
+5. 全体 H が改善する
 ```
 
 対象 UE の満足度維持条件:
@@ -199,6 +196,30 @@ tolerance = 0.1
 
 ```cpp
 constexpr double kSatisfactionDropTolerance = 0.1;
+```
+
+offload 可能しきい値は、移動元で既に QoE に余裕がある UE を選ぶための入口条件である。
+
+```cpp
+constexpr double kOffloadableSourceThreshold = 0.8;
+```
+
+満足度維持しきい値は、移動後も大きく壊れていないことを確認するために使う。
+
+```cpp
+constexpr double kMaintainSatisfactionThreshold = 0.8;
+```
+
+候補条件は「不満足 UE であること」ではなく、以下とする。
+
+```text
+s_before >= kOffloadableSourceThreshold
+かつ
+(
+  s_after >= s_before - kSatisfactionDropTolerance
+  または
+  s_after >= kMaintainSatisfactionThreshold
+)
 ```
 
 ## 6.1 TP 重視アプリの切り替え後 TP 推定
@@ -249,10 +270,17 @@ candidate[termIdx] = targetAp; // 1-based
 
 const double sBefore = estimate_satisfaction_for_assignment(
     termIdx, currentAp - 1, assignment);
+if (sBefore < kOffloadableSourceThreshold)
+{
+    continue;
+}
+
 const double sAfter = estimate_satisfaction_for_assignment(
     termIdx, targetAp - 1, candidate);
 
-if (sAfter + kSatisfactionDropTolerance < sBefore)
+const bool toleratedDrop = (sAfter + kSatisfactionDropTolerance >= sBefore);
+const bool keepsSatisfaction = (sAfter >= kMaintainSatisfactionThreshold);
+if (!toleratedDrop && !keepsSatisfaction)
 {
     continue;
 }
@@ -331,8 +359,6 @@ uint32_t switchCount = 0;
 users_on_ap
 monitor_rtt_ms
 avg_satisfaction_on_ap
-num_unsatisfied_on_ap
-unsatisfied_ratio
 load_score
 ```
 
@@ -346,8 +372,6 @@ struct ApLoadInfo
     double rttMs = 0.0;
     bool hasRtt = false;
     double avgSatisfaction = 0.0;
-    int unsatisfiedUsers = 0;
-    double unsatisfiedRatio = 0.0;
     double score = 0.0;
 };
 ```
@@ -508,7 +532,6 @@ congested_ap
 congested_ap_score
 congested_ap_users
 congested_ap_rtt_ms
-congested_ap_unsatisfied_ratio
 selected_ue_id
 from_ap
 to_ap
@@ -598,9 +621,10 @@ RTT 未計測 AP を無条件に混雑 AP にしない。
 ```cpp
 void APselection::multi_offload_assignment()
 {
-    constexpr double kUnsatisfiedThreshold = 0.8;
     constexpr double kMinImprovement = 1e-6;
     constexpr double kSatisfactionDropTolerance = 0.1;
+    constexpr double kOffloadableSourceThreshold = 0.8;
+    constexpr double kMaintainSatisfactionThreshold = 0.8;
 
     std::vector<int> assignment = initial_AP;
     const double hBefore = m_cycleHarmonicMeans.empty()
@@ -636,6 +660,10 @@ void APselection::multi_offload_assignment()
 
             const double sBefore = estimate_satisfaction_for_assignment(
                 termIdx, congestedAp - 1, assignment);
+            if (sBefore < kOffloadableSourceThreshold)
+            {
+                continue;
+            }
 
             for (int targetAp = 1; targetAp <= aps; ++targetAp)
             {
@@ -649,7 +677,11 @@ void APselection::multi_offload_assignment()
 
                 const double sAfter = estimate_satisfaction_for_assignment(
                     termIdx, targetAp - 1, candidate);
-                if (sAfter + kSatisfactionDropTolerance < sBefore)
+                const bool toleratedDrop =
+                    (sAfter + kSatisfactionDropTolerance >= sBefore);
+                const bool keepsSatisfaction =
+                    (sAfter >= kMaintainSatisfactionThreshold);
+                if (!toleratedDrop && !keepsSatisfaction)
                 {
                     continue;
                 }
