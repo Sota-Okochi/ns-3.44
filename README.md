@@ -136,22 +136,30 @@ cd ~/ns-3.44
 ```
 
 ### プロジェクトの実行  
+- `method` で AP 割り当て手法を指定します．
 ```
 ./ns3 run "master --method=random"
 ```
-- `method` で AP 割り当て手法を指定します．
-
 ```
-./ns3 run "master --method=rulebase"
+./ns3 run "master --method=multi_greedy"
 ```
 
-```
-./ns3 run "master --method=logistic"
-```
-- 現状，実行可能な手法は `random` と `rulebase`，`all5g`, `greedy`, `logistic` です．
-- `dqn` は現在開発中です．
-- `dqn` 実行時の action CSV は `--dqnActionCsv=<path>` で指定できます．省略時は `episodes/dqn/actions/actions_dqn_seed1.csv` を読み込みます．
+- 現状，実行可能な手法は `no_switch`, `random`, `all5g`, `rulebase`, `greedy`, `multi_greedy`, `multi_offload`, `logistic` です．
+- コマンド中の `--method=` の値を実行したい割り当て手法名に変更すれば，各手法を実行できます．
 - 乱数 seed などの実験条件は `data/setting.json` で管理します．
+
+#### 割り当て手法
+
+| method | 概要 |
+|---|---|
+| `no_switch` | 初期接続先を維持し，切り替えを行わない手法です． |
+| `random` | 各端末の接続先 AP をランダムに選択する手法です． |
+| `all5g` | 全端末を AP0 / 5G 基地局へ割り当てる手法です． |
+| `rulebase` | 端末満足度に基づいて分類し，不満足端末のみを別 AP へ再割り当てする手法です． |
+| `greedy` | 不満足端末を候補にし，調和平均の推定改善量が最大となる 1 端末の切り替えを行う手法です． |
+| `multi_greedy` | `greedy` を複数回繰り返し，1 サイクル内で複数端末の切り替えを行う手法です． |
+| `multi_offload` | 混雑している AP から，満足度に余裕のある端末を他 AP へ逃がす手法です． |
+| `logistic` | 学習済みロジスティック回帰モデルを用いて，各端末の接続先 AP を推定する手法です． |
 
 ### 設定ファイル
 主な実験条件は `data/setting.json` に記述します．
@@ -199,25 +207,34 @@ OUTPUT/<端末数>/<method>/master_log_<seed>_<YYYYMMDD_HHMMSS>.csv
 例:
 
 ```text
-OUTPUT/10/random/master_log_1_20260523_174000.csv
-OUTPUT/10/logistic/master_log_1_20260523_202742.csv
+OUTPUT/80/random/master_log_1_20260523_174000.csv
+OUTPUT/80/multi_greedy/master_log_1_20260523_202742.csv
 ```
 
 CSV の列:
 
 | 列名 | 説明 |
 |---|---|
-| `サイクル` | 測定・割り当てサイクル番号 |
-| `端末` | 端末番号 |
-| `AP` | 接続先 AP 番号 |
-| `アプリ` | アプリケーション種別番号 |
-| `ネットワーク指標` | 満足度計算に使う指標（`TP` または `RTT`） |
-| `通信品質` | 測定された TP または RTT |
-| `端末満足度` | アプリ要求値に対する達成度 |
-| `計測有効` | 測定値が有効なら `1`，無効なら `0` |
+| `seed` | 乱数 seed |
+| `method` | 実行した割り当て手法 |
+| `cycle_id` | 測定・割り当てサイクル番号 |
+| `ue_id` | 端末番号 |
+| `previous_bs_id` | 割り当て前の接続先基地局 ID |
+| `current_bs_id` | 現在の接続先基地局 ID |
+| `app_type` | アプリケーション種別番号 |
+| `tp_mbps` | 測定されたスループット [Mbps] |
+| `rtt_ms` | 測定された RTT [ms] |
+| `satisfaction` | アプリ要求値に対する端末満足度 |
+| `num_users_on_current_bs` | 現在接続している基地局上の端末数 |
+| `harmonic_mean` | そのサイクルの端末満足度の調和平均 |
+| `num_unsatisfied_users` | 不満足端末数 |
+| `target_ue_flag` | DRL などで切り替え候補端末として選ばれた場合は `1` |
+| `action_selected_bs_id` | 割り当て手法が選択した移動先基地局 ID |
+| `switch_flag` | 実際に切り替えが発生した場合は `1` |
+| `h_after_estimated` | 割り当て後に推定された調和平均 |
+| `reward` | 主に DRL 用の報酬値 |
+| `measurement_valid` | 測定値が有効なら `1`，無効なら `0` |
 
-端末満足度は，TP 重視アプリでは `TP_link / TP_need`，RTT 重視アプリでは `RTT_need / RTT_link` を用いて計算します．
-全体評価では，端末満足度の調和平均を重視します．
 
 ## ディレクトリ構造
 
@@ -270,7 +287,9 @@ ns-3.44/
 | ✅ 完了 | TPは各端末で取得 |
 | ✅ 完了 | 各アプリケーションのデータ量を設定 |
 | ✅ 完了 | 比較手法であるロジスティック回帰の実装完了 |
-| ▶️ 進行中 | 強化学習ベースの手法の検討と実装 |
+| ✅ 完了 | 深層強化学習ベースの手法の検討 |
+| ▶️ 進行中 | 方策による経験データの収集（random, multi_greedy, rulebase, multi_offload） |
+| ▶️ 進行中 | DQNの実装 |
 | ⬜ 未着手 | 端末の移動の実装（実環境想定） |
 | ⬜ 未着手 | 端末のアプリケーション変化（実環境想定） |
 
