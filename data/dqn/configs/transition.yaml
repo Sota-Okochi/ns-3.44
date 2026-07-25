@@ -1,7 +1,7 @@
 # Transition dataset schema for DQN training.
 # One row corresponds to one transition: (s_t, a_t, r_t, s_{t+1}, done).
-# Redundant columns such as next_cycle_id, harmonic_mean_before,
-# harmonic_mean_after, and next_harmonic_mean are intentionally omitted.
+# Redundant columns such as harmonic_mean_before and harmonic_mean_after
+# are intentionally omitted.
 
 transition:
   id_columns:
@@ -10,6 +10,7 @@ transition:
     - target_ue_id
 
   state_columns:
+    - cycle_id
     - current_bs_id
     - app_type
     - tp_mbps
@@ -26,11 +27,14 @@ transition:
     - reward
 
   next_state_columns:
+    - next_cycle_id
     - next_current_bs_id
+    - next_app_type
     - next_tp_mbps
     - next_rtt_ms
     - next_satisfaction
     - next_num_users_on_current_bs
+    - next_harmonic_mean
     - next_num_unsatisfied_users
 
   terminal_columns:

@@ -3,6 +3,18 @@
 
 state_scope: target_ue_with_global_context
 
+# Feature order used by train_dqn.py and infer_actions.py.
+model_feature_columns:
+  - cycle_id
+  - current_bs_id
+  - app_type
+  - tp_mbps
+  - rtt_ms
+  - satisfaction
+  - num_users_on_current_bs
+  - harmonic_mean
+  - num_unsatisfied_users
+
 target_ue_features:
   - current_bs_id
   - app_type
@@ -14,9 +26,9 @@ bs_context_features:
   - num_users_on_current_bs
 
 global_features:
+  - cycle_id
   - harmonic_mean
   - num_unsatisfied_users
-  - cycle_id
 
 optional_future_features:
   - previous_bs_id

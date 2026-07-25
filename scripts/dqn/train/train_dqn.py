@@ -27,6 +27,7 @@ except ImportError:  # pragma: no cover
 
 
 DEFAULT_FEATURE_COLUMNS = [
+    "cycle_id",
     "current_bs_id",
     "app_type",
     "tp_mbps",
@@ -38,6 +39,7 @@ DEFAULT_FEATURE_COLUMNS = [
 ]
 
 DEFAULT_NEXT_FEATURE_COLUMNS = [
+    "next_cycle_id",
     "next_current_bs_id",
     "next_app_type",
     "next_tp_mbps",

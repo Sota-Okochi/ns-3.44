@@ -19,6 +19,7 @@ from torch import nn
 
 
 DEFAULT_FEATURE_COLUMNS = [
+    "cycle_id",
     "current_bs_id",
     "app_type",
     "tp_mbps",
