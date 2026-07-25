@@ -1,7 +1,7 @@
 # Multi-DQN 設計仕様書
 
 作成日: 2026-07-25  
-対象 method: `multi_dqn` または拡張版 `dqn`  
+対象 method: 実装は既存 `dqn` 系コードを拡張し、ns-3 実行時 method 名は `multi_dqn` とする  
 対象プロジェクト: ns-3.44 QoE-aware AP/base station selection
 
 ---
@@ -13,6 +13,8 @@
 しかし、本研究の最終目的は、5G と Wi-Fi が混在する異種無線ネットワークで、各サイクルにおいて複数端末を切り替え候補とし、端末満足度の調和平均 `H` を早期に高め、その後のサイクルでも高い `H` を維持することである。
 
 そのため、今後は現在の 1 UE DQN を拡張し、**各サイクルで複数 UE を候補にし、最大 `K` 台まで切り替える Multi-DQN 方式**へ移行する。
+
+本設計では、既存の `dqn` 学習・推論コードを破棄せず拡張する。ただし ns-3 の実験コマンド上は、既存 1 UE DQN baseline と区別できるように `--method=multi_dqn` を使用する。
 
 本仕様書では、現状プロジェクトから変更した方がよい部分を、ファイル単位・処理単位で整理する。
 
@@ -40,6 +42,12 @@ scripts/dqn/infer/infer_actions.py
 episodes/dqn/actions/*.csv
   ↓
 ./ns3 run "master --method=dqn --dqnActionCsv=<action_csv>"
+```
+
+Multi-DQN 実装後の実行では、同じ DQN 系コードを拡張して生成した action CSV を用い、ns-3 側の method は以下のように `multi_dqn` を指定する。
+
+```text
+./ns3 run "master --method=multi_dqn --dqnActionCsv=<action_csv>"
 ```
 
 ### 2.2 現在の DQN モデル
@@ -145,9 +153,9 @@ cycle t
   3. 各候補 UE について Q(s_i, bs_id) を計算する
   4. selected_bs_id = argmax_a Q(s_i, a) を得る
   5. 現在 BS より有利な候補だけを残す
-  6. advantage または Q 値で順位付けする
-  7. 最大 MaxSwitches 台まで action CSV に出力する
-  8. ns-3 側で同一 cycle の複数 action を適用する
+  6. advantage または Q 値で最良候補を 1 件選ぶ
+  7. 選んだ action を working state に反映し、最大 MaxSwitches 台まで 2〜6 を繰り返す
+  8. ns-3 側で同一 cycle の複数 action を step_id 順に適用する
 ```
 
 ### 3.3 action 採用基準
@@ -164,13 +172,25 @@ advantage_i = max_a Q(s_i, a) - Q(s_i, current_bs_id)
 - `selected_bs_id == current_bs_id` の候補を自然に除外できる。
 - 複数候補を並べる際に「切り替える価値が高い UE」を選びやすい。
 
-採用条件の初期案:
+採用条件の初期仕様:
 
 ```text
 selected_bs_id != current_bs_id
-advantage > 0
+advantage >= min_advantage
 上位 MaxSwitches 件まで
 ```
+
+実装時の初期パラメータは以下とする。
+
+```text
+MaxSwitches: 8
+candidate_mode: top_k_low
+satisfaction_threshold: 0.5
+min_advantage: 0.0
+ranking_metric: advantage
+```
+
+`MaxSwitches = 8` は、初期評価対象の端末数 80 台に対して約 10% を 1 cycle の最大切り替え数とする方針である。端末数を変更する実験では、必要に応じて `max_switches_ratio = 0.10` に基づく値へ設定ファイルで明示的に変更する。
 
 ---
 
@@ -181,8 +201,8 @@ advantage > 0
 | 種別 | ファイル | 変更内容 |
 |---|---|---|
 | action CSV 仕様 | `data/dqn/configs/action_format.yaml` | 1 cycle 複数行、`step_id`, `advantage` を追加 |
-| 推論 | `scripts/dqn/infer/infer_actions.py` | 複数候補抽出、上位 K 件出力 |
-| transition 作成 | `scripts/dqn/dataset/build_transitions.py` | `switched_only`, `unsatisfied`, `multi_candidate` モード追加 |
+| 推論 | `scripts/dqn/infer/infer_actions.py` | `top_k_low` 候補抽出、sequential 推論、最大 8 件出力 |
+| transition 作成 | `scripts/dqn/dataset/build_transitions.py` | `top_k_low` を初期標準とし、比較用に `switched_only`, `unsatisfied` モードを追加 |
 | 学習 | `scripts/dqn/train/train_dqn.py` | 当面は大変更不要。ただし metadata に multi 設定を保存 |
 | ns-3 action 読み込み | `contrib/kameda/model/server/APselection.h` | `m_dqnActions` を複数 action 対応に変更 |
 | ns-3 action 適用 | `contrib/kameda/model/server/APselection.cc` | 同一 cycle の複数 action を順に適用 |
@@ -227,14 +247,16 @@ seed,cycle_id,step_id,target_ue_id,current_bs_id,selected_bs_id,advantage,q_bs0,
 
 ### 5.4 互換性
 
-`step_id` がない旧 action CSV も読めるようにするかは選択肢がある。
+Multi-DQN 実装では、旧形式 action CSV との互換性は必須としない。
 
-推奨は以下である。
+方針は以下である。
 
-- `--method=dqn`: 旧形式、1 cycle 1 action
-- `--method=multi_dqn`: 新形式、1 cycle 複数 action
+- 既存 `dqn` 系の Python コード・モデル構造を拡張して Multi-DQN を実装する。
+- ns-3 実行時は `--method=multi_dqn` を使用する。
+- `multi_dqn` では新形式 action CSV を必須とする。
+- `step_id` が存在しない旧形式 CSV を `multi_dqn` に渡した場合は、警告またはエラーとして扱う。
 
-このように method を分けると baseline と本命方式を比較しやすい。
+これにより、新しい Multi-DQN 評価で意図せず旧 CSV を読んでしまうことを防ぐ。
 
 ---
 
@@ -314,7 +336,7 @@ void APselection::multi_dqn_assignment()
 
     for (const DqnAction& action : it->second)
     {
-        if (applied >= m_MaxSwitches)
+        if (applied >= m_MaxSwitches) // initial value: 8
         {
             break;
         }
@@ -372,6 +394,39 @@ else if (m_assignmentMethod == "multi_dqn")
 
 既存 `dqn_assignment()` は 1 UE DQN baseline として残す。
 
+実装上は既存 DQN 関連の読み込み・推論結果適用処理を拡張するが、実行コマンドでは `--method=multi_dqn` を指定する。
+
+### 6.5 Phase 1 から decision_log.csv を出力する
+
+Multi-DQN の複数 action 適用を検証するため、Phase 1 の ns-3 側複数 action 対応と同時に `decision_log.csv` を追加する。
+
+Phase 1 では、DQN 推論由来の Q 値が存在しない手作業 action CSV もあり得るため、最低限以下の列を出力する。
+
+```text
+seed
+method
+cycle_id
+step_id
+target_ue_id
+previous_bs_id
+selected_bs_id
+applied
+skip_reason
+```
+
+Phase 2 で `infer_actions.py` と接続した後、以下の列を追加する。
+
+```text
+current_bs_id
+advantage
+q_bs0
+q_bs1
+q_bs2
+num_actions_in_cycle
+max_switches
+candidate_mode
+```
+
 ---
 
 ## 7. `infer_actions.py` の修正
@@ -388,20 +443,22 @@ selected = df[pd.to_numeric(df["target_ue_flag"]) == 1]
 
 ```bash
 --candidate-mode flag_only|unsatisfied|top_k_low|all_users|switched_only
---satisfaction-threshold 0.7
---max-switches 5
+--satisfaction-threshold 0.5
+--max-switches 8
 --min-advantage 0.0
 --exclude-current-bs-action
+--sequential-inference
 ```
 
 推奨デフォルト:
 
 ```text
-candidate-mode: unsatisfied
-satisfaction-threshold: 0.7
-max-switches: 5
+candidate-mode: top_k_low
+satisfaction-threshold: 0.5
+max-switches: 8
 min-advantage: 0.0
 exclude-current-bs-action: true
+sequential-inference: true
 ```
 
 ### 7.3 candidate-mode
@@ -409,43 +466,85 @@ exclude-current-bs-action: true
 | mode | 内容 | 用途 |
 |---|---|---|
 | `flag_only` | `target_ue_flag == 1` のみ | 旧 DQN 互換 |
-| `unsatisfied` | `satisfaction < threshold` | 本命の初期候補生成 |
-| `top_k_low` | 満足度が低い順に候補抽出 | 候補数制御したい場合 |
+| `unsatisfied` | `satisfaction < threshold` | 不満足端末のみを候補にする場合 |
+| `top_k_low` | 満足度が低い順に候補抽出 | Multi-DQN 初期標準 |
 | `all_users` | 全 UE | 網羅的推論、デバッグ |
 | `switched_only` | `switch_flag == 1` | 経験データ分析用。推論用 master_log では原則使わない |
 
 ### 7.4 推論処理
 
-cycle ごとに候補 UE を処理する。
+cycle ごとに候補 UE を処理する。初期実装では、同一 cycle 内で 1 action を採用するたびに簡易状態を更新し、次の候補 UE の推論に反映する **sequential 推論**を行う。
 
 疑似コード:
 
 ```python
 for cycle_id, cycle_df in df.groupby("cycle_id"):
     candidates = select_candidates(cycle_df, mode=args.candidate_mode)
-    states = numeric_matrix(candidates, feature_columns)
-    q_values = model(states)
+    working_cycle_df = cycle_df.copy()
+    selected_actions = []
 
-    for each candidate:
-        current_bs = int(row["current_bs_id"])
-        selected_bs = argmax(q_values)
-        advantage = max(q_values) - q_values[current_bs]
+    for step_id in range(max_switches):
+        states = numeric_matrix(candidates, feature_columns, source=working_cycle_df)
+        q_values = model(states)
 
-    keep candidates where:
-        selected_bs != current_bs
-        advantage > min_advantage
+        for each candidate:
+            current_bs = int(working_cycle_df row["current_bs_id"])
+            selected_bs = argmax(q_values)
+            advantage = max(q_values) - q_values[current_bs]
 
-    sort by advantage descending
-    take max_switches
-    assign step_id = 0, 1, 2, ...
-    write action rows
+        keep candidates where:
+            selected_bs != current_bs
+            advantage >= min_advantage
+            target_ue_id has not already been selected in this cycle
+
+        if no candidates remain:
+            break
+
+        pick one candidate with largest advantage
+        append action with current step_id
+
+        update working_cycle_df:
+            - selected UE の current_bs_id を selected_bs_id に更新
+            - 基地局ごとの接続端末数を再計算
+            - num_users_on_current_bs を更新
+            - 必要に応じて簡易推定できる global features を更新
+
+    write selected_actions
 ```
 
 ### 7.5 注意点
 
-現在の DQN は候補 UE ごとに独立に Q 値を出す。つまり、同一 cycle 内で前の action を適用した後の状態更新は推論時には行わない。
+現在の DQN は UE 単位に Q 値を出すモデルであるため、sequential 推論で更新できる state は、推論 CSV から決定的に再計算できる特徴量に限定する。
 
-これは最小 Multi-DQN としては許容するが、厳密な sequential DQN ではない。将来的には、1 action 適用ごとに AP 接続数や推定満足度を更新して、次候補の state を再計算する方式に拡張できる。
+初期実装で必ず更新する特徴量:
+
+```text
+current_bs_id
+num_users_on_current_bs
+```
+
+初期実装では原則として更新しない特徴量:
+
+```text
+tp_mbps
+rtt_ms
+satisfaction
+harmonic_mean
+num_unsatisfied_users
+```
+
+理由は、実際の TP / RTT / satisfaction / H は ns-3 実行後に観測される値であり、Python 推論時に正確には分からないためである。これらを更新する場合は推定モデルまたは multi_greedy の探索ログが必要になる。
+
+したがって、本仕様の sequential 推論は以下の段階的方針とする。
+
+```text
+初期 sequential 推論:
+  接続先と接続端末数を更新して次 action の state に反映する
+
+将来拡張:
+  切り替え後 TP / RTT / satisfaction / H を推定し、
+  より厳密な sequential DQN にする
+```
 
 ---
 
@@ -472,6 +571,8 @@ unsatisfied
 top_k_low
 ```
 
+Multi-DQN 再学習用の初期標準は `top_k_low` とする。
+
 ### 8.3 `switched_only`
 
 ```text
@@ -496,7 +597,7 @@ satisfaction < threshold の UE を transition にする
 
 目的:
 
-- 推論時の candidate-mode `unsatisfied` と学習分布を近づける。
+- candidate-mode `unsatisfied` を比較実験で使う場合に、学習分布を推論条件へ近づける。
 - 切り替えられていない不満足 UE も学習候補に含める。
 
 注意:
@@ -504,7 +605,27 @@ satisfaction < threshold の UE を transition にする
 - `action_selected_bs_id` が現在 BS と同じ場合、実質 no-op action になる。
 - no-op を action として学習に含めるかは方針を決める必要がある。
 
-### 8.5 reward の扱い
+### 8.5 `top_k_low`
+
+```text
+各 cycle で satisfaction が低い順に上位 K 台の UE を transition にする
+```
+
+目的:
+
+- Multi-DQN 推論時の `candidate_mode=top_k_low` と学習分布を近づける。
+- 各 cycle で候補数を制御し、満足度が低い端末に重点を置いて学習する。
+
+初期設定:
+
+```text
+target_mode: top_k_low
+top_k: 8
+```
+
+`top_k = 8` は、初期評価対象の端末数 80 台に対する 10% とする。
+
+### 8.6 reward の扱い
 
 現状の reward は以下である。
 
@@ -512,7 +633,7 @@ satisfaction < threshold の UE を transition にする
 reward = next_harmonic_mean - harmonic_mean
 ```
 
-Multi-DQN 初期版でもこのままでよい。ただし、複数 action に同じ cycle reward を割り当てることになる。
+Multi-DQN 初期版でもこのままとする。ただし、複数 action に同じ cycle reward を割り当てることになる。
 
 仕様として以下を明記する。
 
@@ -556,11 +677,12 @@ checkpoint 保存時に以下を追加するとよい。
 ```json
 {
   "dqn_design": "candidate_wise_multi_dqn",
-  "candidate_mode": "switched_only",
-  "max_switches": 5,
+  "candidate_mode": "top_k_low",
+  "max_switches": 8,
   "feature_dim": 9,
   "uses_cycle_id": true,
-  "reward_type": "delta_harmonic_mean_global"
+  "reward_type": "delta_harmonic_mean_global",
+  "sequential_inference": true
 }
 ```
 
@@ -591,12 +713,14 @@ implementation_plan: candidate_wise_multi_dqn
 
 multi_dqn:
   enabled: true
-  max_switches: 5
-  candidate_mode: unsatisfied
-  satisfaction_threshold: 0.7
+  max_switches: 8
+  max_switches_ratio: 0.10
+  candidate_mode: top_k_low
+  satisfaction_threshold: 0.5
   min_advantage: 0.0
   exclude_current_bs_action: true
   ranking_metric: advantage
+  sequential_inference: true
 ```
 
 ### 10.2 `data/dqn/configs/action_format.yaml`
@@ -627,6 +751,8 @@ action_file:
 
 ```yaml
 transition:
+  default_target_mode: top_k_low
+  top_k: 8
   supported_target_modes:
     - flag_only
     - all_users
@@ -680,7 +806,19 @@ candidate_mode
 
 推奨は、master_log は大きく変えず、別ファイルを追加する方式である。
 
-### 11.2 推奨: decision_log.csv の追加
+### 11.2 decision_log.csv の追加
+
+`decision_log.csv` は Phase 1 から実装する。
+
+理由:
+
+```text
+同一 cycle 内の複数 action が step_id 順に適用されたか
+MaxSwitches=8 で制限されたか
+不正 action や重複 UE が正しく skip されたか
+```
+
+を、DQN 推論実装前の段階から検証するためである。
 
 新規ログ:
 
@@ -774,6 +912,7 @@ cycle 3 以降で H を維持できているか
 APselection.h
 APselection.cc
 action_format.yaml
+decision_log.csv 出力処理
 ```
 
 この段階では DQN 推論を使わず、手作業または簡単なスクリプトで action CSV を作ってよい。
@@ -783,7 +922,7 @@ action_format.yaml
 目的:
 
 ```text
-1つの checkpoint を候補 UE 複数に適用し、最大 K action を出力する。
+1つの checkpoint を候補 UE 複数に適用し、sequential 推論で最大 8 action を出力する。
 ```
 
 変更:
@@ -799,8 +938,11 @@ python3 scripts/dqn/infer/infer_actions.py \
   --input OUTPUT/80/no_switch/master_log_1_*.csv \
   --checkpoint models/dqn/checkpoints/<new_9dim_model>.pt \
   --output episodes/dqn/actions/actions_multi_dqn_seed1.csv \
-  --candidate-mode unsatisfied \
-  --max-switches 5
+  --candidate-mode top_k_low \
+  --max-switches 8 \
+  --satisfaction-threshold 0.5 \
+  --min-advantage 0.0 \
+  --sequential-inference
 ```
 
 ### Phase 3: build_transitions.py の複数候補対応
@@ -808,7 +950,7 @@ python3 scripts/dqn/infer/infer_actions.py \
 目的:
 
 ```text
-switched_only / unsatisfied の transition を作れるようにする。
+top_k_low を標準として transition を作れるようにする。比較用に switched_only / unsatisfied も作れるようにする。
 ```
 
 変更:
@@ -823,7 +965,8 @@ scripts/dqn/dataset/build_transitions.py
 python3 scripts/dqn/dataset/build_transitions.py \
   --input "OUTPUT/80/multi_greedy/master_log_*.csv" \
   --output-dir episodes/dqn/transitions \
-  --target-mode switched_only
+  --target-mode top_k_low \
+  --top-k 8
 ```
 
 ### Phase 4: 再学習
@@ -876,11 +1019,19 @@ counterfactual reward
 multi_greedy の探索ログから step_reward を保存
 ```
 
-### 14.2 同時切り替えによる状態変化
+### 14.2 sequential 推論における状態更新の限界
 
-候補 UE ごとに独立に Q 値を出すと、1 台目を切り替えた後に AP 接続数や H が変わる影響を 2 台目の state に反映できない。
+本仕様では、1 台目を切り替えた後に `current_bs_id` と基地局ごとの接続端末数を更新し、2 台目以降の state に反映する sequential 推論を行う。
 
-初期実装では許容するが、将来的には sequential 推論に拡張する。
+ただし、TP / RTT / satisfaction / harmonic_mean は ns-3 実行前に正確に分からないため、初期実装では更新しない。したがって、厳密な「切り替え後 QoE を逐次推定する DQN」ではない。
+
+将来的には以下を検討する。
+
+```text
+切り替え後 TP / RTT の推定
+切り替え後 satisfaction / H の推定
+multi_greedy 探索ログを用いた step_reward 学習
+```
 
 ### 14.3 既存 checkpoint との互換性
 
@@ -906,11 +1057,14 @@ DQN 本体:
 
 推論:
   各 cycle の複数候補 UE に DQN を適用
-  advantage 順に最大 MaxSwitches 件を選択
+  candidate_mode=top_k_low で候補を抽出
+  sequential 推論により接続先・接続端末数を逐次更新
+  advantage 順に最大 MaxSwitches=8 件を選択
 
 ns-3:
   同一 cycle の複数 action を読み込み
-  複数 UE の割当を一括反映
+  複数 UE の割当を step_id 順に反映
+  Phase 1 から decision_log.csv を出力
 
 評価:
   cycle 1, 2 で H を早期改善できるか
