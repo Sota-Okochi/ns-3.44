@@ -278,9 +278,9 @@ void NetSim::Init(int argc, char *argv[]){
     NS_LOG_FUNCTION(this);
 
     CommandLine cmd;
-    cmd.AddValue("method", "Assignment method: no_switch, random, all5g, rulebase, greedy, multi_greedy, multi_offload, logistic, dqn", m_assignmentMethod);
+    cmd.AddValue("method", "Assignment method: no_switch, random, all5g, rulebase, greedy, multi_greedy, multi_offload, logistic, dqn, multi_dqn", m_assignmentMethod);
     cmd.AddValue("dqnActionCsv",
-                 "DQN action CSV path used when --method=dqn",
+                 "DQN/Multi-DQN action CSV path used when --method=dqn or --method=multi_dqn",
                  m_dqnActionCsvPath);
     cmd.AddValue("mob", "1 is constant, 2 is randomwalk", m_mob);
     cmd.Parse(argc, argv);
@@ -292,6 +292,7 @@ void NetSim::Init(int argc, char *argv[]){
         m_assignmentMethod != "multi_greedy" &&
         m_assignmentMethod != "multi_offload" &&
         m_assignmentMethod != "logistic" && m_assignmentMethod != "dqn" &&
+        m_assignmentMethod != "multi_dqn" &&
         m_assignmentMethod != "ml")
     {
         NS_FATAL_ERROR("Unknown assignment method: " << m_assignmentMethod);

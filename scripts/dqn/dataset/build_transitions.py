@@ -3,9 +3,7 @@
 
 A transition is one learning sample: (s_t, a_t, r_t, s_{t+1}, done).
 
-Default target mode is `flag_only`, which uses only rows whose
-`target_ue_flag == 1` as action targets.  `all_users` can be used later to
-create one transition per UE per cycle.
+Default target mode for Multi-DQN is `top_k_low`, which uses the lowest-satisfaction UEs in each cycle as action targets.  `flag_only`, `all_users`, `switched_only`, and `unsatisfied` are available for compatibility/comparison.
 
 For both modes, the next state is taken from the same UE in the next cycle.
 This makes it possible to inspect how the acted UE changed after the action.
@@ -34,6 +32,7 @@ REQUIRED_COLUMNS = {
     "target_ue_flag",
     "action_selected_bs_id",
     "measurement_valid",
+    "switch_flag",
 }
 
 OUTPUT_COLUMNS = [
@@ -103,9 +102,24 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--target-mode",
-        choices=["flag_only", "all_users"],
-        default="flag_only",
-        help="flag_only: use target_ue_flag==1 rows only; all_users: use every UE row.",
+        choices=["flag_only", "all_users", "switched_only", "unsatisfied", "top_k_low"],
+        default="top_k_low",
+        help=(
+            "Rows to convert to transitions. Multi-DQN default: top_k_low, "
+            "the lowest-satisfaction UEs per cycle."
+        ),
+    )
+    parser.add_argument(
+        "--satisfaction-threshold",
+        type=float,
+        default=0.5,
+        help="Threshold used by --target-mode unsatisfied. Default: 0.5.",
+    )
+    parser.add_argument(
+        "--top-k",
+        type=int,
+        default=8,
+        help="Number of lowest-satisfaction UEs selected by --target-mode top_k_low. Default: 8.",
     )
     parser.add_argument(
         "--strict-one-flag",
@@ -169,15 +183,31 @@ def index_cycle_by_ue(rows: Iterable[Dict[str, str]]) -> Dict[int, Dict[str, str
 
 
 def select_current_rows(
-    cycle_rows: List[Dict[str, str]], target_mode: str
+    cycle_rows: List[Dict[str, str]],
+    target_mode: str,
+    satisfaction_threshold: float,
+    top_k: int,
 ) -> List[Dict[str, str]]:
     if target_mode == "all_users":
         return list(cycle_rows)
-    return [row for row in cycle_rows if as_int(row, "target_ue_flag") == 1]
+    if target_mode == "flag_only":
+        return [row for row in cycle_rows if as_int(row, "target_ue_flag") == 1]
+    if target_mode == "switched_only":
+        return [row for row in cycle_rows if as_int(row, "switch_flag") == 1]
+    if target_mode == "unsatisfied":
+        return [row for row in cycle_rows if as_float(row, "satisfaction") < satisfaction_threshold]
+    if target_mode == "top_k_low":
+        sorted_rows = sorted(cycle_rows, key=lambda row: (as_float(row, "satisfaction"), as_int(row, "ue_id")))
+        return sorted_rows[:max(0, top_k)]
+    raise ValueError(f"unsupported target_mode: {target_mode}")
 
 
 def build_transitions_for_file(
-    path: Path, target_mode: str, strict_one_flag: bool = False
+    path: Path,
+    target_mode: str,
+    strict_one_flag: bool = False,
+    satisfaction_threshold: float = 0.5,
+    top_k: int = 8,
 ) -> List[Dict[str, str]]:
     rows, _ = read_rows(path)
     if not rows:
@@ -193,7 +223,12 @@ def build_transitions_for_file(
         current_rows = by_cycle[cycle]
         next_by_ue = index_cycle_by_ue(by_cycle[next_cycle])
 
-        selected_rows = select_current_rows(current_rows, target_mode)
+        selected_rows = select_current_rows(
+            current_rows,
+            target_mode,
+            satisfaction_threshold=satisfaction_threshold,
+            top_k=top_k,
+        )
         if target_mode == "flag_only":
             if strict_one_flag and len(selected_rows) != 1:
                 raise ValueError(
@@ -287,6 +322,8 @@ def main() -> int:
             input_path,
             target_mode=args.target_mode,
             strict_one_flag=args.strict_one_flag,
+            satisfaction_threshold=args.satisfaction_threshold,
+            top_k=args.top_k,
         )
         out_path = Path(args.output) if args.output else default_output_path(
             input_path, output_dir, args.target_mode

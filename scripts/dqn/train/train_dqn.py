@@ -256,6 +256,7 @@ def train() -> int:
 
     output_path = make_output_path(config, args.output)
     output_path.parent.mkdir(parents=True, exist_ok=True)
+    multi_dqn_config = config.get("multi_dqn", {}) if isinstance(config.get("multi_dqn", {}), dict) else {}
     checkpoint = {
         "model_state_dict": q_net.state_dict(),
         "target_model_state_dict": target_net.state_dict(),
@@ -270,6 +271,12 @@ def train() -> int:
         "input_files": [str(p) for p in input_paths],
         "num_transitions": len(df),
         "config": config,
+        "dqn_design": "candidate_wise_multi_dqn",
+        "candidate_mode": multi_dqn_config.get("candidate_mode", "top_k_low"),
+        "max_switches": int(multi_dqn_config.get("max_switches", 8)),
+        "uses_cycle_id": "cycle_id" in DEFAULT_FEATURE_COLUMNS,
+        "reward_type": "delta_harmonic_mean_global",
+        "sequential_inference": bool(multi_dqn_config.get("sequential_inference", True)),
     }
     torch.save(checkpoint, output_path)
 

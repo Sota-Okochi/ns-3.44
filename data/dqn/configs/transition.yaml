@@ -4,6 +4,15 @@
 # are intentionally omitted.
 
 transition:
+  default_target_mode: top_k_low
+  top_k: 8
+  supported_target_modes:
+    - flag_only
+    - all_users
+    - switched_only
+    - unsatisfied
+    - top_k_low
+
   id_columns:
     - seed
     - cycle_id

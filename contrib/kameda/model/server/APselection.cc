@@ -23,6 +23,9 @@
 #include <limits>
 #include <random>
 #include <regex>
+#include <set>
+#include <dirent.h>
+#include <sys/stat.h>
 
 namespace ns3{
 
@@ -53,6 +56,59 @@ int FindColumnIndex(const std::vector<std::string>& header, const std::string& n
         }
     }
     return -1;
+}
+
+bool IsDirectoryPath(const std::string& path)
+{
+    struct stat st;
+    return !path.empty() && stat(path.c_str(), &st) == 0 && S_ISDIR(st.st_mode);
+}
+
+bool HasCsvSuffix(const std::string& path)
+{
+    return path.size() >= 4 && path.substr(path.size() - 4) == ".csv";
+}
+
+bool ResolveLatestCsvInDirectory(const std::string& dirPath, std::string& resolvedPath)
+{
+    DIR* dir = opendir(dirPath.c_str());
+    if (dir == nullptr)
+    {
+        return false;
+    }
+
+    bool found = false;
+    time_t bestMtime = 0;
+    std::string bestName;
+    const std::string prefix = (dirPath.empty() || dirPath.back() == '/') ? dirPath : dirPath + "/";
+
+    while (dirent* entry = readdir(dir))
+    {
+        const std::string name = entry->d_name;
+        if (name == "." || name == ".." || !HasCsvSuffix(name))
+        {
+            continue;
+        }
+
+        const std::string candidate = prefix + name;
+        struct stat st;
+        if (stat(candidate.c_str(), &st) != 0 || S_ISDIR(st.st_mode))
+        {
+            continue;
+        }
+
+        if (!found || st.st_mtime > bestMtime ||
+            (st.st_mtime == bestMtime && name > bestName))
+        {
+            found = true;
+            bestMtime = st.st_mtime;
+            bestName = name;
+            resolvedPath = candidate;
+        }
+    }
+
+    closedir(dir);
+    return found;
 }
 
 bool ExtractJsonArrayBody(const std::string& content,
@@ -197,11 +253,12 @@ void APselection::init(const ApSelectionInput& input){
     m_handoverGraceCycles = input.handoverGraceCycles;
     m_cycleIndex = 1;
     m_masterLogInitialized = false;
+    m_decisionLogInitialized = false;
     if (m_assignmentMethod == "logistic")
     {
         m_logisticModelLoaded = LoadLogisticModel();
     }
-    if (m_assignmentMethod == "dqn" && !LoadDqnActions())
+    if ((m_assignmentMethod == "dqn" || m_assignmentMethod == "multi_dqn") && !LoadDqnActions())
     {
         NS_FATAL_ERROR("Failed to load DQN action CSV: " << m_dqnActionCsvPath);
     }
@@ -213,8 +270,14 @@ void APselection::init(const ApSelectionInput& input){
         std::strftime(dateBuf, sizeof(dateBuf), "%Y%m%d_%H%M%S", tm_local);
         m_masterLogPath = m_outputDir + "master_log_" + std::to_string(m_rngSeed) + "_" +
                           dateBuf + ".csv";
+        m_decisionLogPath = m_outputDir + "decision_log_" + std::to_string(m_rngSeed) + "_" +
+                            dateBuf + ".csv";
     }
     std::cout << "ログパス: " << m_masterLogPath << std::endl;
+    if (m_assignmentMethod == "multi_dqn")
+    {
+        std::cout << "意思決定ログパス: " << m_decisionLogPath << std::endl;
+    }
     std::cout << "割り当て手法(method): " << m_assignmentMethod << std::endl;
     if (m_assignmentMethod == "multi_greedy")
     {
@@ -224,6 +287,11 @@ void APselection::init(const ApSelectionInput& input){
     if (m_assignmentMethod == "multi_offload")
     {
         std::cout << "[MultiOffload] 1サイクルあたりの最大offload端末数: "
+                  << m_MaxSwitches << " 台" << std::endl;
+    }
+    if (m_assignmentMethod == "multi_dqn")
+    {
+        std::cout << "[MultiDQN] 1サイクルあたりの最大切り替え端末数: "
                   << m_MaxSwitches << " 台" << std::endl;
     }
 
@@ -342,6 +410,10 @@ void APselection::tmain(){
         else if (m_assignmentMethod == "dqn")
         {
             dqn_assignment();
+        }
+        else if (m_assignmentMethod == "multi_dqn")
+        {
+            multi_dqn_assignment();
         }
         else if (m_assignmentMethod == "no_switch")
         {
@@ -1303,6 +1375,23 @@ bool APselection::LoadDqnActions()
         return false;
     }
 
+    if (IsDirectoryPath(m_dqnActionCsvPath))
+    {
+        std::string resolvedPath;
+        if (!ResolveLatestCsvInDirectory(m_dqnActionCsvPath, resolvedPath))
+        {
+            std::cerr << "[DQN] action CSV path がディレクトリですが、CSV が見つかりません: "
+                      << m_dqnActionCsvPath << std::endl;
+            return false;
+        }
+        std::cerr << "[DQN][WARN] --dqnActionCsv にディレクトリが指定されています。"
+                  << " 最新の CSV を使用します: " << resolvedPath << std::endl;
+        std::cerr << "[DQN][WARN] 意図したファイルを確実に使うには "
+                  << "--dqnActionCsv=" << resolvedPath
+                  << " のようにファイル名まで指定してください。" << std::endl;
+        m_dqnActionCsvPath = resolvedPath;
+    }
+
     std::ifstream ifs(m_dqnActionCsvPath);
     if (!ifs.is_open())
     {
@@ -1320,16 +1409,33 @@ bool APselection::LoadDqnActions()
     const std::vector<std::string> header = splitString(line, ",");
     const int seedCol = FindColumnIndex(header, "seed");
     const int cycleCol = FindColumnIndex(header, "cycle_id");
+    const int stepCol = FindColumnIndex(header, "step_id");
     const int targetCol = FindColumnIndex(header, "target_ue_id");
+    const int currentCol = FindColumnIndex(header, "current_bs_id");
     const int selectedCol = FindColumnIndex(header, "selected_bs_id");
+    const int advantageCol = FindColumnIndex(header, "advantage");
+    const int q0Col = FindColumnIndex(header, "q_bs0");
+    const int q1Col = FindColumnIndex(header, "q_bs1");
+    const int q2Col = FindColumnIndex(header, "q_bs2");
+
     if (cycleCol < 0 || targetCol < 0 || selectedCol < 0)
     {
         std::cerr << "[DQN] action CSV に必要列 cycle_id,target_ue_id,selected_bs_id がありません: "
                   << m_dqnActionCsvPath << std::endl;
         return false;
     }
+    if (m_assignmentMethod == "multi_dqn" &&
+        (stepCol < 0 || currentCol < 0 || advantageCol < 0 || q0Col < 0 || q1Col < 0 || q2Col < 0))
+    {
+        std::cerr << "[MultiDQN] 新形式 action CSV が必要です: "
+                  << "step_id,current_bs_id,advantage,q_bs0,q_bs1,q_bs2 が不足しています: "
+                  << m_dqnActionCsvPath << std::endl;
+        return false;
+    }
 
     uint32_t loaded = 0;
+    std::map<uint32_t, std::set<uint32_t>> seenSteps;
+    std::map<uint32_t, std::set<int>> seenTargets;
     while (std::getline(ifs, line))
     {
         if (TrimCsvField(line).empty())
@@ -1337,16 +1443,24 @@ bool APselection::LoadDqnActions()
             continue;
         }
         std::vector<std::string> cols = splitString(line, ",");
-        const int requiredMaxCol = std::max({seedCol, cycleCol, targetCol, selectedCol});
+        const int requiredMaxCol = std::max({seedCol, cycleCol, stepCol, targetCol, currentCol,
+                                             selectedCol, advantageCol, q0Col, q1Col, q2Col});
         if (static_cast<int>(cols.size()) <= requiredMaxCol)
         {
             std::cerr << "[DQN] 列数不足の行をスキップ: " << line << std::endl;
             continue;
         }
 
+        DqnAction action;
         const uint32_t cycleId = static_cast<uint32_t>(std::stoul(TrimCsvField(cols[cycleCol])));
-        const int targetUeId = std::stoi(TrimCsvField(cols[targetCol]));
-        const int selectedBsId = std::stoi(TrimCsvField(cols[selectedCol]));
+        action.stepId = (stepCol >= 0) ? static_cast<uint32_t>(std::stoul(TrimCsvField(cols[stepCol]))) : 0;
+        action.targetUeId = std::stoi(TrimCsvField(cols[targetCol]));
+        action.currentBsId = (currentCol >= 0) ? std::stoi(TrimCsvField(cols[currentCol])) : -1;
+        action.selectedBsId = std::stoi(TrimCsvField(cols[selectedCol]));
+        action.advantage = (advantageCol >= 0) ? std::stod(TrimCsvField(cols[advantageCol])) : 0.0;
+        action.qBs0 = (q0Col >= 0 && !TrimCsvField(cols[q0Col]).empty()) ? std::stod(TrimCsvField(cols[q0Col])) : 0.0;
+        action.qBs1 = (q1Col >= 0 && !TrimCsvField(cols[q1Col]).empty()) ? std::stod(TrimCsvField(cols[q1Col])) : 0.0;
+        action.qBs2 = (q2Col >= 0 && !TrimCsvField(cols[q2Col]).empty()) ? std::stod(TrimCsvField(cols[q2Col])) : 0.0;
 
         if (seedCol >= 0)
         {
@@ -1359,26 +1473,59 @@ bool APselection::LoadDqnActions()
             }
         }
 
-        if (targetUeId < 1 || targetUeId > terms)
+        if (action.targetUeId < 1 || action.targetUeId > terms)
         {
             std::cerr << "[DQN][WARN] target_ue_id 範囲外の行をスキップ: "
-                      << targetUeId << std::endl;
+                      << action.targetUeId << std::endl;
             continue;
         }
-        if (selectedBsId < 0 || selectedBsId >= aps)
+        if (action.selectedBsId < 0 || action.selectedBsId >= aps)
         {
             std::cerr << "[DQN][WARN] selected_bs_id 範囲外の行をスキップ: "
-                      << selectedBsId << std::endl;
+                      << action.selectedBsId << std::endl;
+            continue;
+        }
+        if (m_assignmentMethod == "multi_dqn")
+        {
+            if (action.currentBsId < 0 || action.currentBsId >= aps)
+            {
+                std::cerr << "[MultiDQN][WARN] current_bs_id 範囲外の行をスキップ: "
+                          << action.currentBsId << std::endl;
+                continue;
+            }
+            if (seenSteps[cycleId].count(action.stepId) > 0)
+            {
+                std::cerr << "[MultiDQN][WARN] cycle_id=" << cycleId
+                          << " step_id=" << action.stepId
+                          << " が重複しているためスキップ" << std::endl;
+                continue;
+            }
+            if (seenTargets[cycleId].count(action.targetUeId) > 0)
+            {
+                std::cerr << "[MultiDQN][WARN] cycle_id=" << cycleId
+                          << " target_ue_id=" << action.targetUeId
+                          << " が重複しているためスキップ" << std::endl;
+                continue;
+            }
+            seenSteps[cycleId].insert(action.stepId);
+            seenTargets[cycleId].insert(action.targetUeId);
+        }
+        else if (!m_dqnActions[cycleId].empty())
+        {
+            std::cerr << "[DQN][WARN] cycle_id=" << cycleId
+                      << " のactionが複数あります。先頭のみ使用します。" << std::endl;
             continue;
         }
 
-        if (m_dqnActions.find(cycleId) != m_dqnActions.end())
-        {
-            std::cerr << "[DQN][WARN] cycle_id=" << cycleId
-                      << " のactionが複数あります。後勝ちで上書きします。" << std::endl;
-        }
-        m_dqnActions[cycleId] = std::make_pair(targetUeId, selectedBsId);
+        m_dqnActions[cycleId].push_back(action);
         ++loaded;
+    }
+
+    for (auto& kv : m_dqnActions)
+    {
+        std::sort(kv.second.begin(), kv.second.end(), [](const DqnAction& lhs, const DqnAction& rhs) {
+            return lhs.stepId < rhs.stepId;
+        });
     }
 
     std::cout << "[DQN] loaded actions: " << loaded
@@ -1392,21 +1539,20 @@ void APselection::dqn_assignment()
 
     std::vector<int> assignment = initial_AP;
     auto it = m_dqnActions.find(m_cycleIndex);
-    if (it == m_dqnActions.end())
+    if (it == m_dqnActions.end() || it->second.empty())
     {
         std::cerr << "[DQN][WARN] cycle " << m_cycleIndex
                   << " のactionがありません。現在の割り当てを維持します。" << std::endl;
     }
     else
     {
-        const int targetUeId = it->second.first;     // 1-based
-        const int selectedBsId = it->second.second; // 0-based
-        const int targetIdx = targetUeId - 1;
-        assignment[targetIdx] = selectedBsId + 1; // internal AP ID is 1-based
+        const DqnAction& action = it->second.front();
+        const int targetIdx = action.targetUeId - 1;
+        assignment[targetIdx] = action.selectedBsId + 1; // internal AP ID is 1-based
 
         std::cout << "[DQN] cycle=" << m_cycleIndex
-                  << " target_ue_id=" << targetUeId
-                  << " selected_bs_id=" << selectedBsId
+                  << " target_ue_id=" << action.targetUeId
+                  << " selected_bs_id=" << action.selectedBsId
                   << " (AP" << assignment[targetIdx] << ")" << std::endl;
     }
 
@@ -1415,6 +1561,101 @@ void APselection::dqn_assignment()
         m_cycleHarmonicMeans.empty() ? calculate_harmonic_mean_for_assignment(initial_AP)
                                      : m_cycleHarmonicMeans.back();
     PrepareDecisionLogState(initial_AP, assignment, hBefore, hBefore);
+    if (m_handoverCallback)
+    {
+        m_handoverCallback(assignment);
+    }
+}
+
+void APselection::multi_dqn_assignment()
+{
+    std::cout << "=== APselection::multi_dqn_assignment() ===" << std::endl;
+
+    std::vector<int> assignment = initial_AP;
+    auto it = m_dqnActions.find(m_cycleIndex);
+    if (it == m_dqnActions.end() || it->second.empty())
+    {
+        std::cerr << "[MultiDQN][WARN] cycle " << m_cycleIndex
+                  << " のactionがありません。現在の割り当てを維持します。" << std::endl;
+        KeepCurrentAssignment("no multi_dqn action for cycle");
+        return;
+    }
+
+    uint32_t applied = 0;
+    std::set<int> seenTargets;
+    for (const DqnAction& action : it->second)
+    {
+        const int targetIdx = action.targetUeId - 1;
+        int previousBsId = -1;
+        if (targetIdx >= 0 && targetIdx < static_cast<int>(assignment.size()))
+        {
+            previousBsId = assignment[targetIdx] - 1;
+        }
+
+        std::string skipReason;
+        bool apply = true;
+        if (applied >= m_MaxSwitches)
+        {
+            apply = false;
+            skipReason = "max_switches";
+        }
+        else if (targetIdx < 0 || targetIdx >= terms || targetIdx >= static_cast<int>(assignment.size()))
+        {
+            apply = false;
+            skipReason = "invalid_target_ue_id";
+        }
+        else if (seenTargets.count(targetIdx) > 0)
+        {
+            apply = false;
+            skipReason = "duplicate_target_ue_id";
+        }
+        else if (action.selectedBsId < 0 || action.selectedBsId >= aps)
+        {
+            apply = false;
+            skipReason = "invalid_selected_bs_id";
+        }
+        else if (assignment[targetIdx] == action.selectedBsId + 1)
+        {
+            apply = false;
+            skipReason = "same_bs";
+        }
+        else if (action.currentBsId >= 0 && previousBsId >= 0 && action.currentBsId != previousBsId)
+        {
+            // sequential 推論で生成した current_bs_id と ns-3 側の現在割当が違う場合は、
+            // action CSV と実行状態のずれを避けるためスキップする。
+            apply = false;
+            skipReason = "current_bs_mismatch";
+        }
+
+        if (apply)
+        {
+            assignment[targetIdx] = action.selectedBsId + 1;
+            seenTargets.insert(targetIdx);
+            ++applied;
+            std::cout << "[MultiDQN] cycle=" << m_cycleIndex
+                      << " step=" << action.stepId
+                      << " switch term=" << action.targetUeId
+                      << " AP" << (previousBsId + 1)
+                      << " -> AP" << (action.selectedBsId + 1)
+                      << " advantage=" << action.advantage << std::endl;
+            WriteDecisionLogRow(action, previousBsId, true, "");
+        }
+        else
+        {
+            std::cout << "[MultiDQN] cycle=" << m_cycleIndex
+                      << " step=" << action.stepId
+                      << " skip target_ue_id=" << action.targetUeId
+                      << " reason=" << skipReason << std::endl;
+            WriteDecisionLogRow(action, previousBsId, false, skipReason);
+        }
+    }
+
+    const double hBefore =
+        m_cycleHarmonicMeans.empty() ? calculate_harmonic_mean_for_assignment(initial_AP)
+                                     : m_cycleHarmonicMeans.back();
+    PrepareDecisionLogState(initial_AP, assignment, hBefore, hBefore);
+    m_lastAssignment = assignment;
+
     if (m_handoverCallback)
     {
         m_handoverCallback(assignment);
@@ -1737,6 +1978,74 @@ void APselection::PrintCycleHarmonicMeans()
     {
         std::cout << "  Cycle " << (i + 1) << ": " << m_cycleHarmonicMeans[i] << std::endl;
     }
+}
+
+void
+APselection::WriteDecisionLogRow(const DqnAction& action,
+                                 int previousBsId,
+                                 bool applied,
+                                 const std::string& skipReason)
+{
+    if (m_assignmentMethod != "multi_dqn" || m_decisionLogPath.empty())
+    {
+        return;
+    }
+
+    if (!m_decisionLogInitialized)
+    {
+        std::ofstream headerOfs(m_decisionLogPath, std::ios::trunc);
+        headerOfs << "seed,"
+                  << "method,"
+                  << "cycle_id,"
+                  << "step_id,"
+                  << "target_ue_id,"
+                  << "previous_bs_id,"
+                  << "current_bs_id,"
+                  << "selected_bs_id,"
+                  << "satisfaction_before,"
+                  << "harmonic_mean_before,"
+                  << "harmonic_mean_after_estimated,"
+                  << "advantage,"
+                  << "q_bs0,"
+                  << "q_bs1,"
+                  << "q_bs2,"
+                  << "applied,"
+                  << "skip_reason" << std::endl;
+        m_decisionLogInitialized = true;
+    }
+
+    double satisfactionBefore = APConstants::MIN_SATISFACTION_THRESHOLD;
+    const int targetIdx = action.targetUeId - 1;
+    if (targetIdx >= 0 && targetIdx < terms && previousBsId >= 0 && previousBsId < aps)
+    {
+        satisfactionBefore = calculate_satisfaction(targetIdx, previousBsId);
+    }
+
+    const double hBefore =
+        m_cycleHarmonicMeans.empty() ? calculate_harmonic_mean_for_assignment(initial_AP)
+                                     : m_cycleHarmonicMeans.back();
+    const double hAfterEstimated =
+        (m_hAfterEstimated > 0.0) ? m_hAfterEstimated : hBefore;
+
+    std::ofstream ofs(m_decisionLogPath, std::ios::app);
+    ofs << std::fixed << std::setprecision(6)
+        << m_rngSeed << ","
+        << m_assignmentMethod << ","
+        << m_cycleIndex << ","
+        << action.stepId << ","
+        << action.targetUeId << ","
+        << previousBsId << ","
+        << action.currentBsId << ","
+        << action.selectedBsId << ","
+        << satisfactionBefore << ","
+        << hBefore << ","
+        << hAfterEstimated << ","
+        << action.advantage << ","
+        << action.qBs0 << ","
+        << action.qBs1 << ","
+        << action.qBs2 << ","
+        << (applied ? 1 : 0) << ","
+        << skipReason << std::endl;
 }
 
 void APselection::WriteMasterLog()

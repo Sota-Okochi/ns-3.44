@@ -1,6 +1,6 @@
-# Action CSV format for DQN inference.
-# The initial implementation follows Option A:
-# the target UE is selected outside DQN, and DQN outputs only selected_bs_id.
+# Action CSV format for Multi-DQN inference.
+# Existing DQN model outputs only selected_bs_id Q-values per UE, but the CSV may
+# contain multiple actions per cycle.  multi_dqn requires this new format.
 
 action_file:
   path_template: episodes/dqn/actions/{scenario_name}_{method}_seed{seed}.csv
@@ -8,8 +8,17 @@ action_file:
   columns:
     - seed
     - cycle_id
+    - step_id
     - target_ue_id
+    - current_bs_id
     - selected_bs_id
+    - advantage
+    - q_bs0
+    - q_bs1
+    - q_bs2
+
+  multi_action_per_cycle: true
+  max_switches_column: step_id
 
   selected_bs_id_mapping:
     0: 5g_gnb
@@ -18,4 +27,6 @@ action_file:
 
   notes:
     - selected_bs_id is the DQN action.
-    - If selected_bs_id equals the current BS, no handover is performed.
+    - step_id is the 0-based order inside the same cycle.
+    - If selected_bs_id equals current_bs_id, multi_dqn treats it as no handover / skipped action.
+    - Old action CSV files without step_id are not required for multi_dqn.

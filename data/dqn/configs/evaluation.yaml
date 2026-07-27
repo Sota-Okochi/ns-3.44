@@ -20,7 +20,9 @@ evaluation:
     - no_switch
     - random
     - rulebase
+    - multi_greedy
     - dqn
+    - multi_dqn
 
   metrics:
     primary:

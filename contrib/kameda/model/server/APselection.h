@@ -17,6 +17,7 @@
 #include <chrono>
 #include <iostream>
 #include <map>
+#include <set>
 
 namespace ns3 {
 
@@ -62,6 +63,18 @@ struct ApSelectionInput {
     uint32_t rngSeed = 1;
 };
 
+struct DqnAction
+{
+    uint32_t stepId = 0;
+    int targetUeId = -1;    // 1-based
+    int currentBsId = -1;   // 0-based
+    int selectedBsId = -1;  // 0-based
+    double advantage = 0.0;
+    double qBs0 = 0.0;
+    double qBs1 = 0.0;
+    double qBs2 = 0.0;
+};
+
 class APselection : public Object{
 
 public:
@@ -89,6 +102,7 @@ private:
     void multi_offload_assignment(); // 混雑AP視点の複数端末offload法
     void logistic_assignment(); // ロジスティック回帰による割り当て
     void dqn_assignment(); // DQN action CSVによる割り当て
+    void multi_dqn_assignment(); // Multi-DQN action CSVによる複数割り当て
     double calculate_harmonic_mean_for_assignment(const std::vector<int>& assignment);
     double estimate_satisfaction_for_assignment(int terminal_idx,
                                                 int ap_idx,
@@ -108,6 +122,10 @@ private:
     void ResetMonitorStats();
     void RecordHarmonicMean(double value);
     void WriteMasterLog();
+    void WriteDecisionLogRow(const DqnAction& action,
+                             int previousBsId,
+                             bool applied,
+                             const std::string& skipReason);
     void PrintMonitorRttReport() const;
     
     std::vector<double> m_monitor_rtt;   // 各基地局ごとの平均RTT
@@ -141,10 +159,12 @@ private:
     std::string m_assignmentMethod = "random"; // 割り当て手法名
     std::string m_dqnActionCsvPath;             // DQN action CSV
     std::string m_outputDir = "OUTPUT/";        // master_log 出力先
-    std::map<uint32_t, std::pair<int, int>> m_dqnActions; // cycle_id -> (target_ue_id 1-based, selected_bs_id 0-based)
+    std::map<uint32_t, std::vector<DqnAction>> m_dqnActions; // cycle_id -> actions
     uint32_t m_rngSeed = 1;                    // 割り当て手法用乱数seed
     bool m_masterLogInitialized = false;       // master_log.csv ヘッダー書き込み済みフラグ
+    bool m_decisionLogInitialized = false;     // decision_log.csv ヘッダー書き込み済みフラグ
     std::string m_masterLogPath;               // 実行ごとのmaster_logファイルパス
+    std::string m_decisionLogPath;             // 実行ごとのdecision_logファイルパス
     std::string m_logisticModelPath;            // 学習済みロジスティック回帰モデル
     bool m_logisticModelLoaded = false;
     std::vector<int> m_logisticClasses;

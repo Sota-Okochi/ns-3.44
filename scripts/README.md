@@ -1,6 +1,6 @@
 # DQN 実行手順メモ
 
-この README は、`--method=dqn` を実行して `OUTPUT/<端末数>/dqn/master_log_<seed>_*.csv` を得るまでに必要な作業を記録するためのメモです。
+この README は、既存 DQN 系コードを拡張した `--method=multi_dqn` を実行して `OUTPUT/<端末数>/multi_dqn/master_log_<seed>_*.csv` と `decision_log_<seed>_*.csv` を得るまでに必要な作業を記録するためのメモです。
 
 前提として、ns-3 の configure / build は完了しており、`./ns3 run "master --method=random"` など既存手法が実行できる状態から始めます。
 
@@ -36,7 +36,7 @@ DQN は `random`、`rulebase`、`multi_greedy`、`multi_offload` などの実行
 - 使用スクリプトは `scripts/dqn/dataset/build_transitions.py`
 - 入力は `OUTPUT/<端末数>/<method>/master_log_*.csv`
 - 出力先は `episodes/dqn/transitions/`
-- 基本は `--target-mode flag_only` を使う
+- Multi-DQN 標準では `--target-mode top_k_low --top-k 8` を使う
 - transition CSV に必要な列が揃っているか確認する
 
 例:
@@ -45,7 +45,8 @@ DQN は `random`、`rulebase`、`multi_greedy`、`multi_offload` などの実行
 python3 scripts/dqn/dataset/build_transitions.py \
   --input "OUTPUT/50/random/master_log_*.csv" "OUTPUT/50/rulebase/master_log_*.csv" \
   --output-dir episodes/dqn/transitions \
-  --target-mode flag_only
+  --target-mode top_k_low \
+  --top-k 8
 ```
 
 ## 3. DQN モデルを学習する
@@ -70,7 +71,7 @@ python3 scripts/dqn/train/train_dqn.py \
 
 ## 4. DQN 推論用の入力 master_log を用意する
 
-現在の実装では、`--method=dqn` 実行時に action CSV を事前に読み込みます。そのため、DQN action CSV を作るための入力 `master_log` が必要です。
+現在の実装では、`--method=multi_dqn` 実行時に action CSV を事前に読み込みます。そのため、DQN action CSV を作るための入力 `master_log` が必要です。
 
 記載予定:
 
@@ -86,7 +87,7 @@ python3 scripts/dqn/train/train_dqn.py \
 
 ## 5. 学習済み checkpoint から DQN action CSV を作る
 
-推論用 `master_log` と学習済み checkpoint を使って、`--method=dqn` が読む action CSV を生成します。
+推論用 `master_log` と学習済み checkpoint を使って、`--method=multi_dqn` が読む新形式 action CSV を生成します。
 
 記載予定:
 
@@ -94,7 +95,7 @@ python3 scripts/dqn/train/train_dqn.py \
 - 入力は推論用 `master_log`
 - checkpoint は `models/dqn/checkpoints/*.pt`
 - 出力先は `episodes/dqn/actions/`
-- action CSV には `cycle_id`, `target_ue_id`, `selected_bs_id` が必要
+- action CSV には `seed`, `cycle_id`, `step_id`, `target_ue_id`, `current_bs_id`, `selected_bs_id`, `advantage`, `q_bs0`, `q_bs1`, `q_bs2` が必要
 
 例:
 
@@ -102,17 +103,21 @@ python3 scripts/dqn/train/train_dqn.py \
 python3 scripts/dqn/infer/infer_actions.py \
   --input OUTPUT/50/no_switch/master_log_<seed>_YYYYMMDD_HHMMSS.csv \
   --checkpoint models/dqn/checkpoints/学習済みモデル.pt \
-  --output episodes/dqn/actions/actions_dqn_seed3.csv \
-  --target-mode flag_only
+  --output episodes/dqn/actions/actions_multi_dqn_seed3.csv \
+  --candidate-mode top_k_low \
+  --max-switches 8 \
+  --satisfaction-threshold 0.5 \
+  --min-advantage 0.0 \
+  --sequential-inference
 ```
 
-## 6. `--method=dqn` で ns-3 を実行する
+## 6. `--method=multi_dqn` で ns-3 を実行する
 
 生成した action CSV を指定して DQN 手法を実行します。
 
 記載予定:
 
-- `--method=dqn` を指定する
+- `--method=multi_dqn` を指定する
 - `--dqnActionCsv=<path>` で action CSV を明示する
 - `data/setting.json` の `rngSeed` と action CSV の `seed` を一致させる
 - action CSV がない場合、DQN は実行開始時に失敗する
@@ -120,7 +125,7 @@ python3 scripts/dqn/infer/infer_actions.py \
 例:
 
 ```bash
-./ns3 run "master --method=dqn --dqnActionCsv=episodes/dqn/actions/actions_dqn_seed3.csv"
+./ns3 run "master --method=multi_dqn --dqnActionCsv=episodes/dqn/actions/actions_multi_dqn_seed3.csv"
 ```
 
 ## 7. DQN 実行結果を確認する
@@ -129,12 +134,13 @@ DQN 実行後に、`OUTPUT/<端末数>/` 以下の `master_log` を確認しま�
 
 記載予定:
 
-- `OUTPUT/<端末数>/dqn/master_log_<seed>_<日時>.csv` が生成されたか確認する
+- `OUTPUT/<端末数>/multi_dqn/master_log_<seed>_<日時>.csv` が生成されたか確認する
 - `harmonic_mean` が記録されているか確認する
 - `target_ue_flag` が各 cycle で立っているか確認する
 - `action_selected_bs_id` が出力されているか確認する
 - `method` に実行手法名（例: `random`, `rulebase`, `multi_greedy`, `multi_offload`, `dqn`）が記録されているか確認する
 - `measurement_valid` が極端に 0 ばかりでないか確認する
+- `decision_log_<seed>_<日時>.csv` で step_id 順の適用、skip_reason、advantage を確認する
 
 確認する主な列:
 
@@ -164,6 +170,7 @@ DQN 単体では有効性を判断できないため、同じ seed・同じ設�
 - `multi_greedy`
 - `multi_offload`
 - `dqn`
+- `multi_dqn`
 
 を同じ条件で実行する。
 
@@ -185,7 +192,7 @@ DQN 単体では有効性を判断できないため、同じ seed・同じ設�
 ./ns3 run "master --method=rulebase"
 ./ns3 run "master --method=multi_greedy"
 ./ns3 run "master --method=multi_offload"
-./ns3 run "master --method=dqn --dqnActionCsv=episodes/dqn/actions/actions_dqn_seed3.csv"
+./ns3 run "master --method=multi_dqn --dqnActionCsv=episodes/dqn/actions/actions_multi_dqn_seed3.csv"
 ```
 
 ## 9. 注意事項を確認する
@@ -194,8 +201,8 @@ DQN 実行時に間違えやすい点をまとめます。
 
 記載予定:
 
-- `--method=dqn` は action CSV が事前に必要
-- action CSV は `scripts/dqn/infer/infer_actions.py` で作る
+- `--method=multi_dqn` は新形式 action CSV が事前に必要
+- action CSV は `scripts/dqn/infer/infer_actions.py` で `--candidate-mode top_k_low --max-switches 8 --sequential-inference` を指定して作る
 - action CSV の `seed` と `data/setting.json` の `rngSeed` を合わせる
 - `selected_bs_id` は 0-based
   - `0`: AP0 / 5G gNB
