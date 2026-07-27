@@ -112,7 +112,9 @@ private:
                                   uint32_t stepId,
                                   double harmonicMean,
                                   int numUnsatisfiedUsers,
-                                  int numUsersOnCurrentBs) const;
+                                  int numUsersOnCurrentBs,
+                                  const std::vector<int>& assignment,
+                                  int candidateType);
     bool SendStateReceiveAction(const std::string& requestJson,
                                 int& selectedBsId,
                                 std::vector<double>& qValues,

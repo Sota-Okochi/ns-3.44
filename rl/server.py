@@ -12,7 +12,7 @@ from protocol import STATE_FEATURES, make_error, state_to_vector
 
 class OnlineDqnService:
     def __init__(self, args):
-        cfg = AgentConfig(action_dim=args.action_dim, seed=args.seed, lr=args.lr, gamma=args.gamma, device=args.device)
+        cfg = AgentConfig(state_dim=len(STATE_FEATURES), action_dim=args.action_dim, seed=args.seed, lr=args.lr, gamma=args.gamma, device=args.device)
         self.agent = OnlineDQNAgent(cfg)
         if args.checkpoint and Path(args.checkpoint).exists():
             self.agent.load_checkpoint(args.checkpoint)
@@ -78,7 +78,7 @@ def main():
     p.add_argument("--device", default="cpu")
     p.add_argument("--checkpoint", default="")
     p.add_argument("--checkpoint-out", default="models/online_dqn.pt")
-    p.add_argument("--checkpoint-interval", type=int, default=100)
+    p.add_argument("--checkpoint-interval", type=int, default=10)
     p.add_argument("--target-sync-interval", type=int, default=100)
     args = p.parse_args()
 

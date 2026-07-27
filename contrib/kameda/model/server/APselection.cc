@@ -1700,7 +1700,9 @@ APselection::BuildDqnStateJson(int terminalIdx,
                                uint32_t stepId,
                                double harmonicMean,
                                int numUnsatisfiedUsers,
-                               int numUsersOnCurrentBs) const
+                               int numUsersOnCurrentBs,
+                               const std::vector<int>& assignment,
+                               int candidateType)
 {
     const int apIdx = currentBsId;
     const int appNum =
@@ -1726,8 +1728,39 @@ APselection::BuildDqnStateJson(int terminalIdx,
     }
     const double satisfaction =
         (terminalIdx >= 0 && terminalIdx < terms && apIdx >= 0 && apIdx < aps)
-            ? const_cast<APselection*>(this)->calculate_satisfaction(terminalIdx, apIdx)
+            ? calculate_satisfaction(terminalIdx, apIdx)
             : APConstants::MIN_SATISFACTION_THRESHOLD;
+
+    const std::vector<int> usersPerAp = count_users_per_ap(assignment);
+    std::vector<double> estimatedSatisfaction(3, 0.0);
+    std::vector<double> estimatedHDelta(3, 0.0);
+    double bestEstimatedHDelta = 0.0;
+    for (int targetAp = 0; targetAp < std::min(aps, 3); ++targetAp)
+    {
+        std::vector<int> candidateAssignment = assignment;
+        if (terminalIdx >= 0 && terminalIdx < static_cast<int>(candidateAssignment.size()))
+        {
+            candidateAssignment[terminalIdx] = targetAp + 1;
+        }
+        estimatedSatisfaction[targetAp] =
+            estimate_satisfaction_for_assignment(terminalIdx,
+                                                 targetAp,
+                                                 candidateAssignment);
+        estimatedHDelta[targetAp] =
+            calculate_harmonic_mean_for_assignment(candidateAssignment) - harmonicMean;
+        if (targetAp != currentBsId)
+        {
+            bestEstimatedHDelta = std::max(bestEstimatedHDelta, estimatedHDelta[targetAp]);
+        }
+    }
+    auto usersAt = [&usersPerAp](int idx) -> int {
+        return (idx >= 0 && idx < static_cast<int>(usersPerAp.size())) ? usersPerAp[idx] : 0;
+    };
+    auto rttAt = [this](int idx) -> double {
+        return (idx >= 0 && idx < static_cast<int>(m_has_rtt.size()) && m_has_rtt[idx])
+                   ? m_monitor_rtt[idx]
+                   : 0.0;
+    };
 
     std::ostringstream oss;
     oss << std::fixed << std::setprecision(6)
@@ -1747,7 +1780,21 @@ APselection::BuildDqnStateJson(int terminalIdx,
         << "\"satisfaction\":" << satisfaction << ","
         << "\"num_users_on_current_bs\":" << numUsersOnCurrentBs << ","
         << "\"harmonic_mean\":" << harmonicMean << ","
-        << "\"num_unsatisfied_users\":" << numUnsatisfiedUsers
+        << "\"num_unsatisfied_users\":" << numUnsatisfiedUsers << ","
+        << "\"candidate_type\":" << candidateType << ","
+        << "\"num_users_ap0\":" << usersAt(0) << ","
+        << "\"num_users_ap1\":" << usersAt(1) << ","
+        << "\"num_users_ap2\":" << usersAt(2) << ","
+        << "\"monitor_rtt_ap0\":" << rttAt(0) << ","
+        << "\"monitor_rtt_ap1\":" << rttAt(1) << ","
+        << "\"monitor_rtt_ap2\":" << rttAt(2) << ","
+        << "\"estimated_satisfaction_if_ap0\":" << estimatedSatisfaction[0] << ","
+        << "\"estimated_satisfaction_if_ap1\":" << estimatedSatisfaction[1] << ","
+        << "\"estimated_satisfaction_if_ap2\":" << estimatedSatisfaction[2] << ","
+        << "\"estimated_h_delta_if_ap0\":" << estimatedHDelta[0] << ","
+        << "\"estimated_h_delta_if_ap1\":" << estimatedHDelta[1] << ","
+        << "\"estimated_h_delta_if_ap2\":" << estimatedHDelta[2] << ","
+        << "\"best_estimated_h_delta\":" << bestEstimatedHDelta
         << "}}";
     return oss.str();
 }
@@ -1841,6 +1888,8 @@ void APselection::online_dqn_assignment()
     std::cout << "=== APselection::online_dqn_assignment() ===" << std::endl;
 
     constexpr double kUnsatisfiedThreshold = 0.7;
+    constexpr double kOffloadSatisfiedThreshold = 1.0;
+    constexpr double kOffloadRetentionRatio = 0.9;
     std::vector<int> assignment = initial_AP;
     const double hBefore =
         m_cycleHarmonicMeans.empty() ? calculate_harmonic_mean_for_assignment(initial_AP)
@@ -1852,8 +1901,14 @@ void APselection::online_dqn_assignment()
     {
         int terminalIdx;
         double satisfaction;
+        int candidateType; // 0=rescue, 1=offload
+        double bestEstimatedHDelta;
+        int currentBsUsers;
     };
     std::vector<Candidate> candidates;
+    const std::vector<int> usersPerApBefore = count_users_per_ap(assignment);
+    const double averageUsersPerAp =
+        (aps > 0) ? static_cast<double>(terms) / static_cast<double>(aps) : 0.0;
     for (int i = 0; i < terms; ++i)
     {
         const int apIdx = assignment[i] - 1;
@@ -1861,19 +1916,94 @@ void APselection::online_dqn_assignment()
         if (satisfactions[i] < kUnsatisfiedThreshold)
         {
             ++numUnsatisfiedUsers;
-            candidates.push_back({i, satisfactions[i]});
+            candidates.push_back({i,
+                                  satisfactions[i],
+                                  0,
+                                  0.0,
+                                  (apIdx >= 0 && apIdx < static_cast<int>(usersPerApBefore.size()))
+                                      ? usersPerApBefore[apIdx]
+                                      : 0});
+            continue;
+        }
+
+        // Offload candidate:
+        // すでに満足しており、混雑気味のBSから、移動後も満足度を概ね維持できるUE。
+        // これにより、救済対象UEのためのネットワークリソースを空ける候補もDQNに渡す。
+        if (satisfactions[i] >= kOffloadSatisfiedThreshold &&
+            apIdx >= 0 &&
+            apIdx < static_cast<int>(usersPerApBefore.size()) &&
+            usersPerApBefore[apIdx] > averageUsersPerAp)
+        {
+            bool feasibleOffload = false;
+            double bestDelta = -std::numeric_limits<double>::infinity();
+            for (int targetAp = 0; targetAp < aps; ++targetAp)
+            {
+                if (targetAp == apIdx)
+                {
+                    continue;
+                }
+                // 混雑緩和が目的なので、現在より混んでいるBSへのoffloadは候補化しない。
+                if (targetAp < static_cast<int>(usersPerApBefore.size()) &&
+                    usersPerApBefore[targetAp] >= usersPerApBefore[apIdx])
+                {
+                    continue;
+                }
+                std::vector<int> candidateAssignment = assignment;
+                candidateAssignment[i] = targetAp + 1;
+                const double estimatedS =
+                    estimate_satisfaction_for_assignment(i, targetAp, candidateAssignment);
+                const bool satisfactionMaintained =
+                    (estimatedS >= kOffloadSatisfiedThreshold ||
+                     estimatedS >= satisfactions[i] * kOffloadRetentionRatio);
+                if (!satisfactionMaintained)
+                {
+                    continue;
+                }
+                feasibleOffload = true;
+                bestDelta = std::max(bestDelta,
+                                     calculate_harmonic_mean_for_assignment(candidateAssignment) -
+                                         hBefore);
+            }
+            if (feasibleOffload)
+            {
+                candidates.push_back({i,
+                                      satisfactions[i],
+                                      1,
+                                      bestDelta,
+                                      usersPerApBefore[apIdx]});
+            }
         }
     }
     std::sort(candidates.begin(), candidates.end(), [](const Candidate& lhs, const Candidate& rhs) {
-        return lhs.satisfaction < rhs.satisfaction;
+        if (lhs.candidateType != rhs.candidateType)
+        {
+            return lhs.candidateType < rhs.candidateType; // rescue を優先
+        }
+        if (lhs.candidateType == 0)
+        {
+            return lhs.satisfaction < rhs.satisfaction;
+        }
+        if (lhs.currentBsUsers != rhs.currentBsUsers)
+        {
+            return lhs.currentBsUsers > rhs.currentBsUsers;
+        }
+        return lhs.bestEstimatedHDelta > rhs.bestEstimatedHDelta;
     });
     if (candidates.empty())
     {
-        std::cout << "[OnlineDQN] no unsatisfied candidate; keep current assignment"
+        std::cout << "[OnlineDQN] no rescue/offload candidate; keep current assignment"
                   << " h_before=" << hBefore << std::endl;
         KeepCurrentAssignment("no online_dqn candidate");
         return;
     }
+
+    const int rescueCount = std::count_if(candidates.begin(),
+                                          candidates.end(),
+                                          [](const Candidate& c) { return c.candidateType == 0; });
+    const int offloadCount = static_cast<int>(candidates.size()) - rescueCount;
+    std::cout << "[OnlineDQN] candidates rescue=" << rescueCount
+              << " offload=" << offloadCount
+              << " unsatisfied=" << numUnsatisfiedUsers << std::endl;
 
     uint32_t applied = 0;
     uint32_t stepId = 0;
@@ -1901,7 +2031,9 @@ void APselection::online_dqn_assignment()
                               stepId,
                               hBefore,
                               numUnsatisfiedUsers,
-                              numUsersOnCurrentBs);
+                              numUsersOnCurrentBs,
+                              assignment,
+                              candidate.candidateType);
 
         int selectedBsId = -1;
         std::vector<double> qValues;
@@ -1946,6 +2078,21 @@ void APselection::online_dqn_assignment()
             apply = false;
             skipReason = "same_bs";
         }
+        else if (candidate.candidateType == 1)
+        {
+            std::vector<int> candidateAssignment = assignment;
+            candidateAssignment[targetIdx] = selectedBsId + 1;
+            const double estimatedS =
+                estimate_satisfaction_for_assignment(targetIdx,
+                                                     selectedBsId,
+                                                     candidateAssignment);
+            if (estimatedS < kOffloadSatisfiedThreshold &&
+                estimatedS < candidate.satisfaction * kOffloadRetentionRatio)
+            {
+                apply = false;
+                skipReason = "offload_satisfaction_drop";
+            }
+        }
 
         if (apply)
         {
@@ -1957,6 +2104,8 @@ void APselection::online_dqn_assignment()
                       << " switch term=" << (targetIdx + 1)
                       << " AP" << (previousBsId + 1)
                       << " -> AP" << (selectedBsId + 1)
+                      << " candidate_type="
+                      << (candidate.candidateType == 0 ? "rescue" : "offload")
                       << " satisfaction=" << candidate.satisfaction
                       << " advantage=" << action.advantage << std::endl;
             WriteDecisionLogRow(action, previousBsId, true, "");
@@ -1967,6 +2116,8 @@ void APselection::online_dqn_assignment()
             std::cout << "[OnlineDQN] cycle=" << m_cycleIndex
                       << " step=" << stepId
                       << " skip target_ue_id=" << (targetIdx + 1)
+                      << " candidate_type="
+                      << (candidate.candidateType == 0 ? "rescue" : "offload")
                       << " reason=" << skipReason << std::endl;
         }
         ++stepId;
