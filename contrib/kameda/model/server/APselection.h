@@ -59,6 +59,9 @@ struct ApSelectionInput {
     uint32_t handoverGraceCycles = APConstants::HANDOVER_GRACE_CYCLES;
     std::string assignmentMethod = "random";
     std::string dqnActionCsvPath;
+    std::string drlServerHost = "127.0.0.1";
+    uint16_t drlServerPort = 50051;
+    uint32_t drlTimeoutMs = 200;
     std::string outputDir = "OUTPUT/";
     uint32_t rngSeed = 1;
 };
@@ -103,6 +106,17 @@ private:
     void logistic_assignment(); // ロジスティック回帰による割り当て
     void dqn_assignment(); // DQN action CSVによる割り当て
     void multi_dqn_assignment(); // Multi-DQN action CSVによる複数割り当て
+    void online_dqn_assignment(); // Online DQN TCP JSON server による複数割り当て
+    std::string BuildDqnStateJson(int terminalIdx,
+                                  int currentBsId,
+                                  uint32_t stepId,
+                                  double harmonicMean,
+                                  int numUnsatisfiedUsers,
+                                  int numUsersOnCurrentBs) const;
+    bool SendStateReceiveAction(const std::string& requestJson,
+                                int& selectedBsId,
+                                std::vector<double>& qValues,
+                                std::string& errorMessage) const;
     double calculate_harmonic_mean_for_assignment(const std::vector<int>& assignment);
     double estimate_satisfaction_for_assignment(int terminal_idx,
                                                 int ap_idx,
@@ -158,6 +172,9 @@ private:
     std::vector<double> traffic_request;      //必要TP, RTT
     std::string m_assignmentMethod = "random"; // 割り当て手法名
     std::string m_dqnActionCsvPath;             // DQN action CSV
+    std::string m_drlServerHost = "127.0.0.1";  // online_dqn TCP JSON server host
+    uint16_t m_drlServerPort = 50051;            // online_dqn TCP JSON server port
+    uint32_t m_drlTimeoutMs = 200;               // online_dqn socket timeout [ms]
     std::string m_outputDir = "OUTPUT/";        // master_log 出力先
     std::map<uint32_t, std::vector<DqnAction>> m_dqnActions; // cycle_id -> actions
     uint32_t m_rngSeed = 1;                    // 割り当て手法用乱数seed

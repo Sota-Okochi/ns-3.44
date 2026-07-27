@@ -24,8 +24,14 @@
 #include <random>
 #include <regex>
 #include <set>
+#include <cstring>
 #include <dirent.h>
 #include <sys/stat.h>
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
+#include <sys/time.h>
+#include <unistd.h>
 
 namespace ns3{
 
@@ -187,6 +193,18 @@ std::vector<std::string> ParseJsonStrings(const std::string& body)
     return values;
 }
 
+bool ExtractJsonIntScalar(const std::string& content, const std::string& key, int& out)
+{
+    std::regex re("\\\"" + key + "\\\"\\s*:\\s*(-?\\d+)");
+    std::smatch match;
+    if (std::regex_search(content, match, re))
+    {
+        out = std::stoi(match[1]);
+        return true;
+    }
+    return false;
+}
+
 } // namespace
 
 // split関数の定義
@@ -226,6 +244,9 @@ void APselection::init(const ApSelectionInput& input){
     initial_AP = input.initialAp; // 各端末の初期接続先
     m_assignmentMethod = input.assignmentMethod;
     m_dqnActionCsvPath = input.dqnActionCsvPath;
+    m_drlServerHost = input.drlServerHost;
+    m_drlServerPort = input.drlServerPort;
+    m_drlTimeoutMs = input.drlTimeoutMs;
     m_rngSeed = input.rngSeed;
     m_outputDir = input.outputDir;
     if (!m_outputDir.empty() && m_outputDir.back() != '/')
@@ -276,6 +297,13 @@ void APselection::init(const ApSelectionInput& input){
     std::cout << "ログパス: " << m_masterLogPath << std::endl;
     if (m_assignmentMethod == "multi_dqn")
     {
+        std::cout << "意思決定ログパス: " << m_decisionLogPath << std::endl;
+    }
+    if (m_assignmentMethod == "online_dqn")
+    {
+        std::cout << "[OnlineDQN] server=" << m_drlServerHost << ":"
+                  << m_drlServerPort << " timeoutMs=" << m_drlTimeoutMs
+                  << " maxSwitches=" << m_MaxSwitches << std::endl;
         std::cout << "意思決定ログパス: " << m_decisionLogPath << std::endl;
     }
     std::cout << "割り当て手法(method): " << m_assignmentMethod << std::endl;
@@ -414,6 +442,10 @@ void APselection::tmain(){
         else if (m_assignmentMethod == "multi_dqn")
         {
             multi_dqn_assignment();
+        }
+        else if (m_assignmentMethod == "online_dqn")
+        {
+            online_dqn_assignment();
         }
         else if (m_assignmentMethod == "no_switch")
         {
@@ -1662,6 +1694,292 @@ void APselection::multi_dqn_assignment()
     }
 }
 
+std::string
+APselection::BuildDqnStateJson(int terminalIdx,
+                               int currentBsId,
+                               uint32_t stepId,
+                               double harmonicMean,
+                               int numUnsatisfiedUsers,
+                               int numUsersOnCurrentBs) const
+{
+    const int apIdx = currentBsId;
+    const int appNum =
+        (terminalIdx >= 0 && terminalIdx < static_cast<int>(initial_app.size()))
+            ? initial_app[terminalIdx]
+            : 0;
+    const bool isTpApp =
+        (appNum == static_cast<int>(APConstants::AppType::BROWSER) ||
+         appNum == static_cast<int>(APConstants::AppType::VIDEO));
+    double tpMbps = 0.0;
+    if (terminalIdx >= 0 &&
+        terminalIdx < static_cast<int>(m_has_terminal_tp.size()) &&
+        m_has_terminal_tp[terminalIdx] &&
+        terminalIdx < static_cast<int>(m_terminal_tp.size()) &&
+        m_terminal_tp[terminalIdx] > 0.0)
+    {
+        tpMbps = m_terminal_tp[terminalIdx] * APConstants::BPS_TO_MBPS;
+    }
+    double rttMs = 0.0;
+    if (apIdx >= 0 && apIdx < static_cast<int>(m_has_rtt.size()) && m_has_rtt[apIdx])
+    {
+        rttMs = m_monitor_rtt[apIdx];
+    }
+    const double satisfaction =
+        (terminalIdx >= 0 && terminalIdx < terms && apIdx >= 0 && apIdx < aps)
+            ? const_cast<APselection*>(this)->calculate_satisfaction(terminalIdx, apIdx)
+            : APConstants::MIN_SATISFACTION_THRESHOLD;
+
+    std::ostringstream oss;
+    oss << std::fixed << std::setprecision(6)
+        << "{"
+        << "\"type\":\"act\","
+        << "\"seed\":" << m_rngSeed << ","
+        << "\"cycle_id\":" << m_cycleIndex << ","
+        << "\"step_id\":" << stepId << ","
+        << "\"target_ue_id\":" << (terminalIdx + 1) << ","
+        << "\"harmonic_mean\":" << harmonicMean << ","
+        << "\"state\":{"
+        << "\"cycle_id\":" << m_cycleIndex << ","
+        << "\"current_bs_id\":" << currentBsId << ","
+        << "\"app_type\":" << appNum << ","
+        << "\"tp_mbps\":" << tpMbps << ","
+        << "\"rtt_ms\":" << (isTpApp ? rttMs : rttMs) << ","
+        << "\"satisfaction\":" << satisfaction << ","
+        << "\"num_users_on_current_bs\":" << numUsersOnCurrentBs << ","
+        << "\"harmonic_mean\":" << harmonicMean << ","
+        << "\"num_unsatisfied_users\":" << numUnsatisfiedUsers
+        << "}}";
+    return oss.str();
+}
+
+bool
+APselection::SendStateReceiveAction(const std::string& requestJson,
+                                    int& selectedBsId,
+                                    std::vector<double>& qValues,
+                                    std::string& errorMessage) const
+{
+    selectedBsId = -1;
+    qValues.clear();
+    int fd = socket(AF_INET, SOCK_STREAM, 0);
+    if (fd < 0)
+    {
+        errorMessage = "socket_create_failed";
+        return false;
+    }
+
+    timeval timeout;
+    timeout.tv_sec = static_cast<time_t>(m_drlTimeoutMs / 1000);
+    timeout.tv_usec = static_cast<suseconds_t>((m_drlTimeoutMs % 1000) * 1000);
+    setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+    setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
+
+    sockaddr_in addr;
+    std::memset(&addr, 0, sizeof(addr));
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(m_drlServerPort);
+    if (inet_pton(AF_INET, m_drlServerHost.c_str(), &addr.sin_addr) != 1)
+    {
+        errorMessage = "invalid_server_host";
+        close(fd);
+        return false;
+    }
+    if (connect(fd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) < 0)
+    {
+        errorMessage = "connect_failed";
+        close(fd);
+        return false;
+    }
+
+    const std::string wire = requestJson + "\n";
+    if (send(fd, wire.c_str(), wire.size(), 0) < 0)
+    {
+        errorMessage = "send_failed";
+        close(fd);
+        return false;
+    }
+
+    std::string response;
+    char buf[512];
+    while (response.find('\n') == std::string::npos)
+    {
+        ssize_t n = recv(fd, buf, sizeof(buf) - 1, 0);
+        if (n <= 0)
+        {
+            break;
+        }
+        buf[n] = '\0';
+        response += buf;
+    }
+    close(fd);
+
+    if (response.empty())
+    {
+        errorMessage = "empty_response";
+        return false;
+    }
+    if (response.find("\"type\"") != std::string::npos &&
+        response.find("\"error\"") != std::string::npos)
+    {
+        errorMessage = "server_error";
+        return false;
+    }
+    if (!ExtractJsonIntScalar(response, "selected_bs_id", selectedBsId))
+    {
+        errorMessage = "selected_bs_id_not_found";
+        return false;
+    }
+    std::vector<double> numbers;
+    if (ExtractJsonNumbers(response, "q_values", numbers))
+    {
+        qValues = numbers;
+    }
+    return true;
+}
+
+void APselection::online_dqn_assignment()
+{
+    std::cout << "=== APselection::online_dqn_assignment() ===" << std::endl;
+
+    constexpr double kUnsatisfiedThreshold = 0.7;
+    std::vector<int> assignment = initial_AP;
+    const double hBefore =
+        m_cycleHarmonicMeans.empty() ? calculate_harmonic_mean_for_assignment(initial_AP)
+                                     : m_cycleHarmonicMeans.back();
+
+    std::vector<double> satisfactions(terms, APConstants::MIN_SATISFACTION_THRESHOLD);
+    int numUnsatisfiedUsers = 0;
+    struct Candidate
+    {
+        int terminalIdx;
+        double satisfaction;
+    };
+    std::vector<Candidate> candidates;
+    for (int i = 0; i < terms; ++i)
+    {
+        const int apIdx = assignment[i] - 1;
+        satisfactions[i] = calculate_satisfaction(i, apIdx);
+        if (satisfactions[i] < kUnsatisfiedThreshold)
+        {
+            ++numUnsatisfiedUsers;
+            candidates.push_back({i, satisfactions[i]});
+        }
+    }
+    std::sort(candidates.begin(), candidates.end(), [](const Candidate& lhs, const Candidate& rhs) {
+        return lhs.satisfaction < rhs.satisfaction;
+    });
+    if (candidates.empty())
+    {
+        std::cout << "[OnlineDQN] no unsatisfied candidate; keep current assignment"
+                  << " h_before=" << hBefore << std::endl;
+        KeepCurrentAssignment("no online_dqn candidate");
+        return;
+    }
+
+    uint32_t applied = 0;
+    uint32_t stepId = 0;
+    std::set<int> seenTargets;
+    for (const Candidate& candidate : candidates)
+    {
+        if (applied >= m_MaxSwitches)
+        {
+            break;
+        }
+        const int targetIdx = candidate.terminalIdx;
+        if (seenTargets.count(targetIdx) > 0)
+        {
+            continue;
+        }
+        const int previousBsId = assignment[targetIdx] - 1;
+        std::vector<int> usersPerAp = count_users_per_ap(assignment);
+        const int numUsersOnCurrentBs =
+            (previousBsId >= 0 && previousBsId < static_cast<int>(usersPerAp.size()))
+                ? usersPerAp[previousBsId]
+                : 0;
+        const std::string requestJson =
+            BuildDqnStateJson(targetIdx,
+                              previousBsId,
+                              stepId,
+                              hBefore,
+                              numUnsatisfiedUsers,
+                              numUsersOnCurrentBs);
+
+        int selectedBsId = -1;
+        std::vector<double> qValues;
+        std::string errorMessage;
+        DqnAction action;
+        action.stepId = stepId;
+        action.targetUeId = targetIdx + 1;
+        action.currentBsId = previousBsId;
+        if (!SendStateReceiveAction(requestJson, selectedBsId, qValues, errorMessage))
+        {
+            action.selectedBsId = previousBsId;
+            WriteDecisionLogRow(action, previousBsId, false, errorMessage);
+            std::cerr << "[OnlineDQN][WARN] request failed target_ue_id="
+                      << (targetIdx + 1) << " reason=" << errorMessage << std::endl;
+            ++stepId;
+            continue;
+        }
+
+        action.selectedBsId = selectedBsId;
+        if (qValues.size() > 0) { action.qBs0 = qValues[0]; }
+        if (qValues.size() > 1) { action.qBs1 = qValues[1]; }
+        if (qValues.size() > 2) { action.qBs2 = qValues[2]; }
+        const double qCurrent =
+            (previousBsId >= 0 && previousBsId < static_cast<int>(qValues.size()))
+                ? qValues[previousBsId]
+                : 0.0;
+        const double qSelected =
+            (selectedBsId >= 0 && selectedBsId < static_cast<int>(qValues.size()))
+                ? qValues[selectedBsId]
+                : 0.0;
+        action.advantage = qSelected - qCurrent;
+
+        std::string skipReason;
+        bool apply = true;
+        if (selectedBsId < 0 || selectedBsId >= aps)
+        {
+            apply = false;
+            skipReason = "invalid_selected_bs_id";
+        }
+        else if (selectedBsId == previousBsId)
+        {
+            apply = false;
+            skipReason = "same_bs";
+        }
+
+        if (apply)
+        {
+            assignment[targetIdx] = selectedBsId + 1;
+            seenTargets.insert(targetIdx);
+            ++applied;
+            std::cout << "[OnlineDQN] cycle=" << m_cycleIndex
+                      << " step=" << stepId
+                      << " switch term=" << (targetIdx + 1)
+                      << " AP" << (previousBsId + 1)
+                      << " -> AP" << (selectedBsId + 1)
+                      << " satisfaction=" << candidate.satisfaction
+                      << " advantage=" << action.advantage << std::endl;
+            WriteDecisionLogRow(action, previousBsId, true, "");
+        }
+        else
+        {
+            WriteDecisionLogRow(action, previousBsId, false, skipReason);
+            std::cout << "[OnlineDQN] cycle=" << m_cycleIndex
+                      << " step=" << stepId
+                      << " skip target_ue_id=" << (targetIdx + 1)
+                      << " reason=" << skipReason << std::endl;
+        }
+        ++stepId;
+    }
+
+    m_lastAssignment = assignment;
+    PrepareDecisionLogState(initial_AP, assignment, hBefore, hBefore);
+    if (m_handoverCallback)
+    {
+        m_handoverCallback(assignment);
+    }
+}
+
 // ロジスティック回帰モデルの読み込み
 bool APselection::LoadLogisticModel()
 {
@@ -1986,7 +2304,8 @@ APselection::WriteDecisionLogRow(const DqnAction& action,
                                  bool applied,
                                  const std::string& skipReason)
 {
-    if (m_assignmentMethod != "multi_dqn" || m_decisionLogPath.empty())
+    if ((m_assignmentMethod != "multi_dqn" && m_assignmentMethod != "online_dqn") ||
+        m_decisionLogPath.empty())
     {
         return;
     }

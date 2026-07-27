@@ -139,6 +139,9 @@ private:
     int m_mob;
     std::string m_assignmentMethod;
     std::string m_dqnActionCsvPath;
+    std::string m_drlServerHost;
+    uint16_t m_drlServerPort;
+    uint32_t m_drlTimeoutMs;
     uint32_t m_rngSeed;
     std::string m_outputDir;  // OUTPUT/<端末数>/<手法>/（実行ログ・補助ログの出力先）
 

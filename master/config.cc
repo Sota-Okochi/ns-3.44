@@ -241,6 +241,9 @@ NetSim::NetSim()
     m_mob = 1;
     m_assignmentMethod = "random";
     m_dqnActionCsvPath = "episodes/dqn/actions/actions_dqn_seed1.csv";
+    m_drlServerHost = "127.0.0.1";
+    m_drlServerPort = 50051;
+    m_drlTimeoutMs = 200;
     m_rngSeed = 1;
     m_outputDir = OUTPUT_ROOT_DIR;
     server_udpVoice = nullptr;
@@ -278,10 +281,19 @@ void NetSim::Init(int argc, char *argv[]){
     NS_LOG_FUNCTION(this);
 
     CommandLine cmd;
-    cmd.AddValue("method", "Assignment method: no_switch, random, all5g, rulebase, greedy, multi_greedy, multi_offload, logistic, dqn, multi_dqn", m_assignmentMethod);
+    cmd.AddValue("method", "Assignment method: no_switch, random, all5g, rulebase, greedy, multi_greedy, multi_offload, logistic, dqn, multi_dqn, online_dqn", m_assignmentMethod);
     cmd.AddValue("dqnActionCsv",
                  "DQN/Multi-DQN action CSV path used when --method=dqn or --method=multi_dqn",
                  m_dqnActionCsvPath);
+    cmd.AddValue("drlServerHost",
+                 "Online DQN TCP JSON server host used when --method=online_dqn",
+                 m_drlServerHost);
+    cmd.AddValue("drlServerPort",
+                 "Online DQN TCP JSON server port used when --method=online_dqn",
+                 m_drlServerPort);
+    cmd.AddValue("drlTimeoutMs",
+                 "Online DQN TCP JSON request timeout in milliseconds",
+                 m_drlTimeoutMs);
     cmd.AddValue("mob", "1 is constant, 2 is randomwalk", m_mob);
     cmd.Parse(argc, argv);
 
@@ -293,6 +305,7 @@ void NetSim::Init(int argc, char *argv[]){
         m_assignmentMethod != "multi_offload" &&
         m_assignmentMethod != "logistic" && m_assignmentMethod != "dqn" &&
         m_assignmentMethod != "multi_dqn" &&
+        m_assignmentMethod != "online_dqn" &&
         m_assignmentMethod != "ml")
     {
         NS_FATAL_ERROR("Unknown assignment method: " << m_assignmentMethod);
@@ -333,6 +346,9 @@ void NetSim::Init(int argc, char *argv[]){
     m_apSelectionInput.handoverGraceCycles = static_cast<uint32_t>(setting.handoverGraceCycles);
     m_apSelectionInput.assignmentMethod = m_assignmentMethod;
     m_apSelectionInput.dqnActionCsvPath = m_dqnActionCsvPath;
+    m_apSelectionInput.drlServerHost = m_drlServerHost;
+    m_apSelectionInput.drlServerPort = m_drlServerPort;
+    m_apSelectionInput.drlTimeoutMs = m_drlTimeoutMs;
     m_apSelectionInput.rngSeed = m_rngSeed;
     m_apSelectionInput.outputDir = m_outputDir;
 
