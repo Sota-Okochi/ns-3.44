@@ -247,6 +247,7 @@ void APselection::init(const ApSelectionInput& input){
     m_drlServerHost = input.drlServerHost;
     m_drlServerPort = input.drlServerPort;
     m_drlTimeoutMs = input.drlTimeoutMs;
+    m_MaxSwitches = input.maxSwitches;
     m_rngSeed = input.rngSeed;
     m_outputDir = input.outputDir;
     if (!m_outputDir.empty() && m_outputDir.back() != '/')

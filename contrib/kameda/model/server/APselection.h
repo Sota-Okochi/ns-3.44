@@ -62,6 +62,7 @@ struct ApSelectionInput {
     std::string drlServerHost = "127.0.0.1";
     uint16_t drlServerPort = 50051;
     uint32_t drlTimeoutMs = 200;
+    uint32_t maxSwitches = 8;
     std::string outputDir = "OUTPUT/";
     uint32_t rngSeed = 1;
 };

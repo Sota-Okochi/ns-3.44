@@ -244,6 +244,7 @@ NetSim::NetSim()
     m_drlServerHost = "127.0.0.1";
     m_drlServerPort = 50051;
     m_drlTimeoutMs = 200;
+    m_maxSwitches = 8;
     m_rngSeed = 1;
     m_outputDir = OUTPUT_ROOT_DIR;
     server_udpVoice = nullptr;
@@ -294,6 +295,9 @@ void NetSim::Init(int argc, char *argv[]){
     cmd.AddValue("drlTimeoutMs",
                  "Online DQN TCP JSON request timeout in milliseconds",
                  m_drlTimeoutMs);
+    cmd.AddValue("maxSwitches",
+                 "Maximum number of UE switches per cycle for multi_greedy, multi_offload, multi_dqn, and online_dqn",
+                 m_maxSwitches);
     cmd.AddValue("mob", "1 is constant, 2 is randomwalk", m_mob);
     cmd.Parse(argc, argv);
 
@@ -320,7 +324,12 @@ void NetSim::Init(int argc, char *argv[]){
     std::cout << "シード値(setting.json/\"rngSeed\"): " << setting.rngSeed << std::endl;
     APnum = static_cast<uint32_t>(setting.baseStations);
     termNum = static_cast<uint32_t>(setting.terminals);
-    m_outputDir = OUTPUT_ROOT_DIR + std::to_string(termNum) + "/" + m_assignmentMethod + "/";
+    std::string outputMethodDir = m_assignmentMethod;
+    if (m_assignmentMethod == "multi_greedy")
+    {
+        outputMethodDir += "_K" + std::to_string(m_maxSwitches);
+    }
+    m_outputDir = OUTPUT_ROOT_DIR + std::to_string(termNum) + "/" + outputMethodDir + "/";
     SystemPath::MakeDirectories(m_outputDir);
     std::cout << "出力ディレクトリ: " << m_outputDir << std::endl;
     m_cycleCount             = static_cast<uint32_t>(setting.numCycles);
@@ -349,6 +358,7 @@ void NetSim::Init(int argc, char *argv[]){
     m_apSelectionInput.drlServerHost = m_drlServerHost;
     m_apSelectionInput.drlServerPort = m_drlServerPort;
     m_apSelectionInput.drlTimeoutMs = m_drlTimeoutMs;
+    m_apSelectionInput.maxSwitches = m_maxSwitches;
     m_apSelectionInput.rngSeed = m_rngSeed;
     m_apSelectionInput.outputDir = m_outputDir;
 
