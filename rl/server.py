@@ -3,7 +3,6 @@ from __future__ import annotations
 import argparse
 import json
 import socketserver
-from dataclasses import asdict
 from pathlib import Path
 
 from agent import AgentConfig, OnlineDQNAgent
@@ -33,25 +32,29 @@ class OnlineDqnService:
 
         # Delayed reward: when the next cycle's measurements arrive, all
         # pending actions from the previous cycle get reward = H_current - H_t.
+        # In eval-only/no-update mode, the loaded policy is fixed: no replay
+        # insertion, no gradient update, no target sync, and no checkpoint save.
         loss = None
-        if self.last_cycle is not None and cycle_id != self.last_cycle:
-            for _key, (prev_s, prev_a, prev_h) in list(self.pending.items()):
-                self.agent.remember(prev_s, prev_a, h_now - prev_h, state, done)
-                maybe_loss = self.agent.update(self.args.batch_size)
-                if maybe_loss is not None:
-                    loss = maybe_loss
-            self.pending.clear()
+        if not self.args.eval_only:
+            if self.last_cycle is not None and cycle_id != self.last_cycle:
+                for _key, (prev_s, prev_a, prev_h) in list(self.pending.items()):
+                    self.agent.remember(prev_s, prev_a, h_now - prev_h, state, done)
+                    maybe_loss = self.agent.update(self.args.batch_size)
+                    if maybe_loss is not None:
+                        loss = maybe_loss
+                self.pending.clear()
         self.last_cycle = cycle_id
 
-        epsilon = float(msg.get("epsilon", self.args.epsilon))
+        epsilon = 0.0 if self.args.eval_only else float(msg.get("epsilon", self.args.epsilon))
         action, q_values = self.agent.select_action(state, epsilon)
-        self.pending[(cycle_id, step_id, ue_id)] = (state, action, h_now)
         self.steps += 1
-        if self.steps % self.args.target_sync_interval == 0:
-            self.agent.sync_target()
-        if self.args.checkpoint_out and self.steps % self.args.checkpoint_interval == 0:
-            self.agent.save_checkpoint(self.args.checkpoint_out, {"steps": self.steps, "features": STATE_FEATURES})
-        return {"type": "action", "selected_bs_id": action, "q_values": q_values, "loss": loss, "steps": self.steps}
+        if not self.args.eval_only:
+            self.pending[(cycle_id, step_id, ue_id)] = (state, action, h_now)
+            if self.steps % self.args.target_sync_interval == 0:
+                self.agent.sync_target()
+            if self.args.checkpoint_out and self.steps % self.args.checkpoint_interval == 0:
+                self.agent.save_checkpoint(self.args.checkpoint_out, {"steps": self.steps, "features": STATE_FEATURES})
+        return {"type": "action", "selected_bs_id": action, "q_values": q_values, "loss": loss, "steps": self.steps, "eval_only": self.args.eval_only}
 
 
 class Handler(socketserver.StreamRequestHandler):
@@ -80,6 +83,8 @@ def main():
     p.add_argument("--checkpoint-out", default="models/online_dqn.pt")
     p.add_argument("--checkpoint-interval", type=int, default=10)
     p.add_argument("--target-sync-interval", type=int, default=100)
+    p.add_argument("--eval-only", "--no-update", action="store_true", dest="eval_only",
+                   help="Run fixed-policy online inference only: epsilon=0, no replay/update/checkpoint save.")
     args = p.parse_args()
 
     class Server(socketserver.ThreadingTCPServer):
@@ -87,7 +92,8 @@ def main():
 
     with Server((args.host, args.port), Handler) as srv:
         srv.service = OnlineDqnService(args)  # type: ignore[attr-defined]
-        print(f"[OnlineDQN] listening on {args.host}:{args.port} features={STATE_FEATURES}", flush=True)
+        mode = "eval-only" if args.eval_only else "online-learning"
+        print(f"[OnlineDQN] listening on {args.host}:{args.port} mode={mode} features={STATE_FEATURES}", flush=True)
         srv.serve_forever()
 
 if __name__ == "__main__":

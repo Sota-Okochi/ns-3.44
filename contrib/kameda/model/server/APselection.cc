@@ -248,6 +248,7 @@ void APselection::init(const ApSelectionInput& input){
     m_drlServerPort = input.drlServerPort;
     m_drlTimeoutMs = input.drlTimeoutMs;
     m_MaxSwitches = input.maxSwitches;
+    m_onlineDqnSafetyThreshold = input.onlineDqnSafetyThreshold;
     m_rngSeed = input.rngSeed;
     m_outputDir = input.outputDir;
     if (!m_outputDir.empty() && m_outputDir.back() != '/')
@@ -276,6 +277,17 @@ void APselection::init(const ApSelectionInput& input){
     m_cycleIndex = 1;
     m_masterLogInitialized = false;
     m_decisionLogInitialized = false;
+    m_rewardLogInitialized = false;
+    m_previousMeasuredH = 0.0;
+    m_hasPreviousMeasuredH = false;
+    m_lastMeasuredRewardFromPrevious = 0.0;
+    m_lastNumDegradedUsersMeasured = 0;
+    m_pendingMeasuredReward = false;
+    m_pendingRewardCycleId = 0;
+    m_pendingRewardHBefore = 0.0;
+    m_pendingRewardHAfterEstimated = 0.0;
+    m_pendingRewardSwitchCount = 0;
+    m_pendingRewardSatisfactionBefore.clear();
     if (m_assignmentMethod == "logistic")
     {
         m_logisticModelLoaded = LoadLogisticModel();
@@ -294,6 +306,8 @@ void APselection::init(const ApSelectionInput& input){
                           dateBuf + ".csv";
         m_decisionLogPath = m_outputDir + "decision_log_" + std::to_string(m_rngSeed) + "_" +
                             dateBuf + ".csv";
+        m_rewardLogPath = m_outputDir + "measured_reward_log_" + std::to_string(m_rngSeed) + "_" +
+                          dateBuf + ".csv";
     }
     std::cout << "ログパス: " << m_masterLogPath << std::endl;
     if (m_assignmentMethod == "multi_dqn")
@@ -304,8 +318,10 @@ void APselection::init(const ApSelectionInput& input){
     {
         std::cout << "[OnlineDQN] server=" << m_drlServerHost << ":"
                   << m_drlServerPort << " timeoutMs=" << m_drlTimeoutMs
-                  << " maxSwitches=" << m_MaxSwitches << std::endl;
+                  << " maxSwitches=" << m_MaxSwitches
+                  << " safetyThreshold=" << m_onlineDqnSafetyThreshold << std::endl;
         std::cout << "意思決定ログパス: " << m_decisionLogPath << std::endl;
+        std::cout << "実測rewardログパス: " << m_rewardLogPath << std::endl;
     }
     std::cout << "割り当て手法(method): " << m_assignmentMethod << std::endl;
     if (m_assignmentMethod == "multi_greedy")
@@ -785,6 +801,33 @@ APselection::PrepareDecisionLogState(const std::vector<int>& assignmentBefore,
     m_hBeforeAction = hBefore;
     m_hAfterEstimated = hAfterEstimated;
     m_lastReward = m_hAfterEstimated - m_hBeforeAction;
+
+    // この cycle で選んだ行動の実測 reward は次 cycle の測定後に確定する。
+    // 推定 reward と混同しないよう、次 cycle の RecordHarmonicMean() で別 CSV に出力する。
+    uint32_t switchCount = 0;
+    const size_t n = std::min(assignmentBefore.size(), assignmentAfter.size());
+    for (size_t i = 0; i < n; ++i)
+    {
+        if (assignmentBefore[i] != assignmentAfter[i])
+        {
+            ++switchCount;
+        }
+    }
+    m_pendingMeasuredReward = true;
+    m_pendingRewardCycleId = m_cycleIndex;
+    m_pendingRewardHBefore = hBefore;
+    m_pendingRewardHAfterEstimated = hAfterEstimated;
+    m_pendingRewardSwitchCount = switchCount;
+    m_pendingRewardSatisfactionBefore.assign(terms, APConstants::MIN_SATISFACTION_THRESHOLD);
+    const int evalTerms = std::min(terms, static_cast<int>(assignmentBefore.size()));
+    for (int i = 0; i < evalTerms; ++i)
+    {
+        const int apIdx = assignmentBefore[i] - 1;
+        if (apIdx >= 0 && apIdx < aps)
+        {
+            m_pendingRewardSatisfactionBefore[i] = calculate_satisfaction(i, apIdx);
+        }
+    }
 }
 
 // ランダムにAPを割り当てるダミー処理
@@ -2043,6 +2086,45 @@ void APselection::online_dqn_assignment()
         action.stepId = stepId;
         action.targetUeId = targetIdx + 1;
         action.currentBsId = previousBsId;
+        action.candidateType = candidate.candidateType;
+        auto usersAt = [&usersPerAp](int idx) -> int {
+            return (idx >= 0 && idx < static_cast<int>(usersPerAp.size())) ? usersPerAp[idx] : 0;
+        };
+        auto rttAt = [this](int idx) -> double {
+            return (idx >= 0 && idx < static_cast<int>(m_has_rtt.size()) && m_has_rtt[idx])
+                       ? m_monitor_rtt[idx]
+                       : 0.0;
+        };
+        action.numUsersAp0 = usersAt(0);
+        action.numUsersAp1 = usersAt(1);
+        action.numUsersAp2 = usersAt(2);
+        action.monitorRttAp0 = rttAt(0);
+        action.monitorRttAp1 = rttAt(1);
+        action.monitorRttAp2 = rttAt(2);
+        for (int targetAp = 0; targetAp < std::min(aps, 3); ++targetAp)
+        {
+            std::vector<int> candidateAssignment = assignment;
+            candidateAssignment[targetIdx] = targetAp + 1;
+            const double estimatedS =
+                estimate_satisfaction_for_assignment(targetIdx, targetAp, candidateAssignment);
+            const double estimatedHDelta =
+                calculate_harmonic_mean_for_assignment(candidateAssignment) - hBefore;
+            if (targetAp == 0)
+            {
+                action.estimatedSatisfactionIfAp0 = estimatedS;
+                action.estimatedHDeltaIfAp0 = estimatedHDelta;
+            }
+            else if (targetAp == 1)
+            {
+                action.estimatedSatisfactionIfAp1 = estimatedS;
+                action.estimatedHDeltaIfAp1 = estimatedHDelta;
+            }
+            else if (targetAp == 2)
+            {
+                action.estimatedSatisfactionIfAp2 = estimatedS;
+                action.estimatedHDeltaIfAp2 = estimatedHDelta;
+            }
+        }
         if (!SendStateReceiveAction(requestJson, selectedBsId, qValues, errorMessage))
         {
             action.selectedBsId = previousBsId;
@@ -2069,6 +2151,16 @@ void APselection::online_dqn_assignment()
 
         std::string skipReason;
         bool apply = true;
+        double selectedEstimatedHDelta = 0.0;
+        if (selectedBsId >= 0 && selectedBsId < aps && selectedBsId != previousBsId)
+        {
+            std::vector<int> candidateAssignment = assignment;
+            candidateAssignment[targetIdx] = selectedBsId + 1;
+            selectedEstimatedHDelta =
+                calculate_harmonic_mean_for_assignment(candidateAssignment) - hBefore;
+        }
+        action.selectedEstimatedHDelta = selectedEstimatedHDelta;
+
         if (selectedBsId < 0 || selectedBsId >= aps)
         {
             apply = false;
@@ -2078,6 +2170,11 @@ void APselection::online_dqn_assignment()
         {
             apply = false;
             skipReason = "same_bs";
+        }
+        else if (selectedEstimatedHDelta <= m_onlineDqnSafetyThreshold)
+        {
+            apply = false;
+            skipReason = "safety_h_delta";
         }
         else if (candidate.candidateType == 1)
         {
@@ -2108,7 +2205,8 @@ void APselection::online_dqn_assignment()
                       << " candidate_type="
                       << (candidate.candidateType == 0 ? "rescue" : "offload")
                       << " satisfaction=" << candidate.satisfaction
-                      << " advantage=" << action.advantage << std::endl;
+                      << " advantage=" << action.advantage
+                      << " estimated_h_delta=" << selectedEstimatedHDelta << std::endl;
             WriteDecisionLogRow(action, previousBsId, true, "");
         }
         else
@@ -2119,13 +2217,15 @@ void APselection::online_dqn_assignment()
                       << " skip target_ue_id=" << (targetIdx + 1)
                       << " candidate_type="
                       << (candidate.candidateType == 0 ? "rescue" : "offload")
-                      << " reason=" << skipReason << std::endl;
+                      << " reason=" << skipReason
+                      << " estimated_h_delta=" << selectedEstimatedHDelta << std::endl;
         }
         ++stepId;
     }
 
+    const double hAfterEstimated = calculate_harmonic_mean_for_assignment(assignment);
     m_lastAssignment = assignment;
-    PrepareDecisionLogState(initial_AP, assignment, hBefore, hBefore);
+    PrepareDecisionLogState(initial_AP, assignment, hBefore, hAfterEstimated);
     if (m_handoverCallback)
     {
         m_handoverCallback(assignment);
@@ -2424,14 +2524,89 @@ void APselection::setTerminalTp(int termIdx, double tpBps)
     //           << ", TP=" << (tpBps * APConstants::BPS_TO_MBPS) << "Mbps" << std::endl;
 }
 
+void
+APselection::WriteMeasuredRewardLogRow(double hAfterMeasured)
+{
+    if (m_assignmentMethod != "online_dqn" || m_rewardLogPath.empty() || !m_pendingMeasuredReward)
+    {
+        return;
+    }
+
+    if (!m_rewardLogInitialized)
+    {
+        std::ofstream headerOfs(m_rewardLogPath, std::ios::trunc);
+        headerOfs << "seed,"
+                  << "method,"
+                  << "action_cycle_id,"
+                  << "measured_cycle_id,"
+                  << "h_before,"
+                  << "h_after_estimated,"
+                  << "estimated_reward,"
+                  << "h_after_measured,"
+                  << "measured_reward,"
+                  << "switch_count,"
+                  << "num_degraded_users" << std::endl;
+        m_rewardLogInitialized = true;
+    }
+
+    uint32_t degradedUsers = 0;
+    const int evalTerms = std::min(terms, static_cast<int>(m_pendingRewardSatisfactionBefore.size()));
+    for (int i = 0; i < evalTerms; ++i)
+    {
+        int apIdx = -1;
+        if (i < static_cast<int>(initial_AP.size()))
+        {
+            apIdx = initial_AP[i] - 1;
+        }
+        if (apIdx < 0 || apIdx >= aps)
+        {
+            continue;
+        }
+        const double currentSatisfaction = calculate_satisfaction(i, apIdx);
+        if (currentSatisfaction + 1e-6 < m_pendingRewardSatisfactionBefore[i])
+        {
+            ++degradedUsers;
+        }
+    }
+
+    const double estimatedReward = m_pendingRewardHAfterEstimated - m_pendingRewardHBefore;
+    const double measuredReward = hAfterMeasured - m_pendingRewardHBefore;
+    m_lastNumDegradedUsersMeasured = degradedUsers;
+
+    std::ofstream ofs(m_rewardLogPath, std::ios::app);
+    ofs << std::fixed << std::setprecision(6)
+        << m_rngSeed << ","
+        << m_assignmentMethod << ","
+        << m_pendingRewardCycleId << ","
+        << m_cycleIndex << ","
+        << m_pendingRewardHBefore << ","
+        << m_pendingRewardHAfterEstimated << ","
+        << estimatedReward << ","
+        << hAfterMeasured << ","
+        << measuredReward << ","
+        << m_pendingRewardSwitchCount << ","
+        << degradedUsers << std::endl;
+
+    m_pendingMeasuredReward = false;
+}
+
 void APselection::RecordHarmonicMean(double value)
 {
+    // 前cycleの行動に対する実測 reward を、この cycle の測定 H で確定する。
+    WriteMeasuredRewardLogRow(value);
+
     // サイクル順に積み上げる
     m_cycleHarmonicMeans.push_back(value);
 
+    const double cycleMeasuredReward = m_hasPreviousMeasuredH ? (value - m_previousMeasuredH) : 0.0;
+    m_lastMeasuredRewardFromPrevious = cycleMeasuredReward;
+    m_previousMeasuredH = value;
+    m_hasPreviousMeasuredH = true;
+
     std::cout << std::fixed << std::setprecision(6)
               << "Cycle " << m_cycleIndex
-              << " の調和平均：" << value << std::endl;
+              << " の調和平均：" << value
+              << " measured_delta_from_previous=" << cycleMeasuredReward << std::endl;
 }
 
 void APselection::PrintCycleHarmonicMeans()
@@ -2480,6 +2655,20 @@ APselection::WriteDecisionLogRow(const DqnAction& action,
                   << "q_bs0,"
                   << "q_bs1,"
                   << "q_bs2,"
+                  << "candidate_type,"
+                  << "num_users_ap0,"
+                  << "num_users_ap1,"
+                  << "num_users_ap2,"
+                  << "monitor_rtt_ap0,"
+                  << "monitor_rtt_ap1,"
+                  << "monitor_rtt_ap2,"
+                  << "estimated_satisfaction_if_ap0,"
+                  << "estimated_satisfaction_if_ap1,"
+                  << "estimated_satisfaction_if_ap2,"
+                  << "estimated_h_delta_if_ap0,"
+                  << "estimated_h_delta_if_ap1,"
+                  << "estimated_h_delta_if_ap2,"
+                  << "selected_estimated_h_delta,"
                   << "applied,"
                   << "skip_reason" << std::endl;
         m_decisionLogInitialized = true;
@@ -2495,8 +2684,12 @@ APselection::WriteDecisionLogRow(const DqnAction& action,
     const double hBefore =
         m_cycleHarmonicMeans.empty() ? calculate_harmonic_mean_for_assignment(initial_AP)
                                      : m_cycleHarmonicMeans.back();
-    const double hAfterEstimated =
+    double hAfterEstimated =
         (m_hAfterEstimated > 0.0) ? m_hAfterEstimated : hBefore;
+    if (m_assignmentMethod == "online_dqn")
+    {
+        hAfterEstimated = hBefore + action.selectedEstimatedHDelta;
+    }
 
     std::ofstream ofs(m_decisionLogPath, std::ios::app);
     ofs << std::fixed << std::setprecision(6)
@@ -2515,6 +2708,20 @@ APselection::WriteDecisionLogRow(const DqnAction& action,
         << action.qBs0 << ","
         << action.qBs1 << ","
         << action.qBs2 << ","
+        << action.candidateType << ","
+        << action.numUsersAp0 << ","
+        << action.numUsersAp1 << ","
+        << action.numUsersAp2 << ","
+        << action.monitorRttAp0 << ","
+        << action.monitorRttAp1 << ","
+        << action.monitorRttAp2 << ","
+        << action.estimatedSatisfactionIfAp0 << ","
+        << action.estimatedSatisfactionIfAp1 << ","
+        << action.estimatedSatisfactionIfAp2 << ","
+        << action.estimatedHDeltaIfAp0 << ","
+        << action.estimatedHDeltaIfAp1 << ","
+        << action.estimatedHDeltaIfAp2 << ","
+        << action.selectedEstimatedHDelta << ","
         << (applied ? 1 : 0) << ","
         << skipReason << std::endl;
 }
@@ -2543,9 +2750,29 @@ void APselection::WriteMasterLog()
             << "target_ue_flag,"
             << "action_selected_bs_id,"
             << "switch_flag,"
+            << "h_before,"
             << "h_after_estimated,"
             << "reward,"
-            << "measurement_valid" << std::endl;
+            << "estimated_reward,"
+            << "h_after_measured,"
+            << "measured_reward,"
+            << "switch_count,"
+            << "num_degraded_users,"
+            << "measurement_valid,"
+            << "candidate_type,"
+            << "num_users_ap0,"
+            << "num_users_ap1,"
+            << "num_users_ap2,"
+            << "monitor_rtt_ap0,"
+            << "monitor_rtt_ap1,"
+            << "monitor_rtt_ap2,"
+            << "estimated_satisfaction_if_ap0,"
+            << "estimated_satisfaction_if_ap1,"
+            << "estimated_satisfaction_if_ap2,"
+            << "estimated_h_delta_if_ap0,"
+            << "estimated_h_delta_if_ap1,"
+            << "estimated_h_delta_if_ap2,"
+            << "best_estimated_h_delta" << std::endl;
         ofs.close();
         m_masterLogInitialized = true;
     }
@@ -2615,6 +2842,31 @@ void APselection::WriteMasterLog()
         targetUeIdx = minAllIdx;
     }
 
+    uint32_t switchCountCurrent = 0;
+    const size_t actionCompareTerms = std::min(m_assignmentBeforeAction.size(), m_assignmentAfterAction.size());
+    for (size_t j = 0; j < actionCompareTerms; ++j)
+    {
+        if (m_assignmentBeforeAction[j] != m_assignmentAfterAction[j])
+        {
+            ++switchCountCurrent;
+        }
+    }
+
+    const uint32_t numDegradedUsers = m_lastNumDegradedUsersMeasured;
+
+    auto usersAt = [&usersPerAp](int idx) -> int {
+        return (idx >= 0 && idx < static_cast<int>(usersPerAp.size())) ? usersPerAp[idx] : 0;
+    };
+    auto rttAt = [this](int idx) -> double {
+        return (idx >= 0 && idx < static_cast<int>(m_has_rtt.size()) && m_has_rtt[idx])
+                   ? m_monitor_rtt[idx]
+                   : 0.0;
+    };
+
+    const double averageUsersPerAp =
+        (aps > 0) ? static_cast<double>(terms) / static_cast<double>(aps) : 0.0;
+    const double measuredReward = m_lastMeasuredRewardFromPrevious;
+
     for (int i = 0; i < terms; ++i)
     {
         int ap_1based = initial_AP[i];
@@ -2659,6 +2911,67 @@ void APselection::WriteMasterLog()
             (m_hAfterEstimated > 0.0) ? m_hAfterEstimated : harmonicMean;
         const double reward =
             (m_hAfterEstimated > 0.0) ? m_lastReward : 0.0;
+        const double hBefore = m_hBeforeAction;
+        const double estimatedReward = reward;
+        const double hAfterMeasured = harmonicMean;
+
+        std::vector<double> estimatedSatisfaction(3, 0.0);
+        std::vector<double> estimatedHDelta(3, 0.0);
+        double bestEstimatedHDelta = 0.0;
+        for (int targetAp = 0; targetAp < std::min(aps, 3); ++targetAp)
+        {
+            std::vector<int> candidateAssignment = initial_AP;
+            if (i >= 0 && i < static_cast<int>(candidateAssignment.size()))
+            {
+                candidateAssignment[i] = targetAp + 1;
+            }
+            estimatedSatisfaction[targetAp] =
+                estimate_satisfaction_for_assignment(i, targetAp, candidateAssignment);
+            estimatedHDelta[targetAp] =
+                calculate_harmonic_mean_for_assignment(candidateAssignment) - harmonicMean;
+            if (targetAp != ap_idx)
+            {
+                bestEstimatedHDelta = std::max(bestEstimatedHDelta, estimatedHDelta[targetAp]);
+            }
+        }
+
+        int candidateType = -1;
+        if (satisfaction < kUnsatisfiedThreshold)
+        {
+            candidateType = 0;
+        }
+        else if (satisfaction >= 1.0 && numUsersOnCurrentBs > averageUsersPerAp)
+        {
+            bool feasibleOffload = false;
+            for (int targetAp = 0; targetAp < aps; ++targetAp)
+            {
+                if (targetAp == ap_idx)
+                {
+                    continue;
+                }
+                if (targetAp < static_cast<int>(usersPerAp.size()) &&
+                    usersPerAp[targetAp] >= numUsersOnCurrentBs)
+                {
+                    continue;
+                }
+                std::vector<int> candidateAssignment = initial_AP;
+                if (i >= 0 && i < static_cast<int>(candidateAssignment.size()))
+                {
+                    candidateAssignment[i] = targetAp + 1;
+                }
+                const double estimatedS =
+                    estimate_satisfaction_for_assignment(i, targetAp, candidateAssignment);
+                if (estimatedS >= 1.0 || estimatedS >= satisfaction * 0.9)
+                {
+                    feasibleOffload = true;
+                    break;
+                }
+            }
+            if (feasibleOffload)
+            {
+                candidateType = 1;
+            }
+        }
 
         ofs << m_rngSeed << ","
             << m_assignmentMethod << ","
@@ -2676,9 +2989,29 @@ void APselection::WriteMasterLog()
             << ((i == targetUeIdx) ? 1 : 0) << ","
             << actionSelectedBsId << ","
             << switchFlag << ","
+            << hBefore << ","
             << hAfterEstimated << ","
             << reward << ","
-            << (dataValid ? 1 : 0) << std::endl;
+            << estimatedReward << ","
+            << hAfterMeasured << ","
+            << measuredReward << ","
+            << switchCountCurrent << ","
+            << numDegradedUsers << ","
+            << (dataValid ? 1 : 0) << ","
+            << candidateType << ","
+            << usersAt(0) << ","
+            << usersAt(1) << ","
+            << usersAt(2) << ","
+            << rttAt(0) << ","
+            << rttAt(1) << ","
+            << rttAt(2) << ","
+            << estimatedSatisfaction[0] << ","
+            << estimatedSatisfaction[1] << ","
+            << estimatedSatisfaction[2] << ","
+            << estimatedHDelta[0] << ","
+            << estimatedHDelta[1] << ","
+            << estimatedHDelta[2] << ","
+            << bestEstimatedHDelta << std::endl;
     }
 
     ofs.close();

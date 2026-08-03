@@ -245,6 +245,7 @@ NetSim::NetSim()
     m_drlServerPort = 50051;
     m_drlTimeoutMs = 200;
     m_maxSwitches = 8;
+    m_onlineDqnSafetyThreshold = 0.0;
     m_rngSeed = 1;
     m_outputDir = OUTPUT_ROOT_DIR;
     server_udpVoice = nullptr;
@@ -298,6 +299,9 @@ void NetSim::Init(int argc, char *argv[]){
     cmd.AddValue("maxSwitches",
                  "Maximum number of UE switches per cycle for multi_greedy, multi_offload, multi_dqn, and online_dqn",
                  m_maxSwitches);
+    cmd.AddValue("onlineDqnSafetyThreshold",
+                 "Skip an online_dqn handover when estimated H delta of the selected BS is <= this threshold",
+                 m_onlineDqnSafetyThreshold);
     cmd.AddValue("mob", "1 is constant, 2 is randomwalk", m_mob);
     cmd.Parse(argc, argv);
 
@@ -325,7 +329,8 @@ void NetSim::Init(int argc, char *argv[]){
     APnum = static_cast<uint32_t>(setting.baseStations);
     termNum = static_cast<uint32_t>(setting.terminals);
     std::string outputMethodDir = m_assignmentMethod;
-    if (m_assignmentMethod == "multi_greedy")
+    if (m_assignmentMethod == "multi_greedy" ||
+        m_assignmentMethod == "multi_offload")
     {
         outputMethodDir += "_K" + std::to_string(m_maxSwitches);
     }
@@ -359,6 +364,7 @@ void NetSim::Init(int argc, char *argv[]){
     m_apSelectionInput.drlServerPort = m_drlServerPort;
     m_apSelectionInput.drlTimeoutMs = m_drlTimeoutMs;
     m_apSelectionInput.maxSwitches = m_maxSwitches;
+    m_apSelectionInput.onlineDqnSafetyThreshold = m_onlineDqnSafetyThreshold;
     m_apSelectionInput.rngSeed = m_rngSeed;
     m_apSelectionInput.outputDir = m_outputDir;
 

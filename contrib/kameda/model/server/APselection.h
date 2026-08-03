@@ -63,6 +63,7 @@ struct ApSelectionInput {
     uint16_t drlServerPort = 50051;
     uint32_t drlTimeoutMs = 200;
     uint32_t maxSwitches = 8;
+    double onlineDqnSafetyThreshold = 0.0;
     std::string outputDir = "OUTPUT/";
     uint32_t rngSeed = 1;
 };
@@ -77,6 +78,20 @@ struct DqnAction
     double qBs0 = 0.0;
     double qBs1 = 0.0;
     double qBs2 = 0.0;
+    int candidateType = -1;
+    int numUsersAp0 = 0;
+    int numUsersAp1 = 0;
+    int numUsersAp2 = 0;
+    double monitorRttAp0 = 0.0;
+    double monitorRttAp1 = 0.0;
+    double monitorRttAp2 = 0.0;
+    double estimatedSatisfactionIfAp0 = 0.0;
+    double estimatedSatisfactionIfAp1 = 0.0;
+    double estimatedSatisfactionIfAp2 = 0.0;
+    double estimatedHDeltaIfAp0 = 0.0;
+    double estimatedHDeltaIfAp1 = 0.0;
+    double estimatedHDeltaIfAp2 = 0.0;
+    double selectedEstimatedHDelta = 0.0;
 };
 
 class APselection : public Object{
@@ -139,6 +154,7 @@ private:
     void ResetMonitorStats();
     void RecordHarmonicMean(double value);
     void WriteMasterLog();
+    void WriteMeasuredRewardLogRow(double hAfterMeasured);
     void WriteDecisionLogRow(const DqnAction& action,
                              int previousBsId,
                              bool applied,
@@ -171,6 +187,16 @@ private:
     double m_hBeforeAction = 0.0;             // 当該サイクルの切り替え前H
     double m_hAfterEstimated = 0.0;           // 当該サイクルの推定切り替え後H
     double m_lastReward = 0.0;                // m_hAfterEstimated - m_hBeforeAction
+    double m_previousMeasuredH = 0.0;          // 直前cycleで実測されたH
+    bool m_hasPreviousMeasuredH = false;       // m_previousMeasuredH が有効か
+    double m_lastMeasuredRewardFromPrevious = 0.0; // 現cycle実測H - 前cycle実測H
+    uint32_t m_lastNumDegradedUsersMeasured = 0; // 前cycle行動に対する実測悪化端末数
+    bool m_pendingMeasuredReward = false;      // 次cycleで実測rewardを書ける行動があるか
+    uint32_t m_pendingRewardCycleId = 0;       // reward対象の行動cycle
+    double m_pendingRewardHBefore = 0.0;       // 行動前H
+    double m_pendingRewardHAfterEstimated = 0.0; // 行動後推定H
+    uint32_t m_pendingRewardSwitchCount = 0;   // 行動cycleでの切り替え台数
+    std::vector<double> m_pendingRewardSatisfactionBefore; // 行動前の端末満足度
     
     std::vector<double> traffic_request;      //必要TP, RTT
     std::string m_assignmentMethod = "random"; // 割り当て手法名
@@ -178,13 +204,16 @@ private:
     std::string m_drlServerHost = "127.0.0.1";  // online_dqn TCP JSON server host
     uint16_t m_drlServerPort = 50051;            // online_dqn TCP JSON server port
     uint32_t m_drlTimeoutMs = 200;               // online_dqn socket timeout [ms]
+    double m_onlineDqnSafetyThreshold = 0.0;     // selected action safety threshold for estimated H delta
     std::string m_outputDir = "OUTPUT/";        // master_log 出力先
     std::map<uint32_t, std::vector<DqnAction>> m_dqnActions; // cycle_id -> actions
     uint32_t m_rngSeed = 1;                    // 割り当て手法用乱数seed
     bool m_masterLogInitialized = false;       // master_log.csv ヘッダー書き込み済みフラグ
     bool m_decisionLogInitialized = false;     // decision_log.csv ヘッダー書き込み済みフラグ
+    bool m_rewardLogInitialized = false;       // measured_reward_log.csv ヘッダー書き込み済みフラグ
     std::string m_masterLogPath;               // 実行ごとのmaster_logファイルパス
     std::string m_decisionLogPath;             // 実行ごとのdecision_logファイルパス
+    std::string m_rewardLogPath;               // 実行ごとの実測rewardログファイルパス
     std::string m_logisticModelPath;            // 学習済みロジスティック回帰モデル
     bool m_logisticModelLoaded = false;
     std::vector<int> m_logisticClasses;

@@ -511,10 +511,10 @@ multi_greedy は調和平均を直接探索する強い探索型 baseline であ
 
 ## 15. 今後の実装 TODO
 
-- [ ] `rl/protocol.py` の `STATE_FEATURES` を拡張する。
-- [ ] `rl/server.py` に eval-only / no-update モードを追加する。
-- [ ] `online_dqn_assignment()` で K=1 から実験できるようにする。
-- [ ] safety filter を追加する。
+- [x] `rl/protocol.py` の `STATE_FEATURES` を拡張する。
+- [x] `rl/server.py` に eval-only / no-update モードを追加する。
+- [x] `online_dqn_assignment()` で K=1 から実験できるようにする（`--maxSwitches=1`）。
+- [x] safety filter を追加する。
 - [ ] reward ログに `H_before`, `H_after_measured`, `reward`, `switch_count`, `num_degraded_users` を出力する。
 - [ ] 複数 seed 連続学習用の実行手順を整備する。
 - [ ] State-A/B/C の ablation 実験を行う。
