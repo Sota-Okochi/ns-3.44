@@ -92,6 +92,9 @@ struct DqnAction
     double estimatedHDeltaIfAp1 = 0.0;
     double estimatedHDeltaIfAp2 = 0.0;
     double selectedEstimatedHDelta = 0.0;
+    double hBeforeStepEstimated = 0.0;
+    double hAfterStepEstimated = 0.0;
+    double estimatedMarginalDelta = 0.0;
 };
 
 class APselection : public Object{

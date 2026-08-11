@@ -1931,7 +1931,7 @@ void APselection::online_dqn_assignment()
 {
     std::cout << "=== APselection::online_dqn_assignment() ===" << std::endl;
 
-    constexpr double kUnsatisfiedThreshold = 0.7;
+    constexpr double kUnsatisfiedThreshold = 0.5;
     constexpr double kOffloadSatisfiedThreshold = 1.0;
     constexpr double kOffloadRetentionRatio = 0.9;
     std::vector<int> assignment = initial_AP;
@@ -2151,15 +2151,20 @@ void APselection::online_dqn_assignment()
 
         std::string skipReason;
         bool apply = true;
+        const double hBeforeStepEstimated = calculate_harmonic_mean_for_assignment(assignment);
         double selectedEstimatedHDelta = 0.0;
+        double hAfterStepEstimated = hBeforeStepEstimated;
         if (selectedBsId >= 0 && selectedBsId < aps && selectedBsId != previousBsId)
         {
             std::vector<int> candidateAssignment = assignment;
             candidateAssignment[targetIdx] = selectedBsId + 1;
-            selectedEstimatedHDelta =
-                calculate_harmonic_mean_for_assignment(candidateAssignment) - hBefore;
+            hAfterStepEstimated = calculate_harmonic_mean_for_assignment(candidateAssignment);
+            selectedEstimatedHDelta = hAfterStepEstimated - hBefore;
         }
         action.selectedEstimatedHDelta = selectedEstimatedHDelta;
+        action.hBeforeStepEstimated = hBeforeStepEstimated;
+        action.hAfterStepEstimated = hAfterStepEstimated;
+        action.estimatedMarginalDelta = hAfterStepEstimated - hBeforeStepEstimated;
 
         if (selectedBsId < 0 || selectedBsId >= aps)
         {
@@ -2537,6 +2542,7 @@ APselection::WriteMeasuredRewardLogRow(double hAfterMeasured)
         std::ofstream headerOfs(m_rewardLogPath, std::ios::trunc);
         headerOfs << "seed,"
                   << "method,"
+                  << "max_switches,"
                   << "action_cycle_id,"
                   << "measured_cycle_id,"
                   << "h_before,"
@@ -2577,6 +2583,7 @@ APselection::WriteMeasuredRewardLogRow(double hAfterMeasured)
     ofs << std::fixed << std::setprecision(6)
         << m_rngSeed << ","
         << m_assignmentMethod << ","
+        << m_MaxSwitches << ","
         << m_pendingRewardCycleId << ","
         << m_cycleIndex << ","
         << m_pendingRewardHBefore << ","
@@ -2642,6 +2649,7 @@ APselection::WriteDecisionLogRow(const DqnAction& action,
         std::ofstream headerOfs(m_decisionLogPath, std::ios::trunc);
         headerOfs << "seed,"
                   << "method,"
+                  << "max_switches,"
                   << "cycle_id,"
                   << "step_id,"
                   << "target_ue_id,"
@@ -2669,6 +2677,9 @@ APselection::WriteDecisionLogRow(const DqnAction& action,
                   << "estimated_h_delta_if_ap1,"
                   << "estimated_h_delta_if_ap2,"
                   << "selected_estimated_h_delta,"
+                  << "h_before_step_estimated,"
+                  << "h_after_step_estimated,"
+                  << "estimated_marginal_delta,"
                   << "applied,"
                   << "skip_reason" << std::endl;
         m_decisionLogInitialized = true;
@@ -2695,6 +2706,7 @@ APselection::WriteDecisionLogRow(const DqnAction& action,
     ofs << std::fixed << std::setprecision(6)
         << m_rngSeed << ","
         << m_assignmentMethod << ","
+        << m_MaxSwitches << ","
         << m_cycleIndex << ","
         << action.stepId << ","
         << action.targetUeId << ","
@@ -2722,6 +2734,9 @@ APselection::WriteDecisionLogRow(const DqnAction& action,
         << action.estimatedHDeltaIfAp1 << ","
         << action.estimatedHDeltaIfAp2 << ","
         << action.selectedEstimatedHDelta << ","
+        << action.hBeforeStepEstimated << ","
+        << action.hAfterStepEstimated << ","
+        << action.estimatedMarginalDelta << ","
         << (applied ? 1 : 0) << ","
         << skipReason << std::endl;
 }
@@ -2736,6 +2751,7 @@ void APselection::WriteMasterLog()
         std::ofstream ofs(filePath, std::ios::trunc);
         ofs << "seed,"
             << "method,"
+            << "max_switches,"
             << "cycle_id,"
             << "ue_id,"
             << "previous_bs_id,"
@@ -2802,7 +2818,7 @@ void APselection::WriteMasterLog()
     int minAllIdx = -1;
     double minAllSatisfaction = std::numeric_limits<double>::infinity();
 
-    constexpr double kUnsatisfiedThreshold = 0.7;
+    constexpr double kUnsatisfiedThreshold = 0.5;
     constexpr double kHighSatisfactionThreshold = 1.4;
 
     for (int i = 0; i < terms; ++i)
@@ -2975,6 +2991,7 @@ void APselection::WriteMasterLog()
 
         ofs << m_rngSeed << ","
             << m_assignmentMethod << ","
+            << m_MaxSwitches << ","
             << m_cycleIndex << ","
             << (i + 1) << ","
             << previousBsId << ","

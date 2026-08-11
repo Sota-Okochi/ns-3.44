@@ -330,7 +330,8 @@ void NetSim::Init(int argc, char *argv[]){
     termNum = static_cast<uint32_t>(setting.terminals);
     std::string outputMethodDir = m_assignmentMethod;
     if (m_assignmentMethod == "multi_greedy" ||
-        m_assignmentMethod == "multi_offload")
+        m_assignmentMethod == "multi_offload" ||
+        m_assignmentMethod == "online_dqn")
     {
         outputMethodDir += "_K" + std::to_string(m_maxSwitches);
     }
