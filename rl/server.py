@@ -28,6 +28,10 @@ class OnlineDqnService:
         cycle_id = int(msg.get("cycle_id", msg.get("state", {}).get("cycle_id", 0)))
         step_id = int(msg.get("step_id", 0))
         h_now = float(msg.get("harmonic_mean", msg.get("state", {}).get("harmonic_mean", 0.0)))
+        prev_cycle_reward = msg.get("prev_cycle_reward")
+        prev_cycle_measured_reward = float(msg.get("prev_cycle_measured_reward", 0.0))
+        prev_cycle_switch_count = float(msg.get("prev_cycle_switch_count", 0.0))
+        prev_cycle_num_degraded_users = float(msg.get("prev_cycle_num_degraded_users", 0.0))
         done = bool(msg.get("done", False))
 
         # Delayed reward: when the next cycle's measurements arrive, all
@@ -38,7 +42,17 @@ class OnlineDqnService:
         if not self.args.eval_only:
             if self.last_cycle is not None and cycle_id != self.last_cycle:
                 for _key, (prev_s, prev_a, prev_h) in list(self.pending.items()):
-                    self.agent.remember(prev_s, prev_a, h_now - prev_h, state, done)
+                    if prev_cycle_reward is not None:
+                        reward = float(prev_cycle_reward)
+                    else:
+                        reward = (
+                            prev_cycle_measured_reward
+                            - self.args.reward_switch_penalty_alpha * prev_cycle_switch_count
+                            - self.args.reward_degraded_penalty_beta * prev_cycle_num_degraded_users
+                        )
+                        if prev_cycle_measured_reward == 0.0 and prev_cycle_switch_count == 0.0 and prev_cycle_num_degraded_users == 0.0:
+                            reward = h_now - prev_h
+                    self.agent.remember(prev_s, prev_a, reward, state, done)
                     maybe_loss = self.agent.update(self.args.batch_size)
                     if maybe_loss is not None:
                         loss = maybe_loss
@@ -83,6 +97,8 @@ def main():
     p.add_argument("--checkpoint-out", default="models/online_dqn.pt")
     p.add_argument("--checkpoint-interval", type=int, default=10)
     p.add_argument("--target-sync-interval", type=int, default=100)
+    p.add_argument("--reward-switch-penalty-alpha", type=float, default=0.001)
+    p.add_argument("--reward-degraded-penalty-beta", type=float, default=0.0002)
     p.add_argument("--eval-only", "--no-update", action="store_true", dest="eval_only",
                    help="Run fixed-policy online inference only: epsilon=0, no replay/update/checkpoint save.")
     args = p.parse_args()

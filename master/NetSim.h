@@ -143,6 +143,11 @@ private:
     uint16_t m_drlServerPort;
     uint32_t m_drlTimeoutMs;
     uint32_t m_maxSwitches;
+    std::string m_kScheduleType;
+    uint32_t m_kMin;
+    uint32_t m_kDecayRate;
+    double m_rewardSwitchPenaltyAlpha;
+    double m_rewardDegradedPenaltyBeta;
     double m_onlineDqnSafetyThreshold;
     uint32_t m_rngSeed;
     std::string m_outputDir;  // OUTPUT/<端末数>/<手法>/（実行ログ・補助ログの出力先）

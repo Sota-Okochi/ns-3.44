@@ -248,7 +248,12 @@ void APselection::init(const ApSelectionInput& input){
     m_drlServerPort = input.drlServerPort;
     m_drlTimeoutMs = input.drlTimeoutMs;
     m_MaxSwitches = input.maxSwitches;
+    m_kScheduleType = input.kScheduleType;
+    m_kMin = input.kMin;
+    m_kDecayRate = input.kDecayRate;
     m_onlineDqnSafetyThreshold = input.onlineDqnSafetyThreshold;
+    m_rewardSwitchPenaltyAlpha = input.rewardSwitchPenaltyAlpha;
+    m_rewardDegradedPenaltyBeta = input.rewardDegradedPenaltyBeta;
     m_rngSeed = input.rngSeed;
     m_outputDir = input.outputDir;
     if (!m_outputDir.empty() && m_outputDir.back() != '/')
@@ -274,6 +279,7 @@ void APselection::init(const ApSelectionInput& input){
     m_lastReward = 0.0;
     m_switchCycle.assign(terms, 0);
     m_handoverGraceCycles = input.handoverGraceCycles;
+    m_handoverCooldownCycles = APConstants::HANDOVER_COOLDOWN_CYCLES;
     m_cycleIndex = 1;
     m_masterLogInitialized = false;
     m_decisionLogInitialized = false;
@@ -282,6 +288,7 @@ void APselection::init(const ApSelectionInput& input){
     m_hasPreviousMeasuredH = false;
     m_lastMeasuredRewardFromPrevious = 0.0;
     m_lastNumDegradedUsersMeasured = 0;
+    m_lastMeasuredRewardSwitchCount = 0;
     m_pendingMeasuredReward = false;
     m_pendingRewardCycleId = 0;
     m_pendingRewardHBefore = 0.0;
@@ -314,12 +321,22 @@ void APselection::init(const ApSelectionInput& input){
     {
         std::cout << "意思決定ログパス: " << m_decisionLogPath << std::endl;
     }
+    if (m_assignmentMethod == "multi_greedy" || m_assignmentMethod == "multi_offload")
+    {
+        std::cout << "意思決定ログパス: " << m_decisionLogPath << std::endl;
+        std::cout << "実測rewardログパス: " << m_rewardLogPath << std::endl;
+        std::cout << "[HandoverCooldown] cycles=" << m_handoverCooldownCycles << std::endl;
+    }
     if (m_assignmentMethod == "online_dqn")
     {
         std::cout << "[OnlineDQN] server=" << m_drlServerHost << ":"
                   << m_drlServerPort << " timeoutMs=" << m_drlTimeoutMs
                   << " maxSwitches=" << m_MaxSwitches
+                  << " kScheduleType=" << m_kScheduleType
+                  << " kMin=" << m_kMin
+                  << " kDecayRate=" << m_kDecayRate
                   << " safetyThreshold=" << m_onlineDqnSafetyThreshold << std::endl;
+        std::cout << "[HandoverCooldown] cycles=" << m_handoverCooldownCycles << std::endl;
         std::cout << "意思決定ログパス: " << m_decisionLogPath << std::endl;
         std::cout << "実測rewardログパス: " << m_rewardLogPath << std::endl;
     }
@@ -1081,6 +1098,10 @@ void APselection::multi_greedy_assignment()
             {
                 continue;
             }
+            if (IsInHandoverCooldown(termIdx))
+            {
+                continue;
+            }
 
             const int currentAp = assignment[termIdx]; // 1-based
             if (currentAp < 1 || currentAp > aps)
@@ -1131,6 +1152,65 @@ void APselection::multi_greedy_assignment()
                   << " h_before_step=" << hCurrent
                   << " h_after_step=" << bestHAfter
                   << " delta=" << bestDelta << std::endl;
+
+        DqnAction action;
+        action.stepId = switchCount;
+        action.targetUeId = bestTerm + 1;
+        action.currentBsId = assignment[bestTerm] - 1;
+        action.selectedBsId = bestAp - 1;
+        action.candidateType = 0; // rescue
+        const std::vector<int> usersPerAp = count_users_per_ap(assignment);
+        auto usersAt = [&usersPerAp](int idx) -> int {
+            return (idx >= 0 && idx < static_cast<int>(usersPerAp.size())) ? usersPerAp[idx] : 0;
+        };
+        auto rttAt = [this](int idx) -> double {
+            return (idx >= 0 && idx < static_cast<int>(m_has_rtt.size()) && m_has_rtt[idx])
+                       ? m_monitor_rtt[idx]
+                       : 0.0;
+        };
+        action.numUsersAp0 = usersAt(0);
+        action.numUsersAp1 = usersAt(1);
+        action.numUsersAp2 = usersAt(2);
+        action.monitorRttAp0 = rttAt(0);
+        action.monitorRttAp1 = rttAt(1);
+        action.monitorRttAp2 = rttAt(2);
+        for (int targetAp = 0; targetAp < std::min(aps, 3); ++targetAp)
+        {
+            std::vector<int> candidateAssignment = assignment;
+            candidateAssignment[bestTerm] = targetAp + 1;
+            const double estimatedS =
+                estimate_satisfaction_for_assignment(bestTerm, targetAp, candidateAssignment);
+            const double estimatedHDelta =
+                calculate_harmonic_mean_for_assignment(candidateAssignment) - hCurrent;
+            if (targetAp == 0)
+            {
+                action.estimatedSatisfactionIfAp0 = estimatedS;
+                action.estimatedHDeltaIfAp0 = estimatedHDelta;
+            }
+            else if (targetAp == 1)
+            {
+                action.estimatedSatisfactionIfAp1 = estimatedS;
+                action.estimatedHDeltaIfAp1 = estimatedHDelta;
+            }
+            else if (targetAp == 2)
+            {
+                action.estimatedSatisfactionIfAp2 = estimatedS;
+                action.estimatedHDeltaIfAp2 = estimatedHDelta;
+            }
+        }
+        action.selectedEstimatedHDelta = bestDelta;
+        action.hBeforeStepEstimated = hCurrent;
+        action.hAfterStepEstimated = bestHAfter;
+        action.estimatedMarginalDelta = bestDelta;
+        action.effectiveMaxSwitches = m_MaxSwitches;
+        action.appliedSwitchesInCycle = switchCount;
+        action.remainingSwitchBudget =
+            (m_MaxSwitches > switchCount) ? (m_MaxSwitches - switchCount) : 0;
+        action.kScheduleType = "fixed";
+        action.kMax = m_MaxSwitches;
+        action.kMin = m_MaxSwitches;
+        action.kDecayRate = 0;
+        WriteDecisionLogRow(action, action.currentBsId, true, "");
 
         assignment[bestTerm] = bestAp;
         hCurrent = bestHAfter;
@@ -1412,6 +1492,65 @@ void APselection::multi_offload_assignment()
                   << " h_before_step=" << hCurrent
                   << " h_after_step=" << bestHAfter
                   << " delta=" << bestDeltaH << std::endl;
+
+        DqnAction action;
+        action.stepId = switchCount;
+        action.targetUeId = bestTerm + 1;
+        action.currentBsId = assignment[bestTerm] - 1;
+        action.selectedBsId = bestAp - 1;
+        action.candidateType = 1; // offload
+        const std::vector<int> usersPerAp = count_users_per_ap(assignment);
+        auto usersAt = [&usersPerAp](int idx) -> int {
+            return (idx >= 0 && idx < static_cast<int>(usersPerAp.size())) ? usersPerAp[idx] : 0;
+        };
+        auto rttAt = [this](int idx) -> double {
+            return (idx >= 0 && idx < static_cast<int>(m_has_rtt.size()) && m_has_rtt[idx])
+                       ? m_monitor_rtt[idx]
+                       : 0.0;
+        };
+        action.numUsersAp0 = usersAt(0);
+        action.numUsersAp1 = usersAt(1);
+        action.numUsersAp2 = usersAt(2);
+        action.monitorRttAp0 = rttAt(0);
+        action.monitorRttAp1 = rttAt(1);
+        action.monitorRttAp2 = rttAt(2);
+        for (int targetAp = 0; targetAp < std::min(aps, 3); ++targetAp)
+        {
+            std::vector<int> candidateAssignment = assignment;
+            candidateAssignment[bestTerm] = targetAp + 1;
+            const double estimatedS =
+                estimate_satisfaction_for_assignment(bestTerm, targetAp, candidateAssignment);
+            const double estimatedHDelta =
+                calculate_harmonic_mean_for_assignment(candidateAssignment) - hCurrent;
+            if (targetAp == 0)
+            {
+                action.estimatedSatisfactionIfAp0 = estimatedS;
+                action.estimatedHDeltaIfAp0 = estimatedHDelta;
+            }
+            else if (targetAp == 1)
+            {
+                action.estimatedSatisfactionIfAp1 = estimatedS;
+                action.estimatedHDeltaIfAp1 = estimatedHDelta;
+            }
+            else if (targetAp == 2)
+            {
+                action.estimatedSatisfactionIfAp2 = estimatedS;
+                action.estimatedHDeltaIfAp2 = estimatedHDelta;
+            }
+        }
+        action.selectedEstimatedHDelta = bestDeltaH;
+        action.hBeforeStepEstimated = hCurrent;
+        action.hAfterStepEstimated = bestHAfter;
+        action.estimatedMarginalDelta = bestDeltaH;
+        action.effectiveMaxSwitches = m_MaxSwitches;
+        action.appliedSwitchesInCycle = switchCount;
+        action.remainingSwitchBudget =
+            (m_MaxSwitches > switchCount) ? (m_MaxSwitches - switchCount) : 0;
+        action.kScheduleType = "fixed";
+        action.kMax = m_MaxSwitches;
+        action.kMin = m_MaxSwitches;
+        action.kDecayRate = 0;
+        WriteDecisionLogRow(action, action.currentBsId, true, "");
 
         assignment[bestTerm] = bestAp;
         hCurrent = bestHAfter;
@@ -1746,7 +1885,9 @@ APselection::BuildDqnStateJson(int terminalIdx,
                                int numUnsatisfiedUsers,
                                int numUsersOnCurrentBs,
                                const std::vector<int>& assignment,
-                               int candidateType)
+                               int candidateType,
+                               uint32_t effectiveMaxSwitches,
+                               uint32_t appliedSwitchesInCycle)
 {
     const int apIdx = currentBsId;
     const int appNum =
@@ -1805,6 +1946,14 @@ APselection::BuildDqnStateJson(int terminalIdx,
                    ? m_monitor_rtt[idx]
                    : 0.0;
     };
+    const uint32_t remainingSwitchBudget =
+        (effectiveMaxSwitches > appliedSwitchesInCycle)
+            ? (effectiveMaxSwitches - appliedSwitchesInCycle)
+            : 0;
+    const double prevCycleReward =
+        m_lastMeasuredRewardFromPrevious
+        - m_rewardSwitchPenaltyAlpha * static_cast<double>(m_lastMeasuredRewardSwitchCount)
+        - m_rewardDegradedPenaltyBeta * static_cast<double>(m_lastNumDegradedUsersMeasured);
 
     std::ostringstream oss;
     oss << std::fixed << std::setprecision(6)
@@ -1815,6 +1964,10 @@ APselection::BuildDqnStateJson(int terminalIdx,
         << "\"step_id\":" << stepId << ","
         << "\"target_ue_id\":" << (terminalIdx + 1) << ","
         << "\"harmonic_mean\":" << harmonicMean << ","
+        << "\"prev_cycle_measured_reward\":" << m_lastMeasuredRewardFromPrevious << ","
+        << "\"prev_cycle_switch_count\":" << m_lastMeasuredRewardSwitchCount << ","
+        << "\"prev_cycle_num_degraded_users\":" << m_lastNumDegradedUsersMeasured << ","
+        << "\"prev_cycle_reward\":" << prevCycleReward << ","
         << "\"state\":{"
         << "\"cycle_id\":" << m_cycleIndex << ","
         << "\"current_bs_id\":" << currentBsId << ","
@@ -1838,7 +1991,10 @@ APselection::BuildDqnStateJson(int terminalIdx,
         << "\"estimated_h_delta_if_ap0\":" << estimatedHDelta[0] << ","
         << "\"estimated_h_delta_if_ap1\":" << estimatedHDelta[1] << ","
         << "\"estimated_h_delta_if_ap2\":" << estimatedHDelta[2] << ","
-        << "\"best_estimated_h_delta\":" << bestEstimatedHDelta
+        << "\"best_estimated_h_delta\":" << bestEstimatedHDelta << ","
+        << "\"effective_max_switches\":" << effectiveMaxSwitches << ","
+        << "\"applied_switches_in_cycle\":" << appliedSwitchesInCycle << ","
+        << "\"remaining_switch_budget\":" << remainingSwitchBudget
         << "}}";
     return oss.str();
 }
@@ -1957,6 +2113,10 @@ void APselection::online_dqn_assignment()
     {
         const int apIdx = assignment[i] - 1;
         satisfactions[i] = calculate_satisfaction(i, apIdx);
+        if (IsInHandoverCooldown(i))
+        {
+            continue;
+        }
         if (satisfactions[i] < kUnsatisfiedThreshold)
         {
             ++numUnsatisfiedUsers;
@@ -2049,12 +2209,17 @@ void APselection::online_dqn_assignment()
               << " offload=" << offloadCount
               << " unsatisfied=" << numUnsatisfiedUsers << std::endl;
 
+    const uint32_t effectiveMaxSwitches = GetEffectiveMaxSwitches(m_cycleIndex);
+    std::cout << "[OnlineDQN] cycle=" << m_cycleIndex
+              << " effective_max_switches=" << effectiveMaxSwitches
+              << " schedule=" << m_kScheduleType << std::endl;
+
     uint32_t applied = 0;
     uint32_t stepId = 0;
     std::set<int> seenTargets;
     for (const Candidate& candidate : candidates)
     {
-        if (applied >= m_MaxSwitches)
+        if (applied >= effectiveMaxSwitches)
         {
             break;
         }
@@ -2069,15 +2234,18 @@ void APselection::online_dqn_assignment()
             (previousBsId >= 0 && previousBsId < static_cast<int>(usersPerAp.size()))
                 ? usersPerAp[previousBsId]
                 : 0;
+        const double hBeforeStepForState = calculate_harmonic_mean_for_assignment(assignment);
         const std::string requestJson =
             BuildDqnStateJson(targetIdx,
                               previousBsId,
                               stepId,
-                              hBefore,
+                              hBeforeStepForState,
                               numUnsatisfiedUsers,
                               numUsersOnCurrentBs,
                               assignment,
-                              candidate.candidateType);
+                              candidate.candidateType,
+                              effectiveMaxSwitches,
+                              applied);
 
         int selectedBsId = -1;
         std::vector<double> qValues;
@@ -2159,14 +2327,35 @@ void APselection::online_dqn_assignment()
             std::vector<int> candidateAssignment = assignment;
             candidateAssignment[targetIdx] = selectedBsId + 1;
             hAfterStepEstimated = calculate_harmonic_mean_for_assignment(candidateAssignment);
-            selectedEstimatedHDelta = hAfterStepEstimated - hBefore;
+            selectedEstimatedHDelta = hAfterStepEstimated - hBeforeStepEstimated;
         }
         action.selectedEstimatedHDelta = selectedEstimatedHDelta;
         action.hBeforeStepEstimated = hBeforeStepEstimated;
         action.hAfterStepEstimated = hAfterStepEstimated;
         action.estimatedMarginalDelta = hAfterStepEstimated - hBeforeStepEstimated;
+        action.effectiveMaxSwitches = effectiveMaxSwitches;
+        action.appliedSwitchesInCycle = applied;
+        action.remainingSwitchBudget =
+            (effectiveMaxSwitches > applied) ? (effectiveMaxSwitches - applied) : 0;
+        action.kScheduleType = m_kScheduleType;
+        action.kMax = m_MaxSwitches;
+        action.kMin = m_kMin;
+        action.kDecayRate = m_kDecayRate;
+        if (qValues.size() > 3) { action.qStop = qValues[3]; }
 
-        if (selectedBsId < 0 || selectedBsId >= aps)
+        if (selectedBsId == aps)
+        {
+            action.stopActionFlag = 1;
+            apply = false;
+            skipReason = "stop_action";
+            WriteDecisionLogRow(action, previousBsId, false, skipReason);
+            std::cout << "[OnlineDQN] cycle=" << m_cycleIndex
+                      << " step=" << stepId
+                      << " STOP selected; end cycle decisions"
+                      << " applied=" << applied << std::endl;
+            break;
+        }
+        else if (selectedBsId < 0 || selectedBsId >= aps)
         {
             apply = false;
             skipReason = "invalid_selected_bs_id";
@@ -2483,6 +2672,41 @@ void APselection::SetTotalCycles(uint32_t n)
     m_totalCycles = n;
 }
 
+bool
+APselection::IsInHandoverCooldown(int terminalIdx) const
+{
+    if (terminalIdx < 0 ||
+        terminalIdx >= static_cast<int>(m_switchCycle.size()) ||
+        m_handoverCooldownCycles == 0)
+    {
+        return false;
+    }
+
+    const uint32_t switchedCycle = m_switchCycle[terminalIdx];
+    if (switchedCycle == 0 || m_cycleIndex < switchedCycle)
+    {
+        return false;
+    }
+
+    return (m_cycleIndex - switchedCycle) < m_handoverCooldownCycles;
+}
+
+uint32_t
+APselection::GetEffectiveMaxSwitches(uint32_t cycleIndex) const
+{
+    if (m_kScheduleType != "linear_decay")
+    {
+        return m_MaxSwitches;
+    }
+
+    const uint32_t cycleOffset = (cycleIndex > 0) ? (cycleIndex - 1) : 0;
+    const uint32_t decayed =
+        (m_MaxSwitches > m_kDecayRate * cycleOffset)
+            ? (m_MaxSwitches - m_kDecayRate * cycleOffset)
+            : m_kMin;
+    return std::max(m_kMin, decayed);
+}
+
 void APselection::ResetMonitorStats()
 {
     std::fill(m_monitor_rtt.begin(), m_monitor_rtt.end(), 0.0);
@@ -2532,7 +2756,11 @@ void APselection::setTerminalTp(int termIdx, double tpBps)
 void
 APselection::WriteMeasuredRewardLogRow(double hAfterMeasured)
 {
-    if (m_assignmentMethod != "online_dqn" || m_rewardLogPath.empty() || !m_pendingMeasuredReward)
+    if ((m_assignmentMethod != "multi_greedy" &&
+         m_assignmentMethod != "multi_offload" &&
+         m_assignmentMethod != "online_dqn") ||
+        m_rewardLogPath.empty() ||
+        !m_pendingMeasuredReward)
     {
         return;
     }
@@ -2550,6 +2778,7 @@ APselection::WriteMeasuredRewardLogRow(double hAfterMeasured)
                   << "estimated_reward,"
                   << "h_after_measured,"
                   << "measured_reward,"
+                  << "cycle_reward,"
                   << "switch_count,"
                   << "num_degraded_users" << std::endl;
         m_rewardLogInitialized = true;
@@ -2577,7 +2806,12 @@ APselection::WriteMeasuredRewardLogRow(double hAfterMeasured)
 
     const double estimatedReward = m_pendingRewardHAfterEstimated - m_pendingRewardHBefore;
     const double measuredReward = hAfterMeasured - m_pendingRewardHBefore;
+    const double cycleReward =
+        measuredReward
+        - m_rewardSwitchPenaltyAlpha * static_cast<double>(m_pendingRewardSwitchCount)
+        - m_rewardDegradedPenaltyBeta * static_cast<double>(degradedUsers);
     m_lastNumDegradedUsersMeasured = degradedUsers;
+    m_lastMeasuredRewardSwitchCount = m_pendingRewardSwitchCount;
 
     std::ofstream ofs(m_rewardLogPath, std::ios::app);
     ofs << std::fixed << std::setprecision(6)
@@ -2591,6 +2825,7 @@ APselection::WriteMeasuredRewardLogRow(double hAfterMeasured)
         << estimatedReward << ","
         << hAfterMeasured << ","
         << measuredReward << ","
+        << cycleReward << ","
         << m_pendingRewardSwitchCount << ","
         << degradedUsers << std::endl;
 
@@ -2638,7 +2873,10 @@ APselection::WriteDecisionLogRow(const DqnAction& action,
                                  bool applied,
                                  const std::string& skipReason)
 {
-    if ((m_assignmentMethod != "multi_dqn" && m_assignmentMethod != "online_dqn") ||
+    if ((m_assignmentMethod != "multi_greedy" &&
+         m_assignmentMethod != "multi_offload" &&
+         m_assignmentMethod != "multi_dqn" &&
+         m_assignmentMethod != "online_dqn") ||
         m_decisionLogPath.empty())
     {
         return;
@@ -2680,6 +2918,18 @@ APselection::WriteDecisionLogRow(const DqnAction& action,
                   << "h_before_step_estimated,"
                   << "h_after_step_estimated,"
                   << "estimated_marginal_delta,"
+                  << "target_satisfaction_before,"
+                  << "target_satisfaction_after_estimated,"
+                  << "target_satisfaction_delta_estimated,"
+                  << "effective_max_switches,"
+                  << "applied_switches_in_cycle,"
+                  << "remaining_switch_budget,"
+                  << "k_schedule_type,"
+                  << "k_max,"
+                  << "k_min,"
+                  << "k_decay_rate,"
+                  << "stop_action_flag,"
+                  << "q_stop,"
                   << "applied,"
                   << "skip_reason" << std::endl;
         m_decisionLogInitialized = true;
@@ -2691,13 +2941,35 @@ APselection::WriteDecisionLogRow(const DqnAction& action,
     {
         satisfactionBefore = calculate_satisfaction(targetIdx, previousBsId);
     }
+    double targetSatisfactionAfterEstimated = satisfactionBefore;
+    if (action.selectedBsId == 0)
+    {
+        targetSatisfactionAfterEstimated = action.estimatedSatisfactionIfAp0;
+    }
+    else if (action.selectedBsId == 1)
+    {
+        targetSatisfactionAfterEstimated = action.estimatedSatisfactionIfAp1;
+    }
+    else if (action.selectedBsId == 2)
+    {
+        targetSatisfactionAfterEstimated = action.estimatedSatisfactionIfAp2;
+    }
+    if (action.targetSatisfactionAfterEstimated > 0.0)
+    {
+        targetSatisfactionAfterEstimated = action.targetSatisfactionAfterEstimated;
+    }
+    const double targetSatisfactionDeltaEstimated =
+        (action.targetSatisfactionDeltaEstimated != 0.0)
+            ? action.targetSatisfactionDeltaEstimated
+            : (targetSatisfactionAfterEstimated - satisfactionBefore);
 
     const double hBefore =
         m_cycleHarmonicMeans.empty() ? calculate_harmonic_mean_for_assignment(initial_AP)
                                      : m_cycleHarmonicMeans.back();
-    double hAfterEstimated =
-        (m_hAfterEstimated > 0.0) ? m_hAfterEstimated : hBefore;
-    if (m_assignmentMethod == "online_dqn")
+    double hAfterEstimated = (action.hAfterStepEstimated > 0.0)
+                                 ? action.hAfterStepEstimated
+                                 : ((m_hAfterEstimated > 0.0) ? m_hAfterEstimated : hBefore);
+    if (m_assignmentMethod == "online_dqn" && action.hAfterStepEstimated <= 0.0)
     {
         hAfterEstimated = hBefore + action.selectedEstimatedHDelta;
     }
@@ -2737,6 +3009,18 @@ APselection::WriteDecisionLogRow(const DqnAction& action,
         << action.hBeforeStepEstimated << ","
         << action.hAfterStepEstimated << ","
         << action.estimatedMarginalDelta << ","
+        << satisfactionBefore << ","
+        << targetSatisfactionAfterEstimated << ","
+        << targetSatisfactionDeltaEstimated << ","
+        << action.effectiveMaxSwitches << ","
+        << action.appliedSwitchesInCycle << ","
+        << action.remainingSwitchBudget << ","
+        << action.kScheduleType << ","
+        << action.kMax << ","
+        << action.kMin << ","
+        << action.kDecayRate << ","
+        << action.stopActionFlag << ","
+        << action.qStop << ","
         << (applied ? 1 : 0) << ","
         << skipReason << std::endl;
 }
@@ -2788,7 +3072,15 @@ void APselection::WriteMasterLog()
             << "estimated_h_delta_if_ap0,"
             << "estimated_h_delta_if_ap1,"
             << "estimated_h_delta_if_ap2,"
-            << "best_estimated_h_delta" << std::endl;
+            << "best_estimated_h_delta,"
+            << "effective_max_switches,"
+            << "applied_switches_in_cycle,"
+            << "remaining_switch_budget,"
+            << "k_schedule_type,"
+            << "k_max,"
+            << "k_min,"
+            << "k_decay_rate,"
+            << "stop_action_flag" << std::endl;
         ofs.close();
         m_masterLogInitialized = true;
     }
@@ -2882,6 +3174,12 @@ void APselection::WriteMasterLog()
     const double averageUsersPerAp =
         (aps > 0) ? static_cast<double>(terms) / static_cast<double>(aps) : 0.0;
     const double measuredReward = m_lastMeasuredRewardFromPrevious;
+    const uint32_t effectiveMaxSwitches =
+        (m_assignmentMethod == "online_dqn") ? GetEffectiveMaxSwitches(m_cycleIndex) : m_MaxSwitches;
+    const uint32_t remainingSwitchBudget =
+        (effectiveMaxSwitches > switchCountCurrent)
+            ? (effectiveMaxSwitches - switchCountCurrent)
+            : 0;
 
     for (int i = 0; i < terms; ++i)
     {
@@ -3028,7 +3326,15 @@ void APselection::WriteMasterLog()
             << estimatedHDelta[0] << ","
             << estimatedHDelta[1] << ","
             << estimatedHDelta[2] << ","
-            << bestEstimatedHDelta << std::endl;
+            << bestEstimatedHDelta << ","
+            << effectiveMaxSwitches << ","
+            << switchCountCurrent << ","
+            << remainingSwitchBudget << ","
+            << ((m_assignmentMethod == "online_dqn") ? m_kScheduleType : "fixed") << ","
+            << m_MaxSwitches << ","
+            << ((m_assignmentMethod == "online_dqn") ? m_kMin : m_MaxSwitches) << ","
+            << ((m_assignmentMethod == "online_dqn") ? m_kDecayRate : 0) << ","
+            << 0 << std::endl;
     }
 
     ofs.close();

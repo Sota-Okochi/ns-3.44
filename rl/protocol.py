@@ -32,6 +32,9 @@ STATE_FEATURES = [
     "estimated_h_delta_if_ap1",
     "estimated_h_delta_if_ap2",
     "best_estimated_h_delta",
+    "effective_max_switches",
+    "applied_switches_in_cycle",
+    "remaining_switch_budget",
 ]
 
 

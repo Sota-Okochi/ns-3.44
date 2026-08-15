@@ -245,6 +245,11 @@ NetSim::NetSim()
     m_drlServerPort = 50051;
     m_drlTimeoutMs = 200;
     m_maxSwitches = 8;
+    m_kScheduleType = "fixed";
+    m_kMin = 1;
+    m_kDecayRate = 1;
+    m_rewardSwitchPenaltyAlpha = 0.001;
+    m_rewardDegradedPenaltyBeta = 0.0002;
     m_onlineDqnSafetyThreshold = 0.0;
     m_rngSeed = 1;
     m_outputDir = OUTPUT_ROOT_DIR;
@@ -299,6 +304,21 @@ void NetSim::Init(int argc, char *argv[]){
     cmd.AddValue("maxSwitches",
                  "Maximum number of UE switches per cycle for multi_greedy, multi_offload, multi_dqn, and online_dqn",
                  m_maxSwitches);
+    cmd.AddValue("kScheduleType",
+                 "Switch budget schedule: fixed or linear_decay. fixed uses --maxSwitches every cycle; linear_decay uses max(maxSwitches - kDecayRate*(cycle-1), kMin)",
+                 m_kScheduleType);
+    cmd.AddValue("kMin",
+                 "Minimum switch budget used when --kScheduleType=linear_decay",
+                 m_kMin);
+    cmd.AddValue("kDecayRate",
+                 "Per-cycle switch budget decay used when --kScheduleType=linear_decay",
+                 m_kDecayRate);
+    cmd.AddValue("rewardSwitchPenaltyAlpha",
+                 "Online DQN reward penalty coefficient for switch_count",
+                 m_rewardSwitchPenaltyAlpha);
+    cmd.AddValue("rewardDegradedPenaltyBeta",
+                 "Online DQN reward penalty coefficient for num_degraded_users",
+                 m_rewardDegradedPenaltyBeta);
     cmd.AddValue("onlineDqnSafetyThreshold",
                  "Skip an online_dqn handover when estimated H delta of the selected BS is <= this threshold",
                  m_onlineDqnSafetyThreshold);
@@ -334,6 +354,12 @@ void NetSim::Init(int argc, char *argv[]){
         m_assignmentMethod == "online_dqn")
     {
         outputMethodDir += "_K" + std::to_string(m_maxSwitches);
+        if (m_assignmentMethod == "online_dqn" && m_kScheduleType != "fixed")
+        {
+            outputMethodDir += "_" + m_kScheduleType +
+                               "_min" + std::to_string(m_kMin) +
+                               "_decay" + std::to_string(m_kDecayRate);
+        }
     }
     m_outputDir = OUTPUT_ROOT_DIR + std::to_string(termNum) + "/" + outputMethodDir + "/";
     SystemPath::MakeDirectories(m_outputDir);
@@ -365,7 +391,12 @@ void NetSim::Init(int argc, char *argv[]){
     m_apSelectionInput.drlServerPort = m_drlServerPort;
     m_apSelectionInput.drlTimeoutMs = m_drlTimeoutMs;
     m_apSelectionInput.maxSwitches = m_maxSwitches;
+    m_apSelectionInput.kScheduleType = m_kScheduleType;
+    m_apSelectionInput.kMin = m_kMin;
+    m_apSelectionInput.kDecayRate = m_kDecayRate;
     m_apSelectionInput.onlineDqnSafetyThreshold = m_onlineDqnSafetyThreshold;
+    m_apSelectionInput.rewardSwitchPenaltyAlpha = m_rewardSwitchPenaltyAlpha;
+    m_apSelectionInput.rewardDegradedPenaltyBeta = m_rewardDegradedPenaltyBeta;
     m_apSelectionInput.rngSeed = m_rngSeed;
     m_apSelectionInput.outputDir = m_outputDir;
 

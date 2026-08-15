@@ -47,6 +47,9 @@ namespace APConstants {
     constexpr double GRACE_SATISFACTION = 1.0;
     // ハンドオーバ後に猶予を与えるサイクル数（デフォルト: 2サイクル）
     constexpr uint32_t HANDOVER_GRACE_CYCLES = 2;
+    // 同一UEの短周期再切替を防ぐための cooldown サイクル数。
+    // cycle t の切替は StartNewCycle(t+1) で記録され、t+1, t+2 では再候補から除外する。
+    constexpr uint32_t HANDOVER_COOLDOWN_CYCLES = 2;
 }
 
 struct ApSelectionInput {
@@ -63,7 +66,12 @@ struct ApSelectionInput {
     uint16_t drlServerPort = 50051;
     uint32_t drlTimeoutMs = 200;
     uint32_t maxSwitches = 8;
+    std::string kScheduleType = "fixed";
+    uint32_t kMin = 1;
+    uint32_t kDecayRate = 1;
     double onlineDqnSafetyThreshold = 0.0;
+    double rewardSwitchPenaltyAlpha = 0.001;
+    double rewardDegradedPenaltyBeta = 0.0002;
     std::string outputDir = "OUTPUT/";
     uint32_t rngSeed = 1;
 };
@@ -95,6 +103,17 @@ struct DqnAction
     double hBeforeStepEstimated = 0.0;
     double hAfterStepEstimated = 0.0;
     double estimatedMarginalDelta = 0.0;
+    double targetSatisfactionAfterEstimated = 0.0;
+    double targetSatisfactionDeltaEstimated = 0.0;
+    uint32_t effectiveMaxSwitches = 0;
+    uint32_t appliedSwitchesInCycle = 0;
+    uint32_t remainingSwitchBudget = 0;
+    std::string kScheduleType = "fixed";
+    uint32_t kMax = 0;
+    uint32_t kMin = 1;
+    uint32_t kDecayRate = 1;
+    int stopActionFlag = 0;
+    double qStop = 0.0;
 };
 
 class APselection : public Object{
@@ -133,7 +152,9 @@ private:
                                   int numUnsatisfiedUsers,
                                   int numUsersOnCurrentBs,
                                   const std::vector<int>& assignment,
-                                  int candidateType);
+                                  int candidateType,
+                                  uint32_t effectiveMaxSwitches,
+                                  uint32_t appliedSwitchesInCycle);
     bool SendStateReceiveAction(const std::string& requestJson,
                                 int& selectedBsId,
                                 std::vector<double>& qValues,
@@ -154,6 +175,8 @@ private:
     bool LoadLogisticModel();
     bool LoadDqnActions();
     void KeepCurrentAssignment(const std::string& reason);
+    bool IsInHandoverCooldown(int terminalIdx) const;
+    uint32_t GetEffectiveMaxSwitches(uint32_t cycleIndex) const;
     void ResetMonitorStats();
     void RecordHarmonicMean(double value);
     void WriteMasterLog();
@@ -184,7 +207,11 @@ private:
     uint32_t m_cycleIndex = 0;             // 現在のサイクル番号（1スタート）
     uint32_t m_totalCycles = 0;            // 総サイクル数（0=制限なし）
     uint32_t m_handoverGraceCycles = APConstants::HANDOVER_GRACE_CYCLES;
+    uint32_t m_handoverCooldownCycles = APConstants::HANDOVER_COOLDOWN_CYCLES;
     uint32_t m_MaxSwitches = 8;       // multi_greedyで1サイクルに切り替える最大端末数
+    std::string m_kScheduleType = "fixed";
+    uint32_t m_kMin = 1;
+    uint32_t m_kDecayRate = 1;
     std::function<void(const std::vector<int>&)> m_handoverCallback;
     std::vector<double> m_cycleHarmonicMeans; // サイクルごとの調和平均
     double m_hBeforeAction = 0.0;             // 当該サイクルの切り替え前H
@@ -194,6 +221,9 @@ private:
     bool m_hasPreviousMeasuredH = false;       // m_previousMeasuredH が有効か
     double m_lastMeasuredRewardFromPrevious = 0.0; // 現cycle実測H - 前cycle実測H
     uint32_t m_lastNumDegradedUsersMeasured = 0; // 前cycle行動に対する実測悪化端末数
+    uint32_t m_lastMeasuredRewardSwitchCount = 0; // 前cycle行動の切替数
+    double m_rewardSwitchPenaltyAlpha = 0.001;
+    double m_rewardDegradedPenaltyBeta = 0.0002;
     bool m_pendingMeasuredReward = false;      // 次cycleで実測rewardを書ける行動があるか
     uint32_t m_pendingRewardCycleId = 0;       // reward対象の行動cycle
     double m_pendingRewardHBefore = 0.0;       // 行動前H

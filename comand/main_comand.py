@@ -104,6 +104,9 @@ def start_online_dqn_server(
     checkpoint_out: str,
     epsilon: float,
     eval_only: bool,
+    action_dim: int,
+    reward_switch_penalty_alpha: float,
+    reward_degraded_penalty_beta: float,
 ) -> subprocess.Popen:
     if checkpoint_out:
         checkpoint_out_path = Path(checkpoint_out)
@@ -121,6 +124,12 @@ def start_online_dqn_server(
         str(seed),
         "--epsilon",
         str(epsilon),
+        "--action-dim",
+        str(action_dim),
+        "--reward-switch-penalty-alpha",
+        str(reward_switch_penalty_alpha),
+        "--reward-degraded-penalty-beta",
+        str(reward_degraded_penalty_beta),
         "--checkpoint-out",
         str(checkpoint_out_path),
     ]
@@ -147,10 +156,27 @@ def stop_online_dqn_server(proc: subprocess.Popen | None) -> None:
         proc.wait(timeout=5)
 
 
-def ns3_program(method: str, max_switches: int, host: str, port: int, timeout_ms: int, safety_threshold: float) -> str:
+def ns3_program(
+    method: str,
+    max_switches: int,
+    host: str,
+    port: int,
+    timeout_ms: int,
+    safety_threshold: float,
+    k_schedule_type: str,
+    k_min: int,
+    k_decay_rate: int,
+    reward_switch_penalty_alpha: float,
+    reward_degraded_penalty_beta: float,
+) -> str:
     parts = [
         f"master --method={method}",
         f"--maxSwitches={max_switches}",
+        f"--kScheduleType={k_schedule_type}",
+        f"--kMin={k_min}",
+        f"--kDecayRate={k_decay_rate}",
+        f"--rewardSwitchPenaltyAlpha={reward_switch_penalty_alpha}",
+        f"--rewardDegradedPenaltyBeta={reward_degraded_penalty_beta}",
     ]
     if method == "online_dqn":
         parts.extend(
@@ -164,14 +190,42 @@ def ns3_program(method: str, max_switches: int, host: str, port: int, timeout_ms
     return " ".join(parts)
 
 
-def ns3_command(method: str, max_switches: int, host: str, port: int, timeout_ms: int, safety_threshold: float) -> list[str]:
-    return ["./ns3", "run", ns3_program(method, max_switches, host, port, timeout_ms, safety_threshold)]
+def ns3_command(
+    method: str,
+    max_switches: int,
+    host: str,
+    port: int,
+    timeout_ms: int,
+    safety_threshold: float,
+    k_schedule_type: str,
+    k_min: int,
+    k_decay_rate: int,
+    reward_switch_penalty_alpha: float,
+    reward_degraded_penalty_beta: float,
+) -> list[str]:
+    return [
+        "./ns3",
+        "run",
+        ns3_program(
+            method,
+            max_switches,
+            host,
+            port,
+            timeout_ms,
+            safety_threshold,
+            k_schedule_type,
+            k_min,
+            k_decay_rate,
+            reward_switch_penalty_alpha,
+            reward_degraded_penalty_beta,
+        ),
+    ]
 
 
-def printable_command(job: RunJob, host: str, port: int, timeout_ms: int, safety_threshold: float) -> str:
+def printable_command(job: RunJob, args: argparse.Namespace) -> str:
     return (
         f"seed{job.seed}: ./ns3 run \""
-        f"{ns3_program(job.method, job.max_switches, host, port, timeout_ms, safety_threshold)}"
+        f"{ns3_program(job.method, job.max_switches, args.host, args.port, args.drlTimeoutMs, args.onlineDqnSafetyThreshold, args.kScheduleType, args.kMin, args.kDecayRate, args.rewardSwitchPenaltyAlpha, args.rewardDegradedPenaltyBeta)}"
         f"\""
     )
 
@@ -221,6 +275,12 @@ def parse_args() -> argparse.Namespace:
         default=0.0,
         help="online_dqn の safety filter threshold。default: 0.0",
     )
+    parser.add_argument("--kScheduleType", default="fixed", choices=["fixed", "linear_decay"], help="切替上限スケジュール。default: fixed")
+    parser.add_argument("--kMin", type=int, default=1, help="linear_decay の最小切替上限。default: 1")
+    parser.add_argument("--kDecayRate", type=int, default=1, help="linear_decay の cycle ごとの減衰量。default: 1")
+    parser.add_argument("--action-dim", type=int, default=3, help="online_dqn server の action 次元。STOPありは4。default: 3")
+    parser.add_argument("--rewardSwitchPenaltyAlpha", type=float, default=0.001, help="cycle reward の switch_count ペナルティ係数")
+    parser.add_argument("--rewardDegradedPenaltyBeta", type=float, default=0.0002, help="cycle reward の num_degraded_users ペナルティ係数")
     parser.add_argument(
         "--no-server",
         action="store_true",
@@ -263,6 +323,9 @@ def run_job(root: Path, setting_path: Path, job: RunJob, index: int, total: int,
                 args.checkpoint_out,
                 args.epsilon,
                 args.eval_only,
+                args.action_dim,
+                args.rewardSwitchPenaltyAlpha,
+                args.rewardDegradedPenaltyBeta,
             )
 
         cmd = ns3_command(
@@ -272,10 +335,15 @@ def run_job(root: Path, setting_path: Path, job: RunJob, index: int, total: int,
             args.port,
             args.drlTimeoutMs,
             args.onlineDqnSafetyThreshold,
+            args.kScheduleType,
+            args.kMin,
+            args.kDecayRate,
+            args.rewardSwitchPenaltyAlpha,
+            args.rewardDegradedPenaltyBeta,
         )
         print(
             f"[{index}/{total}] 実行開始: "
-            f"{printable_command(job, args.host, args.port, args.drlTimeoutMs, args.onlineDqnSafetyThreshold)}",
+            f"{printable_command(job, args)}",
             flush=True,
         )
         env = os.environ.copy()
@@ -313,7 +381,7 @@ def main() -> int:
 
     print("これから実行するコマンド一覧:")
     for i, job in enumerate(jobs, start=1):
-        print(f"  {i}. {printable_command(job, args.host, args.port, args.drlTimeoutMs, args.onlineDqnSafetyThreshold)}")
+        print(f"  {i}. {printable_command(job, args)}")
     print(f"合計 {len(jobs)} runs", flush=True)
 
     if args.dry_run:
@@ -332,8 +400,8 @@ def main() -> int:
 
     print("=" * 80, flush=True)
     print("全シミュレーションが正常終了しました。", flush=True)
-    print("期待される出力先:")
-    print("  OUTPUT/80/multi_greedy_K1/")
+    print("期待される出力先: OUTPUT/<端末数>/<method>_K<maxSwitches>/")
+    print("  online_dqn の linear_decay では末尾に _linear_decay_min<kMin>_decay<kDecayRate> が付きます。")
     return 0
 
 
