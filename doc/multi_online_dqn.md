@@ -829,12 +829,11 @@ Phase 5: eval-only 評価
 
 まず，既存手法を複数 seed で実行し，DQN の事前学習に使う経験データを収集する。
 
-対象手法:
+初期収集で対象とする手法:
 
 ```text
 multi_greedy
 multi_offload
-rulebase
 ```
 
 保存するログ:
@@ -845,9 +844,135 @@ decision_log_*.csv
 measured_reward_log_*.csv
 ```
 
-ただし，`rulebase` は現状 `decision_log` や `measured_reward_log` が十分に出ない場合があるため，まずは `master_log` を AP 選択の Behavior Cloning 用データとして使う。`multi_greedy` / `multi_offload` / `online_dqn` 系では，可能であれば `decision_log` も利用する。
+今回の初期データ収集では，以下の 6 条件を用いる。
 
-#### 17.1.1 必要な経験データ量の目安
+```text
+multi_greedy  K=1
+multi_greedy  K=4
+multi_greedy  K=8
+multi_offload K=1
+multi_offload K=4
+multi_offload K=8
+```
+
+seed はまず 1〜5 とする。
+
+```text
+train seeds = {1, 2, 3, 4, 5}
+```
+
+したがって，初期収集は以下の規模になる。
+
+```text
+6 conditions × 5 seeds = 30 runs
+```
+
+この 30 runs は，あくまで初期学習・実装確認用の小規模データセットである。最終評価に使う seed とは分離する。
+
+```text
+training seeds:   1〜5 から開始し，必要に応じて拡張
+validation seeds: 1001〜1020
+test seeds:       2001〜2030
+```
+
+すでに挙動確認に使った seed を最終評価に使う場合，その seed は教師データ収集には混ぜない。
+
+`rulebase` は baseline としては重要だが，初期の教師データ収集では対象外とする。`rulebase` は後段の比較実験で実行する。
+
+#### 17.1.1 教師データの基本方針
+
+今回の事前学習では，step ごとの greedy action を直接真似る案ではなく，**best cycle の割当を教師にする方針**を採用する。
+
+各 run について，実測調和平均が最大となった cycle を選ぶ。
+
+```text
+best_cycle = argmax_t H_measured(t)
+```
+
+その cycle における全 UE の接続先を expert assignment とする。
+
+```text
+A_best[i] = current_bs_id of UE i at best_cycle
+```
+
+DQN の教師データは以下の形で作る。
+
+```text
+入力:
+    早期 cycle における UE i の状態
+
+教師ラベル:
+    A_best[i]
+```
+
+特に，早期に良い割当に近づけることを目的とするため，入力に使う cycle はまず以下を中心にする。
+
+```text
+cycle 1
+cycle 2
+```
+
+これにより，`multi_greedy` / `multi_offload` が複数 cycle かけて到達した良好割当に，DQN が早い cycle で近づくことを狙う。
+
+ただし，固定の割当ベクトルを全 seed で覚えさせるのではない。各 run の状態に対して，その run の `A_best` を教師として使う。
+
+#### 17.1.2 action-level decision_log の扱い
+
+best cycle assignment を主教師とするが，`multi_greedy` / `multi_offload` の step-level action も後続解析や weighted BC に使えるように保存する。
+
+そのため，本格収集前に以下の列を持つ `decision_log` を `multi_greedy` / `multi_offload` でも出力する。
+
+```text
+seed
+method
+max_switches
+cycle_id
+step_id
+target_ue_id
+previous_bs_id
+selected_bs_id
+candidate_type
+h_before_step_estimated
+h_after_step_estimated
+estimated_marginal_delta
+applied
+skip_reason
+```
+
+この `decision_log` は，以下の目的で使う。
+
+- step ごとの限界効果を確認する。
+- K が大きい場合，何 step 目以降で効果が落ちるかを確認する。
+- 後段で weighted behavior cloning や STOP 疑似ラベルを作る。
+
+#### 17.1.3 再切替 cooldown 制約
+
+同じ UE を短期間に何度も切り替えると，QoE 振動やハンドオーバ負荷の原因になる。
+
+そのため，経験データ収集時点から cooldown 制約を導入する。
+
+```text
+handover_cooldown_cycles = 2
+```
+
+意味は以下である。
+
+```text
+ある UE を cycle t で切り替えた場合，
+cycle t+1, t+2 ではその UE を切替候補から除外する。
+```
+
+この制約は，まず以下の手法に適用する。
+
+```text
+multi_greedy
+multi_offload
+online_dqn
+```
+
+これにより，学習データと評価対象の両方で，同一 UE の短周期再切替を抑制する。
+
+#### 17.1.4 必要な経験データ量の目安
 
 経験データ量は，「CSV 行数」ではなく，DQN が実際に学習する **action 単位のサンプル数** で考える。
 
@@ -873,9 +998,40 @@ average_decisions_per_cycle = 5
 
 である。
 
-一方，`master_log` は 80 UE × 5 cycle で 400 行程度出るが，全行が有効な action sample ではない。`switch_flag=1` の行，または candidate として扱える行を中心に使う必要がある。
+一方，`master_log` は 80 UE × 5 cycle で 400 行程度出るが，80 行が 1 cycle の集合状態を表す 1 セットであり，400 行を独立した 400 サンプルとして扱わない。
 
-#### 17.1.2 最小データ量
+best cycle assignment を教師にする場合，1 run から作れる教師データは概ね以下である。
+
+```text
+early_cycles × num_UE
+```
+
+例:
+
+```text
+early_cycles = {cycle 1, cycle 2}
+num_UE = 80
+```
+
+なら，
+
+```text
+1 run ≒ 160 UE-level samples
+```
+
+となる。
+
+今回の初期収集では，
+
+```text
+30 runs × 160 samples/run = 4,800 UE-level samples
+```
+
+程度が得られる見込みである。
+
+ただし，この中には `current_bs_id == A_best[i]` の no-op サンプルも含まれるため，学習時には no-op の比率を調整する。
+
+#### 17.1.5 最小データ量
 
 最小構成の AP 選択 DQN，すなわち STOP 行動なしで，
 
@@ -897,9 +1053,9 @@ seed 数: 30〜50 程度
 50 runs × 25 samples/run = 1,250 samples
 ```
 
-したがって，まずは **50 seed 前後** を目標にする。
+初期実装では 30 runs から開始し，学習・評価の分散が大きい場合は seed 数を増やす。
 
-#### 17.1.3 推奨データ量
+#### 17.1.6 推奨データ量
 
 安定した事前学習を行うには，以下を目標にする。
 
@@ -911,26 +1067,34 @@ seed 数: 100〜300 程度
 特に，以下の条件を変えて収集する。
 
 ```text
-method ∈ {multi_greedy, multi_offload, rulebase}
-K ∈ {1, 2, 3, 5, 8}
+method ∈ {multi_greedy, multi_offload}
+K ∈ {1, 4, 8}
 seed ∈ 複数
 ```
 
 例:
 
 ```text
-3 methods × 5 K values × 20 seeds = 300 runs
+2 methods × 3 K values × 20 seeds = 120 runs
 ```
 
 1 run あたり 25 action samples とすると，
 
 ```text
-300 runs × 25 samples/run = 7,500 samples
+120 runs × 25 samples/run = 3,000 action-level samples
 ```
 
 程度が得られる。
 
-#### 17.1.4 STOP 行動用データ量
+best assignment 教師として early cycle の UE-level サンプルを使う場合は，
+
+```text
+120 runs × 160 samples/run = 19,200 UE-level samples
+```
+
+程度が得られる。
+
+#### 17.1.7 STOP 行動用データ量
 
 STOP 行動を学習する場合は，AP 選択よりも多くのデータが必要になる。
 
@@ -977,7 +1141,7 @@ remaining_switch_budget はあるが，H 改善余地が小さい
 
 このような条件を満たす場合に STOP を選ぶ疑似ラベルを作り，初期方策として事前学習する。
 
-#### 17.1.5 データ分布の注意
+#### 17.1.8 データ分布の注意
 
 経験データ収集では，以下の偏りに注意する。
 
@@ -1004,16 +1168,41 @@ seed ごとの H 分布
 最初は STOP 行動なしとし，教師ラベルは以下を使う。
 
 ```text
+教師ラベル = A_best[i]
+```
+
+ここで `A_best[i]` は，各 run において実測調和平均が最大となった cycle の UE `i` の接続先である。
+
+step-level `decision_log` を使う補助実験では，
+
+```text
 教師ラベル = selected_bs_id
 ```
 
-または `master_log` を使う場合，
+を用いる。
+
+no-op サンプルが多すぎると DQN が接続維持に偏るため，以下の比率でサンプリングする。
 
 ```text
-教師ラベル = action_selected_bs_id
+keep_no_switch_ratio = 0.25
 ```
 
-を用いる。
+weighted BC では以下の重みを用いる。
+
+```text
+weight = 1 + lambda * max(delta, 0)
+lambda = 20
+```
+
+`delta` は，使用する教師データに応じて以下を使う。
+
+```text
+best assignment 教師:
+    delta = best_estimated_h_delta
+
+step-level decision_log 教師:
+    delta = estimated_marginal_delta
+```
 
 既存コードでは，以下のスクリプトが該当する。
 
@@ -1096,10 +1285,166 @@ H の平均・標準偏差
 seed 間ばらつき
 ```
 
+### 17.6 Phase 4/5 モデルで示すべき価値
+
+Phase 4 でオンライン fine-tuning し，Phase 5 で eval-only 評価する DQN モデルは，単に `multi_greedy` や `multi_offload` の調和平均を上回ることだけを目的にしない。
+
+`multi_greedy` は推定調和平均を直接探索する強い baseline であり，`multi_offload` は混雑 AP から端末を逃がす offload baseline である。したがって，DQN の価値は以下の観点で評価する。
+
+#### 17.6.1 推論型制御器としての価値
+
+`multi_greedy` は，各 step で候補 UE と候補 AP の組み合わせを試し，推定調和平均を計算して最良の切替を選ぶ。
+
+一方，学習済み DQN は，
+
+```text
+state -> Q values -> action
+```
+
+により接続先を選択する。
+
+そのため，DQN は `multi_greedy` のように毎回全候補を探索しなくても，学習済み方策により近似的に AP 選択を行える。
+
+評価では以下を確認する。
+
+```text
+同程度の H をより短い推論時間で達成できるか
+または，多少 H が低くても切替判断の計算コストを削減できるか
+```
+
+#### 17.6.2 実測 reward へ適応する価値
+
+`multi_greedy` / `multi_offload` は主に推定値に基づいて行動する。
+
+```text
+estimated_h_delta
+estimated_satisfaction
+estimated H
+```
+
+しかし，実測では推定 reward と measured reward がずれることがある。
+
+Phase 4 の DQN では，オンライン実行中に以下を用いて fine-tuning する。
+
+```text
+H_after_measured - H_before
+switch_count
+num_degraded_users
+```
+
+これにより，DQN は推定 H だけではなく，実測 QoE と切替副作用に適応する方策を学習することを目指す。
+
+比較では以下を確認する。
+
+```text
+multi_greedy が推定上は良いが実測 H では伸びないケースを DQN が避けられるか
+estimated-measured gap が DQN で小さくなるか
+```
+
+#### 17.6.3 安定性を reward に入れられる価値
+
+提案 DQN では，最終的に以下の reward を用いる。
+
+```text
+reward =
+    H_after_measured - H_before
+    - alpha * switch_count
+    - beta  * num_degraded_users
+```
+
+これにより，DQN は調和平均だけでなく，切替回数や悪化端末数も考慮できる。
+
+比較で示したい価値は以下である。
+
+```text
+multi_greedy と同程度の H を維持しつつ，
+switch_count や num_degraded_users を減らす。
+```
+
+H だけで DQN が `multi_greedy` を常に上回る必要はない。QoE 制御では，切替による副作用や安定性も重要である。
+
+#### 17.6.4 STOP 行動による切替数自律制御
+
+`multi_greedy` / `multi_offload` は，改善候補がある限り `K` まで切り替える傾向がある。
+
+一方，STOP 行動付き DQN では，
+
+```text
+この cycle ではこれ以上切り替えない
+```
+
+という判断を状態に応じて学習する。
+
+これにより，以下のような挙動を目指す。
+
+```text
+初期 cycle: 複数台切替で低満足 UE を救済
+後半 cycle: H が安定してきたら早めに STOP
+```
+
+比較では以下を確認する。
+
+```text
+固定 K より少ない実切替数で同程度以上の H を達成できるか
+後半 cycle の switch_count が自然に減るか
+H の振動や max_satisfaction_drop が小さくなるか
+```
+
+#### 17.6.5 rescue / offload 統合方策としての価値
+
+`multi_greedy` は低満足 UE の rescue に強い。一方，`multi_offload` は混雑 AP から余裕のある UE を逃がす offload に寄った手法である。
+
+DQN では状態に以下を含める。
+
+```text
+candidate_type
+num_users_ap0/1/2
+monitor_rtt_ap0/1/2
+estimated_satisfaction_if_ap0/1/2
+estimated_h_delta_if_ap0/1/2
+```
+
+そのため，DQN は rescue と offload を状態に応じて切り替える統合方策として設計できる。
+
+比較では以下を確認する。
+
+```text
+rescue candidate と offload candidate の両方を適切に扱えているか
+multi_greedy 単独または multi_offload 単独より柔軟な割当になっているか
+```
+
+### 17.7 比較時の評価指標
+
+Phase 5 の比較では，以下を必ず集計する。
+
+| 指標 | 目的 |
+|---|---|
+| `harmonic_mean` | 全体 QoE |
+| `num_unsatisfied_users` | 低満足 UE の救済 |
+| `switch_count` | 過剰切替の抑制 |
+| `num_degraded_users` | 切替対象外を含む副作用 |
+| `max_satisfaction_drop` | 一部端末の大幅悪化 |
+| `H` の標準偏差 / cycle 間変動 | 安定性 |
+| `measured_reward` | 実測 QoE 改善 |
+| `estimated_reward - measured_reward` | 推定と実測の乖離 |
+| 推論時間 | DQN の高速性 |
+
+理想的な結果は以下である。
+
+```text
+H は multi_greedy / multi_offload と同等以上
+かつ
+switch_count, num_degraded_users, max_satisfaction_drop が小さい
+```
+
+もし H がわずかに劣る場合でも，切替回数や悪化端末数を大きく削減できるなら，安定性を重視した QoE 制御として価値がある。
+
 ## 18. 注意点
 
 - `K_t` 減衰スケジュールによる改善を DQN の効果と混同しない。
 - 固定 K の baseline を必ず用意する。
+- DQN が H だけで `multi_greedy` を常に上回る必要はない。H，切替回数，悪化端末数，安定性のトレードオフで評価する。
+- `multi_greedy` は推定 H に基づく強い baseline であるため，DQN の価値は高速性，実測 reward への適応，STOP による切替数制御にも置く。
 - H が改善しても，悪化端末数や最大満足度低下幅が大きい場合は安定とは言えない。
 - 不満足端末数だけで評価しない。
 - 平均 TP だけで QoE 改善を判断しない。
