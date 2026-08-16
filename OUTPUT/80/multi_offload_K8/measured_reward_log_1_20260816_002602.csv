@@ -1,0 +1,5 @@
+seed,method,max_switches,action_cycle_id,measured_cycle_id,h_before,h_after_estimated,estimated_reward,h_after_measured,measured_reward,cycle_reward,switch_count,num_degraded_users
+1,multi_offload,8,1,2,0.324643,0.362504,0.037861,0.428567,0.103924,0.087724,8,41
+1,multi_offload,8,2,3,0.428567,0.428567,0.000000,0.418920,-0.009647,-0.018247,0,43
+1,multi_offload,8,3,4,0.418920,0.418920,0.000000,0.412519,-0.006401,-0.020801,0,72
+1,multi_offload,8,4,5,0.412519,0.412519,0.000000,0.412579,0.000061,-0.006739,0,34

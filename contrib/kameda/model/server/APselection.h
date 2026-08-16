@@ -65,7 +65,7 @@ struct ApSelectionInput {
     std::string drlServerHost = "127.0.0.1";
     uint16_t drlServerPort = 50051;
     uint32_t drlTimeoutMs = 200;
-    uint32_t maxSwitches = 8;
+    uint32_t maxSwitches = 1;
     std::string kScheduleType = "fixed";
     uint32_t kMin = 1;
     uint32_t kDecayRate = 1;
@@ -208,7 +208,7 @@ private:
     uint32_t m_totalCycles = 0;            // 総サイクル数（0=制限なし）
     uint32_t m_handoverGraceCycles = APConstants::HANDOVER_GRACE_CYCLES;
     uint32_t m_handoverCooldownCycles = APConstants::HANDOVER_COOLDOWN_CYCLES;
-    uint32_t m_MaxSwitches = 8;       // multi_greedyで1サイクルに切り替える最大端末数
+    uint32_t m_MaxSwitches = 1;       // multi_greedyで1サイクルに切り替える最大端末数
     std::string m_kScheduleType = "fixed";
     uint32_t m_kMin = 1;
     uint32_t m_kDecayRate = 1;
