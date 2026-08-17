@@ -1,5 +1,0 @@
-seed,method,cycle_id,step_id,target_ue_id,previous_bs_id,current_bs_id,selected_bs_id,satisfaction_before,harmonic_mean_before,harmonic_mean_after_estimated,advantage,q_bs0,q_bs1,q_bs2,applied,skip_reason
-1020,online_dqn,1,0,9,2,2,1,0.056965,0.255354,0.255354,5.211066,-10.035815,5.354461,0.143395,1,
-1020,online_dqn,2,0,7,2,2,1,0.082919,0.285793,0.285793,3.780269,-6.158130,3.255987,-0.524283,1,
-1020,online_dqn,3,0,30,2,2,1,0.090296,0.299569,0.299569,3.759402,-6.158973,3.225077,-0.534325,1,
-1020,online_dqn,4,0,34,2,2,1,0.091660,0.308144,0.308144,3.834997,-6.232784,3.286655,-0.548342,1,

@@ -1,5 +1,0 @@
-seed,method,max_switches,action_cycle_id,measured_cycle_id,h_before,h_after_estimated,estimated_reward,h_after_measured,measured_reward,cycle_reward,switch_count,num_degraded_users
-1,multi_greedy,4,1,2,0.324643,0.374013,0.049370,0.406865,0.082222,0.073622,4,23
-1,multi_greedy,4,2,3,0.406865,0.506808,0.099943,0.487016,0.080151,0.064351,4,59
-1,multi_greedy,4,3,4,0.487016,0.555590,0.068574,0.566531,0.079515,0.066515,4,45
-1,multi_greedy,4,4,5,0.566531,0.605430,0.038899,0.616412,0.049882,0.038082,4,39
