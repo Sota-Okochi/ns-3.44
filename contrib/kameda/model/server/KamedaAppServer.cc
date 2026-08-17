@@ -31,6 +31,7 @@ KamedaAppServer::KamedaAppServer(const ApSelectionInput& input)
     m_cycleCount = 5;
     m_cycleDuration = Seconds(7.0);
     m_cycleIndex = 0;
+    m_cycleStartOffset = Seconds(0.0);
     // APselectionを有効化（外部から渡された設定を利用）
     apselect = CreateObject<APselection>();
     apselect->init(m_input);
@@ -91,9 +92,21 @@ void KamedaAppServer::StartApplication(){
 
     // バッチ処理対応：タイムアウト時間を最適化
     // 監視端末方式: 3台の監視端末からのデータ収集完了を待つ（6.5秒で確実に実行）
-    if (apselect)
+    Time firstCycleStart = m_cycleStartOffset;
+    if (firstCycleStart < Simulator::Now())
+    {
+        firstCycleStart = Simulator::Now();
+    }
+    if (apselect && firstCycleStart <= Simulator::Now())
     {
         apselect->StartNewCycle(1);
+    }
+    else if (apselect)
+    {
+        Simulator::Schedule(firstCycleStart - Simulator::Now(),
+                            &APselection::StartNewCycle,
+                            apselect,
+                            1);
     }
     std::cout << "=== Scheduling cycle end handlers ===" << std::endl;
     ScheduleCycleEnd(0);
@@ -333,6 +346,11 @@ void KamedaAppServer::ConfigureCycles(uint32_t count, Time duration)
     }
 }
 
+void KamedaAppServer::SetCycleStartOffset(Time offset)
+{
+    m_cycleStartOffset = offset.IsPositive() ? offset : Seconds(0.0);
+}
+
 void KamedaAppServer::SetMonitorStopOffset(Time offset)
 {
     m_monitorStopOffset = offset.IsPositive() ? offset : Seconds(4.0);
@@ -375,7 +393,7 @@ void KamedaAppServer::ScheduleCycleEnd(uint32_t cycleIndex)
                           ? m_cycleEndOffset
                           : (m_monitorStopOffset.IsPositive() ? m_monitorStopOffset : Seconds(4.0));
     Time guard = m_cycleEndGuard.IsPositive() ? m_cycleEndGuard : Seconds(0.5);
-    Time cycleStart = m_cycleDuration * cycleIndex;
+    Time cycleStart = m_cycleStartOffset + m_cycleDuration * cycleIndex;
     Time when = cycleStart + stopOffset + guard;
     if (when < Simulator::Now())
     {

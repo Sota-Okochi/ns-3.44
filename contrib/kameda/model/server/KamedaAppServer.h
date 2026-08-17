@@ -18,6 +18,7 @@ public:
     explicit KamedaAppServer(const ApSelectionInput& input);
     virtual ~KamedaAppServer();
     void ConfigureCycles(uint32_t count, Time duration);
+    void SetCycleStartOffset(Time offset);
     void SetMonitorStopOffset(Time offset);
     void SetCycleEndOffset(Time offset);
     void SetCycleEndGuard(Time guard);
@@ -59,6 +60,7 @@ private:
     uint32_t m_cycleIndex = 0;
     uint32_t m_cycleCount = 1;
     Time m_cycleDuration;
+    Time m_cycleStartOffset;
     Time m_monitorStopOffset;
     Time m_cycleEndOffset;
     Time m_cycleEndGuard;

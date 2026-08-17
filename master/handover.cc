@@ -16,7 +16,7 @@ void NetSim::ConfigureCycleParameters()
     {
         m_cycleCount = 5;
     }
-    m_simulationDuration = m_cycleDuration * m_cycleCount + Seconds(5.0);
+    m_simulationDuration = m_cycleStartOffset + m_cycleDuration * m_cycleCount + Seconds(5.0);
 }
 
 void NetSim::ScheduleMonitorWindows()
@@ -28,10 +28,11 @@ void NetSim::ScheduleMonitorWindows()
 
     for (uint32_t cycle = 0; cycle < m_cycleCount; ++cycle)
     {
-        Time rttStart = m_cycleDuration * cycle + m_monitorStartOffset;
-        Time rttStop  = m_cycleDuration * cycle + m_monitorStopOffset;
-        Time tpStart  = m_cycleDuration * cycle + m_monitorStartOffset;
-        Time tpStop   = m_cycleDuration * cycle + m_terminalTpStopOffset;
+        Time cycleStart = m_cycleStartOffset + m_cycleDuration * cycle;
+        Time rttStart = cycleStart + m_monitorStartOffset;
+        Time rttStop  = cycleStart + m_monitorStopOffset;
+        Time tpStart  = cycleStart + m_monitorStartOffset;
+        Time tpStop   = cycleStart + m_terminalTpStopOffset;
         for (const auto& monitor : m_monitorApps)
         {
             if (monitor == nullptr)

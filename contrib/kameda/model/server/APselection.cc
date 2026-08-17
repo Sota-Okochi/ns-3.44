@@ -254,6 +254,8 @@ void APselection::init(const ApSelectionInput& input){
     m_onlineDqnSafetyThreshold = input.onlineDqnSafetyThreshold;
     m_rewardSwitchPenaltyAlpha = input.rewardSwitchPenaltyAlpha;
     m_rewardDegradedPenaltyBeta = input.rewardDegradedPenaltyBeta;
+    m_warmupBeforeCycleSec = input.warmupBeforeCycleSec;
+    m_cycleStartOffsetSec = input.cycleStartOffsetSec;
     m_rngSeed = input.rngSeed;
     m_outputDir = input.outputDir;
     if (!m_outputDir.empty() && m_outputDir.back() != '/')
@@ -339,6 +341,13 @@ void APselection::init(const ApSelectionInput& input){
         std::cout << "[HandoverCooldown] cycles=" << m_handoverCooldownCycles << std::endl;
         std::cout << "意思決定ログパス: " << m_decisionLogPath << std::endl;
         std::cout << "実測rewardログパス: " << m_rewardLogPath << std::endl;
+    }
+    if (m_warmupBeforeCycleSec > 0.0)
+    {
+        std::cout << "[WarmupCycleStart] warmupBeforeCycleSec="
+                  << m_warmupBeforeCycleSec
+                  << " cycleStartOffsetSec=" << m_cycleStartOffsetSec
+                  << std::endl;
     }
     std::cout << "割り当て手法(method): " << m_assignmentMethod << std::endl;
     if (m_assignmentMethod == "multi_greedy")
@@ -3080,7 +3089,9 @@ void APselection::WriteMasterLog()
             << "k_max,"
             << "k_min,"
             << "k_decay_rate,"
-            << "stop_action_flag" << std::endl;
+            << "stop_action_flag,"
+            << "warmup_before_cycle_sec,"
+            << "cycle_start_offset_sec" << std::endl;
         ofs.close();
         m_masterLogInitialized = true;
     }
@@ -3334,7 +3345,9 @@ void APselection::WriteMasterLog()
             << m_MaxSwitches << ","
             << ((m_assignmentMethod == "online_dqn") ? m_kMin : m_MaxSwitches) << ","
             << ((m_assignmentMethod == "online_dqn") ? m_kDecayRate : 0) << ","
-            << 0 << std::endl;
+            << 0 << ","
+            << m_warmupBeforeCycleSec << ","
+            << m_cycleStartOffsetSec << std::endl;
     }
 
     ofs.close();

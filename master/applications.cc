@@ -612,7 +612,7 @@ void NetSim::ScheduleFutureBrowserBursts(uint32_t termIdx, uint16_t port, uint32
 
     for (uint32_t cycle = 0; cycle < m_cycleCount; ++cycle)
     {
-        Time cycleStart = m_cycleDuration * cycle;
+        Time cycleStart = m_cycleStartOffset + m_cycleDuration * cycle;
         Time warmupAt = cycleStart + std::max(Seconds(0.1), m_monitorStartOffset - Seconds(0.8));
         if (warmupAt > now && warmupAt > minStartTime)
         {
@@ -739,6 +739,7 @@ void NetSim::SetKamedaModule(void){
     NS_LOG_LOGIC("install remote host Kameda server");
     Ptr<KamedaAppServer> appServer = CreateObject<KamedaAppServer>(m_apSelectionInput);
     appServer->ConfigureCycles(m_cycleCount, m_cycleDuration);
+    appServer->SetCycleStartOffset(m_cycleStartOffset);
     appServer->SetMonitorStopOffset(m_monitorStopOffset);
     appServer->SetCycleEndOffset(m_terminalTpStopOffset);
     appServer->SetCycleEndGuard(m_cycleEndGuard);
@@ -839,7 +840,7 @@ void NetSim::SetBrowserApp()
 
         for (uint32_t cycle = 0; cycle < cycles; ++cycle)
         {
-            Time offset = m_cycleDuration * cycle;
+            Time offset = m_cycleStartOffset + m_cycleDuration * cycle;
             Time warmupAt = offset + std::max(Seconds(0.1), m_monitorStartOffset - Seconds(0.8));
             Simulator::Schedule(warmupAt,
                                 &NetSim::ScheduleBrowserWarmupForTerminal,

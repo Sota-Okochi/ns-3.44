@@ -202,6 +202,8 @@ private:
     uint32_t m_cycleCount;
     uint32_t m_currentCycle;
     Time m_cycleDuration;
+    Time m_warmupBeforeCycle;
+    Time m_cycleStartOffset;
     Time m_monitorStartOffset;
     Time m_monitorStopOffset;
     Time m_terminalTpStopOffset;

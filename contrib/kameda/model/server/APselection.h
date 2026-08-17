@@ -72,6 +72,8 @@ struct ApSelectionInput {
     double onlineDqnSafetyThreshold = 0.0;
     double rewardSwitchPenaltyAlpha = 0.001;
     double rewardDegradedPenaltyBeta = 0.0002;
+    double warmupBeforeCycleSec = 0.0;
+    double cycleStartOffsetSec = 0.0;
     std::string outputDir = "OUTPUT/";
     uint32_t rngSeed = 1;
 };
@@ -224,6 +226,8 @@ private:
     uint32_t m_lastMeasuredRewardSwitchCount = 0; // 前cycle行動の切替数
     double m_rewardSwitchPenaltyAlpha = 0.001;
     double m_rewardDegradedPenaltyBeta = 0.0002;
+    double m_warmupBeforeCycleSec = 0.0;
+    double m_cycleStartOffsetSec = 0.0;
     bool m_pendingMeasuredReward = false;      // 次cycleで実測rewardを書ける行動があるか
     uint32_t m_pendingRewardCycleId = 0;       // reward対象の行動cycle
     double m_pendingRewardHBefore = 0.0;       // 行動前H

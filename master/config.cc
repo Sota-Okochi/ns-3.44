@@ -17,6 +17,7 @@ struct BaselineSetting
     std::vector<double> initialRtt;
     int numCycles = 10;
     double cycleTimeSec = 3.5;
+    double warmupBeforeCycleSec = 0.0;
     double monitorStartSec = 1.1;
     double monitorStopSec = 4.0;
     double browserFirstBurstSec = 1.2;
@@ -151,6 +152,7 @@ bool LoadBaselineSetting(const std::string& path, BaselineSetting& setting)
         double dtmp = 0.0;
         if (ExtractJsonInt(content, "numCycles", tmp)) { setting.numCycles = tmp; }
         if (ExtractJsonDouble(content, "cycleTimeSec", dtmp)) { setting.cycleTimeSec = dtmp; }
+        if (ExtractJsonDouble(content, "warmupBeforeCycleSec", dtmp)) { setting.warmupBeforeCycleSec = dtmp; }
         if (ExtractJsonDouble(content, "monitorStartSec", dtmp)) { setting.monitorStartSec = dtmp; }
         if (ExtractJsonDouble(content, "monitorStopSec", dtmp)) { setting.monitorStopSec = dtmp; }
         if (ExtractJsonDouble(content, "browserFirstBurstSec", dtmp)) { setting.browserFirstBurstSec = dtmp; }
@@ -164,6 +166,12 @@ bool LoadBaselineSetting(const std::string& path, BaselineSetting& setting)
         if (ExtractJsonInt(content, "rngSeed", tmp)) { setting.rngSeed = static_cast<uint32_t>(tmp); }
     }
     // 制約バリデーション
+    if (setting.warmupBeforeCycleSec < 0.0)
+    {
+        std::cerr << "[WARN] warmupBeforeCycleSec=" << setting.warmupBeforeCycleSec
+                  << " must be >= 0.0. Resetting to 0.0." << std::endl;
+        setting.warmupBeforeCycleSec = 0.0;
+    }
     if (setting.monitorStartSec <= 1.0)
     {
         std::cerr << "[WARN] monitorStartSec=" << setting.monitorStartSec
@@ -267,6 +275,8 @@ NetSim::NetSim()
     m_browserRequestInterval = Seconds(1.0);
     m_browserRequestCount = 5;
     m_monitorStartOffset  = Seconds(1.1);
+    m_warmupBeforeCycle = Seconds(0.0);
+    m_cycleStartOffset = Seconds(0.0);
     m_monitorStopOffset   = Seconds(4.0);
     m_terminalTpStopOffset = Seconds(4.0);
     m_browserFirstRequest = Seconds(1.2);
@@ -348,6 +358,14 @@ void NetSim::Init(int argc, char *argv[]){
     std::cout << "シード値(setting.json/\"rngSeed\"): " << setting.rngSeed << std::endl;
     APnum = static_cast<uint32_t>(setting.baseStations);
     termNum = static_cast<uint32_t>(setting.terminals);
+    m_warmupBeforeCycle = Seconds(setting.warmupBeforeCycleSec);
+    // 既存実験との互換性のため、設定値が 0 の場合は従来通り
+    // cycle 1 の基準時刻を 0s とする。warm-up を明示した場合のみ、
+    // アプリ開始時刻(概ね 1.0s) + warm-up 秒を cycle 1 の基準時刻にする。
+    m_cycleStartOffset =
+        (setting.warmupBeforeCycleSec > 0.0)
+            ? (Seconds(1.0) + m_warmupBeforeCycle)
+            : Seconds(0.0);
     std::string outputMethodDir = m_assignmentMethod;
     if (m_assignmentMethod == "multi_greedy" ||
         m_assignmentMethod == "multi_offload" ||
@@ -364,6 +382,9 @@ void NetSim::Init(int argc, char *argv[]){
     m_outputDir = OUTPUT_ROOT_DIR + std::to_string(termNum) + "/" + outputMethodDir + "/";
     SystemPath::MakeDirectories(m_outputDir);
     std::cout << "出力ディレクトリ: " << m_outputDir << std::endl;
+    std::cout << "warmupBeforeCycleSec: " << setting.warmupBeforeCycleSec
+              << " cycleStartOffsetSec: " << m_cycleStartOffset.GetSeconds()
+              << std::endl;
     m_cycleCount             = static_cast<uint32_t>(setting.numCycles);
     m_cycleDuration          = Seconds(setting.cycleTimeSec);
     m_monitorStartOffset     = Seconds(setting.monitorStartSec);
@@ -397,6 +418,8 @@ void NetSim::Init(int argc, char *argv[]){
     m_apSelectionInput.onlineDqnSafetyThreshold = m_onlineDqnSafetyThreshold;
     m_apSelectionInput.rewardSwitchPenaltyAlpha = m_rewardSwitchPenaltyAlpha;
     m_apSelectionInput.rewardDegradedPenaltyBeta = m_rewardDegradedPenaltyBeta;
+    m_apSelectionInput.warmupBeforeCycleSec = setting.warmupBeforeCycleSec;
+    m_apSelectionInput.cycleStartOffsetSec = m_cycleStartOffset.GetSeconds();
     m_apSelectionInput.rngSeed = m_rngSeed;
     m_apSelectionInput.outputDir = m_outputDir;
 
