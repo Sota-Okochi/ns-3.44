@@ -4,7 +4,7 @@
   "rngSeed": 3,
   "numCycles": 5,
   "cycleTimeSec": 9.5,
-  "warmupBeforeCycleSec": 5.0,
+  "warmupBeforeCycleSec": 3.0,
   "monitorStartSec": 1.1,
   "monitorStopSec": 6.0,
   "browserFirstBurstSec": 1.2,
