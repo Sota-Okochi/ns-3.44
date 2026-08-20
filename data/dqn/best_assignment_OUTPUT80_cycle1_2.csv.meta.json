@@ -1,0 +1,67 @@
+{
+  "inputs": [
+    "/home/sota/ns-3.44/OUTPUT/80"
+  ],
+  "num_files": 60,
+  "num_runs": 60,
+  "num_samples": 3636,
+  "features": [
+    "cycle_id",
+    "current_bs_id",
+    "app_type",
+    "tp_mbps",
+    "rtt_ms",
+    "satisfaction",
+    "num_users_on_current_bs",
+    "harmonic_mean",
+    "num_unsatisfied_users",
+    "candidate_type",
+    "num_users_ap0",
+    "num_users_ap1",
+    "num_users_ap2",
+    "monitor_rtt_ap0",
+    "monitor_rtt_ap1",
+    "monitor_rtt_ap2",
+    "estimated_satisfaction_if_ap0",
+    "estimated_satisfaction_if_ap1",
+    "estimated_satisfaction_if_ap2",
+    "estimated_h_delta_if_ap0",
+    "estimated_h_delta_if_ap1",
+    "estimated_h_delta_if_ap2",
+    "best_estimated_h_delta",
+    "effective_max_switches",
+    "applied_switches_in_cycle",
+    "remaining_switch_budget"
+  ],
+  "label_column": "expert_bs_id",
+  "early_cycles": [
+    1,
+    2
+  ],
+  "keep_no_switch_ratio": 0.25,
+  "weight_lambda": 20.0,
+  "seed": 1,
+  "label_counts": {
+    "0": 1535,
+    "1": 849,
+    "2": 1252
+  },
+  "noop_counts": {
+    "0": 1678,
+    "1": 1958
+  },
+  "condition_counts": {
+    "multi_greedy_K1": 425,
+    "multi_greedy_K10": 706,
+    "multi_greedy_K3": 541,
+    "multi_greedy_K4": 580,
+    "multi_greedy_K6": 665,
+    "multi_greedy_K8": 719
+  },
+  "best_cycle_counts": {
+    "1": 5,
+    "3": 10,
+    "4": 13,
+    "5": 32
+  }
+}
