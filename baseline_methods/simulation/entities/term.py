@@ -5,6 +5,13 @@ from simulation.config import load_app_config
 # アプリケーション種類ごとの設定
 confApp = load_app_config()
 
+
+def app_config_index(appNum: int) -> int:
+    # ns-3 側の app_type は 1..4。既存の 0-based 入力にも後方互換で対応する。
+    if 1 <= appNum <= len(confApp):
+        return appNum - 1
+    return appNum
+
 # 端末1台が持つデータ構造
 class app:
     id: int
@@ -79,13 +86,14 @@ class Term:
     def useApp(self, sec: float):
         lineNum = self.apBssid
         appNum = self.appNum
+        appIndex = app_config_index(appNum)
 
         # 現時点ではダウンロードの転送量だけを加算
-        self.lines[int(lineNum)]["transferRecieve"] += confApp[appNum]["incTP"] / 8 * sec  #MB
+        self.lines[int(lineNum)]["transferRecieve"] += confApp[appIndex]["incTP"] / 8 * sec  #MB
         #print('lineTransferRecieve=' + str(self.lines[lineNum]["transferRecieve"]))
 
         # 現時点の転送量TP値を設定（接続時TP計算用）
-        self.lines[int(lineNum)]["transferRecieveTp"] = confApp[appNum]["incTP"] # Mbps
+        self.lines[int(lineNum)]["transferRecieveTp"] = confApp[appIndex]["incTP"] # Mbps
 
         # 現在のアプリ利用時間更新
         self.app.useTime += sec

@@ -1,0 +1,100 @@
+{
+  "evaluation_type": "logistic_imitation",
+  "evaluated_at": "2026-08-24T15:46:47.475248+00:00",
+  "model_path": "data/models/logistic_model.json",
+  "input_csv": "data/raw/logistic_teacher_term80_runs100_seed001.csv",
+  "model_type": "logistic_regression",
+  "feature_columns": [
+    "app_type",
+    "current_ap",
+    "num_users_ap0",
+    "num_users_ap1",
+    "num_users_ap2",
+    "rtt_ap0",
+    "rtt_ap1",
+    "rtt_ap2",
+    "estimated_tp_ap0",
+    "estimated_tp_ap1",
+    "estimated_tp_ap2"
+  ],
+  "label_column": "assigned_ap",
+  "notes": {
+    "meaning": "Metrics show how well logistic regression imitates Hungarian assigned_ap labels.",
+    "limitation": "QoE improvement must be evaluated separately in simulation."
+  },
+  "num_samples": 8000,
+  "accuracy": 0.934625,
+  "labels": [
+    0,
+    1,
+    2
+  ],
+  "label_distribution": {
+    "0": 4809,
+    "1": 1629,
+    "2": 1562
+  },
+  "prediction_distribution": {
+    "0": 4863,
+    "1": 1983,
+    "2": 1154
+  },
+  "per_class": {
+    "0": {
+      "precision": 0.9874563026938104,
+      "recall": 0.9985443959243085,
+      "f1": 0.9929693961952026,
+      "support": 4809,
+      "tp": 4802,
+      "fp": 61,
+      "fn": 7
+    },
+    "1": {
+      "precision": 0.7806354009077155,
+      "recall": 0.9502762430939227,
+      "f1": 0.8571428571428572,
+      "support": 1629,
+      "tp": 1548,
+      "fp": 435,
+      "fn": 81
+    },
+    "2": {
+      "precision": 0.9766031195840554,
+      "recall": 0.7215108834827144,
+      "f1": 0.8298969072164948,
+      "support": 1562,
+      "tp": 1127,
+      "fp": 27,
+      "fn": 435
+    }
+  },
+  "macro_avg": {
+    "precision": 0.9148982743951938,
+    "recall": 0.8901105075003152,
+    "f1": 0.8933363868515182,
+    "support": 8000
+  },
+  "weighted_avg": {
+    "precision": 0.943223312565437,
+    "recall": 0.934625,
+    "f1": 0.9334718137075761,
+    "support": 8000
+  },
+  "confusion_matrix": [
+    [
+      4802,
+      0,
+      7
+    ],
+    [
+      61,
+      1548,
+      20
+    ],
+    [
+      0,
+      435,
+      1127
+    ]
+  ]
+}

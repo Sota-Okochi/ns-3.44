@@ -3,7 +3,7 @@
 		"appType": "ブラウザ",
 		"indicator": "tp",
 		"needRTT": 0,
-		"needTP": 5,
+		"needTP": 3.0,
 		"incRTT": 5.0,
 		"incTP": 1.0,
 		"useApp": {
@@ -15,7 +15,7 @@
 		"appType": "動画",
 		"indicator": "tp",
 		"needRTT": 0,
-		"needTP": 10,
+		"needTP": 8.0,
 		"incRTT": 5.0,
 		"incTP": 1.0,
 		"useApp": {
@@ -26,7 +26,7 @@
 	{
 		"appType": "通話",
 		"indicator": "rtt",
-		"needRTT": 200,
+		"needRTT": 100.0,
 		"needTP": 0,
 		"incRTT": 5.0,
 		"incTP": 1.0,
@@ -38,7 +38,7 @@
 	{
 		"appType": "配信",
 		"indicator": "rtt",
-		"needRTT": 50,
+		"needRTT": 40.0,
 		"needTP": 0,
 		"incRTT": 5.0,
 		"incTP": 1.0,

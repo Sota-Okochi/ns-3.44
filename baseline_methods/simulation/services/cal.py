@@ -22,6 +22,13 @@ class termApp:
     needRTT: float
     needTP: float
 
+
+def app_config_index(appNum: int) -> int:
+    # ns-3 側の app_type は 1..4。既存の 0-based 入力にも後方互換で対応する。
+    if 1 <= appNum <= len(confApp):
+        return appNum - 1
+    return appNum
+
 # 必要RTT,TPの算出
 
 
@@ -31,12 +38,13 @@ def calAppNeed(appNum: int):
     app.needRTT = 0
     app.needTP = 0
 
-    if confApp[appNum]["indicator"] == 'tp':
+    app_index = app_config_index(appNum)
+    if confApp[app_index]["indicator"] == 'tp':
         app.indicator = 'tp'
-        app.needTP = confApp[appNum]["needTP"]
+        app.needTP = confApp[app_index]["needTP"]
     else:
         app.indicator = 'rtt'
-        app.needRTT = confApp[appNum]["needRTT"]
+        app.needRTT = confApp[app_index]["needRTT"]
 
     return app
 
