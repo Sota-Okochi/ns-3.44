@@ -51,48 +51,26 @@ def calAppNeed(appNum: int):
 
 # 各基地局の接続時RTT,TPの計算（APインスタンスに設定）
 def calLink(terms: List[Term], aps: List[Ap], sec: float):
-    init_rtt = [30.0, 38.0, 42.0]
-    link_rtt = copy.copy(init_rtt)
-    init_tp = [65500 * 2 * 8 / init_rtt[0] / 1024, 65500 * 2 *
-               8 / init_rtt[1] / 1024, 65500 * 2 * 8 / init_rtt[2] / 1024]
-    link_tp = copy.copy(init_tp)
-
-    # TPの通信品質劣化用
-    erlang_mu = [50, 50, 20]
-    erlang_n = [10, 5, 3]
-
-    def erlang_b(lambda_val, mu, n):
-        rho = lambda_val / mu
-        B = (rho ** n / math.factorial(n)) / \
-            sum((rho ** k) / math.factorial(k) for k in range(n + 1))
-        return B
-
-    # RTTの通信品質劣化用
-    respo_mu = [1/init_rtt[0]*1000, 1/init_rtt[1]*1000, 1/init_rtt[2]*1000]
-
-    def response_time_mm1(lambda_val, mu):
-        if lambda_val >= mu - 1.9:
-            lambda_val = mu - 1 + (lambda_val-mu)*0.01
-        return 1 / (mu - lambda_val)
     apTermNum = sumTermAp(terms, aps)
-    for i in range(len(aps)):
-        # print(i)
-        # TP
-        erlang = erlang_b(apTermNum[i]*100, erlang_mu[i], erlang_n[i])
-        link_tp[i] = init_tp[i]*(1-erlang)
-        # RTT
-        link_rtt[i] = response_time_mm1(apTermNum[i], respo_mu[i])*1000
-        # print(link_rtt)
 
-    for (index, ap) in enumerate(aps):
-        if link_tp[index] <= 0:
-            link_tp[index] = 0.01  # TP限界値補正（0で割ることを防ぐため）
-            # console.log('link_tp_AP' + index + ': ' + link_tp[index])
-            # console.log('link_rtt_AP' + index + ': ' + link_rtt[index])
-        ap.setRtt(link_rtt[index])
-        ap.setTp(link_tp[index])
-    # print(link_rtt[index])
-    # print(link_tp[index])
+    # ns-3 の OUTPUT/80 実測ログに近づけるための簡易 AP 別品質モデル。
+    # 旧モデルは AP0/AP2 の混雑時 RTT/TP 劣化が過大で、教師データが
+    # ns-3 実環境から乖離しやすかったため、線形 RTT + 緩やかな TP 劣化にする。
+    base_rtt = [90.0, 80.0, 60.0]
+    base_tp = [3.0, 2.2, 0.8]
+
+    rtt_alpha = [0.15, 0.15, 0.10]
+    tp_alpha = [0.015, 0.015, 0.010]
+
+    for i in range(len(aps)):
+        n = apTermNum[i]
+
+        link_rtt = base_rtt[i] + rtt_alpha[i] * n
+        link_tp = base_tp[i] / (1.0 + tp_alpha[i] * n)
+
+        ap = aps[i]
+        ap.setRtt(link_rtt)
+        ap.setTp(max(link_tp, 0.01))  # TP限界値補正（0で割ることを防ぐため）
 
 
 # 端末満足度算出
