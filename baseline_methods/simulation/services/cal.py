@@ -53,22 +53,25 @@ def calAppNeed(appNum: int):
 def calLink(terms: List[Term], aps: List[Ap], sec: float):
     apTermNum = sumTermAp(terms, aps)
 
-    # ns-3 の OUTPUT/80 実測ログに近づけるための簡易 AP 別品質モデル。
-    # 旧モデルは AP0/AP2 の混雑時 RTT/TP 劣化が過大で、教師データが
-    # ns-3 実環境から乖離しやすかったため、線形 RTT + 緩やかな TP 劣化にする。
-    base_rtt = [90.0, 80.0, 60.0]
-    base_tp = [3.0, 2.2, 0.8]
+    # ns-3 OUTPUT/80 の観測範囲から大きく外れないようにした簡易 AP 別品質モデル。
+    # 目的は ns-3 の物理挙動の完全再現ではなく、logistic 学習時の TP/RTT 特徴量が
+    # ns-3 実行時の範囲外になってロジットが暴走することを防ぐこと。
+    base_rtt = [80.0, 75.0, 50.0]
+    base_tp = [7.0, 5.0, 3.5]
 
-    rtt_alpha = [0.15, 0.15, 0.10]
-    tp_alpha = [0.015, 0.015, 0.010]
+    rtt_alpha = [0.65, 0.25, 0.40]
+    tp_alpha = [0.020, 0.025, 0.030]
 
     for i in range(len(aps)):
         n = apTermNum[i]
 
-        link_rtt = base_rtt[i] + rtt_alpha[i] * n
-        link_tp = base_tp[i] / (1.0 + tp_alpha[i] * n)
-
         ap = aps[i]
+        link_rtt = base_rtt[i] + rtt_alpha[i] * n + getattr(ap, "rttOffset", 0.0)
+        link_tp = (
+            base_tp[i] /
+            (1.0 + tp_alpha[i] * n) *
+            getattr(ap, "tpScale", 1.0)
+        )
         ap.setRtt(link_rtt)
         ap.setTp(max(link_tp, 0.01))  # TP限界値補正（0で割ることを防ぐため）
 
