@@ -52,7 +52,7 @@ def parse_args() -> argparse.Namespace:
         "--seeds",
         type=int,
         nargs="+",
-        default=[1020, 1021, 1022, 1023],
+        default=[1032, 1033, 1034, 1035],
         help="実行する rngSeed のリスト。default: 1 2 3",
     )
     parser.add_argument(
