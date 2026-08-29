@@ -25,10 +25,10 @@
 
 処理内容:
 
-- data/setting.json の rngSeed を自動更新
+- seed は data/setting.json を書き換えず、ns-3 の --rngSeed で渡す
 - ./ns3 run "master ..." を順番に実行
 - online_dqn の場合だけ Python DQN server を起動
-- 終了時に data/setting.json を元の内容へ復元
+- --port auto の場合は run ごとに空き port を自動選択
 """
 
 from __future__ import annotations
@@ -76,6 +76,28 @@ def update_rng_seed(setting_path: Path, seed: int) -> None:
     setting = load_json(setting_path)
     setting["rngSeed"] = seed
     write_json(setting_path, setting)
+
+
+def find_free_port(host: str) -> int:
+    """Return an available TCP port for the online DQN server.
+
+    The socket is released before the server starts, so this is not a strict
+    reservation.  It is still sufficient for avoiding common manual parallel
+    run conflicts when each wrapper process asks for its own port.
+    """
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind((host, 0))
+        return int(s.getsockname()[1])
+
+
+def resolve_port(host: str, port_arg: str, no_server: bool) -> int:
+    if port_arg == "auto":
+        if no_server:
+            raise ValueError("--port auto cannot be used with --no-server because no server is started by this wrapper")
+        port = find_free_port(host)
+        print(f"online DQN server port auto-selected: {port}", flush=True)
+        return port
+    return int(port_arg)
 
 
 def wait_for_server(host: str, port: int, proc: subprocess.Popen, timeout_sec: float = 20.0) -> None:
@@ -158,6 +180,7 @@ def stop_online_dqn_server(proc: subprocess.Popen | None) -> None:
 
 def ns3_program(
     method: str,
+    seed: int,
     max_switches: int,
     host: str,
     port: int,
@@ -171,6 +194,7 @@ def ns3_program(
 ) -> str:
     parts = [
         f"master --method={method}",
+        f"--rngSeed={seed}",
         f"--maxSwitches={max_switches}",
         f"--kScheduleType={k_schedule_type}",
         f"--kMin={k_min}",
@@ -192,6 +216,7 @@ def ns3_program(
 
 def ns3_command(
     method: str,
+    seed: int,
     max_switches: int,
     host: str,
     port: int,
@@ -208,6 +233,7 @@ def ns3_command(
         "run",
         ns3_program(
             method,
+            seed,
             max_switches,
             host,
             port,
@@ -222,10 +248,11 @@ def ns3_command(
     ]
 
 
-def printable_command(job: RunJob, args: argparse.Namespace) -> str:
+def printable_command(job: RunJob, args: argparse.Namespace, port: int | str | None = None) -> str:
+    display_port = args.port if port is None else port
     return (
         f"seed{job.seed}: ./ns3 run \""
-        f"{ns3_program(job.method, job.max_switches, args.host, args.port, args.drlTimeoutMs, args.onlineDqnSafetyThreshold, args.kScheduleType, args.kMin, args.kDecayRate, args.rewardSwitchPenaltyAlpha, args.rewardDegradedPenaltyBeta)}"
+        f"{ns3_program(job.method, job.seed, job.max_switches, args.host, display_port, args.drlTimeoutMs, args.onlineDqnSafetyThreshold, args.kScheduleType, args.kMin, args.kDecayRate, args.rewardSwitchPenaltyAlpha, args.rewardDegradedPenaltyBeta)}"
         f"\""
     )
 
@@ -262,7 +289,11 @@ def parse_args() -> argparse.Namespace:
         help="custom preset の 1 cycle あたり最大切り替え数。default: 1",
     )
     parser.add_argument("--host", default=DEFAULT_HOST, help="online DQN server host")
-    parser.add_argument("--port", type=int, default=DEFAULT_PORT, help="online DQN server port")
+    parser.add_argument(
+        "--port",
+        default=str(DEFAULT_PORT),
+        help="online DQN server port, or 'auto' to pick a free port per run. default: 50051",
+    )
     parser.add_argument(
         "--drlTimeoutMs",
         type=int,
@@ -293,7 +324,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--no-restore-setting",
         action="store_true",
-        help="実行後に data/setting.json を復元しない",
+        help="互換性のため残しています。現在は setting.json を書き換えないため効果はありません。",
     )
     parser.add_argument(
         "--dry-run",
@@ -303,22 +334,22 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def run_job(root: Path, setting_path: Path, job: RunJob, index: int, total: int, args: argparse.Namespace) -> int:
+def run_job(root: Path, job: RunJob, index: int, total: int, args: argparse.Namespace) -> int:
     server_proc: subprocess.Popen | None = None
     try:
         print("=" * 80, flush=True)
         print(
-            f"[{index}/{total}] method={job.method} maxSwitches={job.max_switches} rngSeed={job.seed} を設定します: {setting_path}",
+            f"[{index}/{total}] method={job.method} maxSwitches={job.max_switches} rngSeed={job.seed}",
             flush=True,
         )
-        update_rng_seed(setting_path, job.seed)
+        port = resolve_port(args.host, args.port, args.no_server)
 
         if job.method == "online_dqn" and not args.no_server:
             server_proc = start_online_dqn_server(
                 root,
                 job.seed,
                 args.host,
-                args.port,
+                port,
                 args.checkpoint,
                 args.checkpoint_out,
                 args.epsilon,
@@ -330,9 +361,10 @@ def run_job(root: Path, setting_path: Path, job: RunJob, index: int, total: int,
 
         cmd = ns3_command(
             job.method,
+            job.seed,
             job.max_switches,
             args.host,
-            args.port,
+            port,
             args.drlTimeoutMs,
             args.onlineDqnSafetyThreshold,
             args.kScheduleType,
@@ -343,7 +375,7 @@ def run_job(root: Path, setting_path: Path, job: RunJob, index: int, total: int,
         )
         print(
             f"[{index}/{total}] 実行開始: "
-            f"{printable_command(job, args)}",
+            f"{printable_command(job, args, port)}",
             flush=True,
         )
         env = os.environ.copy()
@@ -376,27 +408,22 @@ def main() -> int:
         print(f"ERROR: setting.json が見つかりません: {setting_path}", file=sys.stderr)
         return 1
 
-    original_setting = load_json(setting_path)
     jobs = build_pretrain_k1_jobs() if args.preset == "pretrain-k1" else build_custom_jobs(args)
 
     print("これから実行するコマンド一覧:")
     for i, job in enumerate(jobs, start=1):
         print(f"  {i}. {printable_command(job, args)}")
     print(f"合計 {len(jobs)} runs", flush=True)
+    print("注意: rngSeed は --rngSeed で渡すため data/setting.json は書き換えません。", flush=True)
 
     if args.dry_run:
         print("dry-run のため実行しません。", flush=True)
         return 0
 
-    try:
-        for i, job in enumerate(jobs, start=1):
-            code = run_job(root, setting_path, job, i, len(jobs), args)
-            if code != 0:
-                return code
-    finally:
-        if not args.no_restore_setting:
-            write_json(setting_path, original_setting)
-            print(f"data/setting.json を実行前の内容に復元しました: {setting_path}", flush=True)
+    for i, job in enumerate(jobs, start=1):
+        code = run_job(root, job, i, len(jobs), args)
+        if code != 0:
+            return code
 
     print("=" * 80, flush=True)
     print("全シミュレーションが正常終了しました。", flush=True)

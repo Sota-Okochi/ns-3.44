@@ -297,8 +297,12 @@ NetSim::~NetSim(){
 void NetSim::Init(int argc, char *argv[]){
     NS_LOG_FUNCTION(this);
 
+    uint32_t cliRngSeed = 0;
     CommandLine cmd;
     cmd.AddValue("method", "Assignment method: no_switch, random, all5g, rulebase, greedy, multi_greedy, multi_offload, logistic, dqn, multi_dqn, online_dqn", m_assignmentMethod);
+    cmd.AddValue("rngSeed",
+                 "Override rngSeed from data/setting.json when non-zero. This avoids editing setting.json during parallel runs.",
+                 cliRngSeed);
     cmd.AddValue("dqnActionCsv",
                  "DQN/Multi-DQN action CSV path used when --method=dqn or --method=multi_dqn",
                  m_dqnActionCsvPath);
@@ -355,7 +359,14 @@ void NetSim::Init(int argc, char *argv[]){
     {
         return;
     }
-    std::cout << "シード値(setting.json/\"rngSeed\"): " << setting.rngSeed << std::endl;
+    m_rngSeed = (cliRngSeed > 0) ? cliRngSeed : setting.rngSeed;
+    std::cout << "シード値: " << m_rngSeed
+              << " (setting.json/\"rngSeed\"=" << setting.rngSeed;
+    if (cliRngSeed > 0)
+    {
+        std::cout << ", command line override --rngSeed=" << cliRngSeed;
+    }
+    std::cout << ")" << std::endl;
     APnum = static_cast<uint32_t>(setting.baseStations);
     termNum = static_cast<uint32_t>(setting.terminals);
     m_warmupBeforeCycle = Seconds(setting.warmupBeforeCycleSec);
@@ -397,7 +408,6 @@ void NetSim::Init(int argc, char *argv[]){
     m_browserRequestBytes    = static_cast<uint32_t>(setting.browserRequestSize);
     m_cycleEndGuard              = Seconds(setting.cycleEndMarginSec);
     m_browserPostHandoverDelay   = Seconds(setting.browserPostHandoverDelaySec);
-    m_rngSeed = setting.rngSeed;
     RngSeedManager::SetSeed(m_rngSeed);
     RngSeedManager::SetRun(1);
 
