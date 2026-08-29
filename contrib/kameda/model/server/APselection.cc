@@ -2765,9 +2765,15 @@ void APselection::setTerminalTp(int termIdx, double tpBps)
 void
 APselection::WriteMeasuredRewardLogRow(double hAfterMeasured)
 {
-    if ((m_assignmentMethod != "multi_greedy" &&
-         m_assignmentMethod != "multi_offload" &&
-         m_assignmentMethod != "online_dqn") ||
+    const bool supportsMeasuredRewardLog =
+        (m_assignmentMethod == "random" ||
+         m_assignmentMethod == "all5g" ||
+         m_assignmentMethod == "rulebase" ||
+         m_assignmentMethod == "logistic" ||
+         m_assignmentMethod == "multi_greedy" ||
+         m_assignmentMethod == "multi_offload" ||
+         m_assignmentMethod == "online_dqn");
+    if (!supportsMeasuredRewardLog ||
         m_rewardLogPath.empty() ||
         !m_pendingMeasuredReward)
     {
