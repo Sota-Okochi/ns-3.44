@@ -1,0 +1,5 @@
+seed,method,max_switches,action_cycle_id,measured_cycle_id,h_before,h_after_estimated,estimated_reward,h_after_measured,measured_reward,cycle_reward,switch_count,num_degraded_users
+1003,online_dqn,40,1,2,0.339591,0.339791,0.000199,0.318099,-0.021492,-0.031092,0,48
+1003,online_dqn,40,2,3,0.318099,0.318179,0.000080,0.314402,-0.003697,-0.012897,0,46
+1003,online_dqn,40,3,4,0.314402,0.314471,0.000069,0.316112,0.001710,-0.005690,0,37
+1003,online_dqn,40,4,5,0.316112,0.316318,0.000206,0.315915,-0.000198,-0.007998,0,39
