@@ -117,8 +117,9 @@ def wait_for_server(host: str, port: int, proc: subprocess.Popen, timeout_sec: f
     raise TimeoutError(f"online DQN server did not start on {host}:{port}: {last_error}")
 
 
-def start_online_dqn_server(
+def start_dqn_server(
     root: Path,
+    method: str,
     seed: int,
     host: str,
     port: int,
@@ -133,11 +134,13 @@ def start_online_dqn_server(
     if checkpoint_out:
         checkpoint_out_path = Path(checkpoint_out)
     else:
-        checkpoint_out_path = root / "models" / f"online_dqn_seed{seed}.pt"
+        default_name = "centralized_dqn" if method == "centralized_dqn" else "online_dqn"
+        checkpoint_out_path = root / "models" / f"{default_name}_seed{seed}.pt"
 
+    server_script = "centralized_server.py" if method == "centralized_dqn" else "server.py"
     cmd = [
         sys.executable,
-        str(root / "rl" / "server.py"),
+        str(root / "rl" / server_script),
         "--host",
         host,
         "--port",
@@ -160,7 +163,7 @@ def start_online_dqn_server(
     if eval_only:
         cmd.append("--eval-only")
 
-    print(f"online DQN server 起動: {' '.join(cmd)}", flush=True)
+    print(f"DQN server 起動: {' '.join(cmd)}", flush=True)
     proc = subprocess.Popen(cmd, cwd=root)
     wait_for_server(host, port, proc)
     return proc
@@ -202,7 +205,7 @@ def ns3_program(
         f"--rewardSwitchPenaltyAlpha={reward_switch_penalty_alpha}",
         f"--rewardDegradedPenaltyBeta={reward_degraded_penalty_beta}",
     ]
-    if method == "online_dqn":
+    if method in {"online_dqn", "centralized_dqn"}:
         parts.extend(
             [
                 f"--drlServerHost={host}",
@@ -309,9 +312,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--kScheduleType", default="fixed", choices=["fixed", "linear_decay"], help="切替上限スケジュール。default: fixed")
     parser.add_argument("--kMin", type=int, default=1, help="linear_decay の最小切替上限。default: 1")
     parser.add_argument("--kDecayRate", type=int, default=1, help="linear_decay の cycle ごとの減衰量。default: 1")
-    parser.add_argument("--action-dim", type=int, default=3, help="online_dqn server の action 次元。STOPありは4。default: 3")
+    parser.add_argument("--action-dim", type=int, default=0, help="DQN server の action 次元。0なら method に応じて online_dqn=3, centralized_dqn=240。")
     parser.add_argument("--rewardSwitchPenaltyAlpha", type=float, default=0.001, help="cycle reward の switch_count ペナルティ係数")
-    parser.add_argument("--rewardDegradedPenaltyBeta", type=float, default=0.0002, help="cycle reward の num_degraded_users ペナルティ係数")
+    parser.add_argument("--rewardDegradedPenaltyBeta", type=float, default=0.001, help="cycle reward の num_degraded_users ペナルティ係数")
     parser.add_argument(
         "--no-server",
         action="store_true",
@@ -344,9 +347,14 @@ def run_job(root: Path, job: RunJob, index: int, total: int, args: argparse.Name
         )
         port = resolve_port(args.host, args.port, args.no_server)
 
-        if job.method == "online_dqn" and not args.no_server:
-            server_proc = start_online_dqn_server(
+        effective_action_dim = args.action_dim
+        if effective_action_dim <= 0:
+            effective_action_dim = 240 if job.method == "centralized_dqn" else 3
+
+        if job.method in {"online_dqn", "centralized_dqn"} and not args.no_server:
+            server_proc = start_dqn_server(
                 root,
+                job.method,
                 job.seed,
                 args.host,
                 port,
@@ -354,7 +362,7 @@ def run_job(root: Path, job: RunJob, index: int, total: int, args: argparse.Name
                 args.checkpoint_out,
                 args.epsilon,
                 args.eval_only,
-                args.action_dim,
+                effective_action_dim,
                 args.rewardSwitchPenaltyAlpha,
                 args.rewardDegradedPenaltyBeta,
             )

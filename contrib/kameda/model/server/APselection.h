@@ -71,7 +71,7 @@ struct ApSelectionInput {
     uint32_t kDecayRate = 1;
     double onlineDqnSafetyThreshold = 0.0;
     double rewardSwitchPenaltyAlpha = 0.001;
-    double rewardDegradedPenaltyBeta = 0.0002;
+    double rewardDegradedPenaltyBeta = 0.001;
     double warmupBeforeCycleSec = 0.0;
     double cycleStartOffsetSec = 0.0;
     std::string outputDir = "OUTPUT/";
@@ -147,6 +147,7 @@ private:
     void dqn_assignment(); // DQN action CSVによる割り当て
     void multi_dqn_assignment(); // Multi-DQN action CSVによる複数割り当て
     void online_dqn_assignment(); // Online DQN TCP JSON server による複数割り当て
+    void centralized_dqn_assignment(); // Centralized DQN TCP JSON server による全体状態ベース割り当て
     std::string BuildDqnStateJson(int terminalIdx,
                                   int currentBsId,
                                   uint32_t stepId,
@@ -161,6 +162,18 @@ private:
                                 int& selectedBsId,
                                 std::vector<double>& qValues,
                                 std::string& errorMessage) const;
+    std::string BuildCentralizedDqnStateJson(const std::vector<int>& assignment,
+                                             uint32_t stepId,
+                                             double harmonicMean,
+                                             uint32_t appliedSwitchesInCycle,
+                                             const std::set<int>& bannedActionIds,
+                                             std::vector<int>& validActionIds);
+    bool SendCentralizedStateReceiveAction(const std::string& requestJson,
+                                           int& actionId,
+                                           int& targetUeId,
+                                           int& selectedBsId,
+                                           std::vector<double>& qValues,
+                                           std::string& errorMessage) const;
     double calculate_harmonic_mean_for_assignment(const std::vector<int>& assignment);
     double estimate_satisfaction_for_assignment(int terminal_idx,
                                                 int ap_idx,
@@ -229,7 +242,7 @@ private:
     uint32_t m_lastNumDegradedUsersMeasured = 0; // 前cycle行動に対する実測悪化端末数
     uint32_t m_lastMeasuredRewardSwitchCount = 0; // 前cycle行動の切替数
     double m_rewardSwitchPenaltyAlpha = 0.001;
-    double m_rewardDegradedPenaltyBeta = 0.0002;
+    double m_rewardDegradedPenaltyBeta = 0.001;
     double m_warmupBeforeCycleSec = 0.0;
     double m_cycleStartOffsetSec = 0.0;
     bool m_pendingMeasuredReward = false;      // 次cycleで実測rewardを書ける行動があるか

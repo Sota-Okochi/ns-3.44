@@ -257,7 +257,7 @@ NetSim::NetSim()
     m_kMin = 1;
     m_kDecayRate = 1;
     m_rewardSwitchPenaltyAlpha = 0.001;
-    m_rewardDegradedPenaltyBeta = 0.0002;
+    m_rewardDegradedPenaltyBeta = 0.001;
     m_onlineDqnSafetyThreshold = 0.0;
     m_rngSeed = 1;
     m_outputDir = OUTPUT_ROOT_DIR;
@@ -348,6 +348,7 @@ void NetSim::Init(int argc, char *argv[]){
         m_assignmentMethod != "logistic" && m_assignmentMethod != "dqn" &&
         m_assignmentMethod != "multi_dqn" &&
         m_assignmentMethod != "online_dqn" &&
+        m_assignmentMethod != "centralized_dqn" &&
         m_assignmentMethod != "ml")
     {
         NS_FATAL_ERROR("Unknown assignment method: " << m_assignmentMethod);
@@ -380,7 +381,8 @@ void NetSim::Init(int argc, char *argv[]){
     std::string outputMethodDir = m_assignmentMethod;
     if (m_assignmentMethod == "multi_greedy" ||
         m_assignmentMethod == "multi_offload" ||
-        m_assignmentMethod == "online_dqn")
+        m_assignmentMethod == "online_dqn" ||
+        m_assignmentMethod == "centralized_dqn")
     {
         outputMethodDir += "_K" + std::to_string(m_maxSwitches);
         if (m_assignmentMethod == "online_dqn" && m_kScheduleType != "fixed")
