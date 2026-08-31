@@ -286,6 +286,7 @@ void APselection::init(const ApSelectionInput& input){
     m_masterLogInitialized = false;
     m_decisionLogInitialized = false;
     m_rewardLogInitialized = false;
+    m_centralizedTeacherLogInitialized = false;
     m_previousMeasuredH = 0.0;
     m_hasPreviousMeasuredH = false;
     m_lastMeasuredRewardFromPrevious = 0.0;
@@ -317,11 +318,18 @@ void APselection::init(const ApSelectionInput& input){
                             dateBuf + ".csv";
         m_rewardLogPath = m_outputDir + "measured_reward_log_" + std::to_string(m_rngSeed) + "_" +
                           dateBuf + ".csv";
+        m_centralizedTeacherLogPath = m_outputDir + "centralized_teacher_log_" +
+                                      std::to_string(m_rngSeed) + "_" + dateBuf + ".csv";
     }
     std::cout << "ログパス: " << m_masterLogPath << std::endl;
     if (m_assignmentMethod == "multi_dqn")
     {
         std::cout << "意思決定ログパス: " << m_decisionLogPath << std::endl;
+    }
+    if (m_assignmentMethod == "logistic")
+    {
+        std::cout << "centralized DQN教師ログパス: " << m_centralizedTeacherLogPath << std::endl;
+        std::cout << "実測rewardログパス: " << m_rewardLogPath << std::endl;
     }
     if (m_assignmentMethod == "multi_greedy" || m_assignmentMethod == "multi_offload")
     {
@@ -2540,6 +2548,7 @@ void APselection::KeepCurrentAssignment(const std::string& reason)
     const double hBefore =
         m_cycleHarmonicMeans.empty() ? calculate_harmonic_mean_for_assignment(initial_AP)
                                      : m_cycleHarmonicMeans.back();
+    WriteCentralizedTeacherLogRows(initial_AP, m_lastAssignment, hBefore, hBefore);
     PrepareDecisionLogState(initial_AP, m_lastAssignment, hBefore, hBefore);
     if (m_handoverCallback)
     {
@@ -2640,7 +2649,9 @@ void APselection::logistic_assignment()
     const double hBefore =
         m_cycleHarmonicMeans.empty() ? calculate_harmonic_mean_for_assignment(initial_AP)
                                      : m_cycleHarmonicMeans.back();
-    PrepareDecisionLogState(initial_AP, assignment, hBefore, hBefore);
+    const double hAfterEstimated = calculate_harmonic_mean_for_assignment(assignment);
+    WriteCentralizedTeacherLogRows(initial_AP, assignment, hBefore, hAfterEstimated);
+    PrepareDecisionLogState(initial_AP, assignment, hBefore, hAfterEstimated);
     if (m_handoverCallback)
     {
         m_handoverCallback(assignment);
@@ -2760,6 +2771,175 @@ void APselection::setTerminalTp(int termIdx, double tpBps)
     //デバッグ用（各端末のTPの表示）
     // std::cout << "Terminal TP stored: term=" << termIdx
     //           << ", TP=" << (tpBps * APConstants::BPS_TO_MBPS) << "Mbps" << std::endl;
+}
+
+void
+APselection::WriteCentralizedTeacherLogRows(const std::vector<int>& assignmentBefore,
+                                            const std::vector<int>& assignmentAfter,
+                                            double hBeforeCycleEstimated,
+                                            double hAfterFinalEstimated)
+{
+    if (m_assignmentMethod != "logistic" || m_centralizedTeacherLogPath.empty())
+    {
+        return;
+    }
+
+    const int evalTerms = std::min({terms,
+                                    static_cast<int>(assignmentBefore.size()),
+                                    static_cast<int>(assignmentAfter.size())});
+    if (evalTerms <= 0 || aps <= 0)
+    {
+        return;
+    }
+
+    if (!m_centralizedTeacherLogInitialized)
+    {
+        std::ofstream headerOfs(m_centralizedTeacherLogPath, std::ios::trunc);
+        headerOfs << "seed,"
+                  << "method,"
+                  << "teacher_source,"
+                  << "cycle_id,"
+                  << "step_id,"
+                  << "action_id,"
+                  << "target_ue_id,"
+                  << "previous_bs_id,"
+                  << "selected_bs_id,"
+                  << "applied,"
+                  << "skip_reason,"
+                  << "h_before_cycle_estimated,"
+                  << "h_after_final_estimated,"
+                  << "h_before_step_estimated,"
+                  << "h_after_step_estimated,"
+                  << "estimated_marginal_delta,"
+                  << "target_satisfaction_before_estimated,"
+                  << "target_satisfaction_after_estimated,"
+                  << "target_satisfaction_delta_estimated,"
+                  << "switch_count_in_cycle,"
+                  << "num_remaining_switches_before,"
+                  << "num_users_ap0,"
+                  << "num_users_ap1,"
+                  << "num_users_ap2,"
+                  << "monitor_rtt_ap0,"
+                  << "monitor_rtt_ap1,"
+                  << "monitor_rtt_ap2" << std::endl;
+        m_centralizedTeacherLogInitialized = true;
+    }
+
+    uint32_t switchCountInCycle = 0;
+    for (int i = 0; i < evalTerms; ++i)
+    {
+        if (assignmentBefore[i] != assignmentAfter[i])
+        {
+            ++switchCountInCycle;
+        }
+    }
+    if (switchCountInCycle == 0)
+    {
+        return;
+    }
+
+    auto usersAt = [](const std::vector<int>& usersPerAp, int idx) -> int {
+        return (idx >= 0 && idx < static_cast<int>(usersPerAp.size())) ? usersPerAp[idx] : 0;
+    };
+    auto rttAt = [this](int idx) -> double {
+        return (idx >= 0 && idx < static_cast<int>(m_has_rtt.size()) && m_has_rtt[idx])
+                   ? m_monitor_rtt[idx]
+                   : 0.0;
+    };
+
+    std::vector<int> stepAssignment = assignmentBefore;
+    std::ofstream ofs(m_centralizedTeacherLogPath, std::ios::app);
+    ofs << std::fixed << std::setprecision(6);
+
+    for (uint32_t stepId = 0; stepId < switchCountInCycle; ++stepId)
+    {
+        const double hBeforeStepEstimated = calculate_harmonic_mean_for_assignment(stepAssignment);
+        int bestTermIdx = -1;
+        double bestHAfterStepEstimated = -std::numeric_limits<double>::infinity();
+        double bestMarginalDelta = -std::numeric_limits<double>::infinity();
+
+        // logistic の一括割当を centralized DQN 用の逐次 action 列へ変換する。
+        // 各 step では「まだ logistic 最終割当と異なる UE」のうち，その 1 手で推定Hを
+        // 最も改善する UE を teacher action とする。これにより順序が決定的になり，
+        // BC データセットの再現性を保てる。
+        for (int i = 0; i < evalTerms; ++i)
+        {
+            if (stepAssignment[i] == assignmentAfter[i])
+            {
+                continue;
+            }
+            const int selectedApIdx = assignmentAfter[i] - 1;
+            if (selectedApIdx < 0 || selectedApIdx >= aps)
+            {
+                continue;
+            }
+            std::vector<int> candidateAssignment = stepAssignment;
+            candidateAssignment[i] = assignmentAfter[i];
+            const double hAfterStepEstimated = calculate_harmonic_mean_for_assignment(candidateAssignment);
+            const double marginalDelta = hAfterStepEstimated - hBeforeStepEstimated;
+            if (bestTermIdx < 0 ||
+                marginalDelta > bestMarginalDelta + 1e-12 ||
+                (std::abs(marginalDelta - bestMarginalDelta) <= 1e-12 && i < bestTermIdx))
+            {
+                bestTermIdx = i;
+                bestHAfterStepEstimated = hAfterStepEstimated;
+                bestMarginalDelta = marginalDelta;
+            }
+        }
+
+        if (bestTermIdx < 0)
+        {
+            break;
+        }
+
+        const int previousBsId = stepAssignment[bestTermIdx] - 1;
+        const int selectedBsId = assignmentAfter[bestTermIdx] - 1;
+        if (previousBsId < 0 || previousBsId >= aps || selectedBsId < 0 || selectedBsId >= aps)
+        {
+            break;
+        }
+
+        const double targetSBefore =
+            estimate_satisfaction_for_assignment(bestTermIdx, previousBsId, stepAssignment);
+        std::vector<int> candidateAssignment = stepAssignment;
+        candidateAssignment[bestTermIdx] = assignmentAfter[bestTermIdx];
+        const double targetSAfter =
+            estimate_satisfaction_for_assignment(bestTermIdx, selectedBsId, candidateAssignment);
+        const std::vector<int> usersPerAp = count_users_per_ap(stepAssignment);
+        const uint32_t remainingBefore = switchCountInCycle - stepId;
+        const int actionId = bestTermIdx * aps + selectedBsId;
+
+        ofs << m_rngSeed << ","
+            << m_assignmentMethod << ","
+            << "logistic,"
+            << m_cycleIndex << ","
+            << stepId << ","
+            << actionId << ","
+            << (bestTermIdx + 1) << ","
+            << previousBsId << ","
+            << selectedBsId << ","
+            << 1 << ","
+            << ""
+            << ","
+            << hBeforeCycleEstimated << ","
+            << hAfterFinalEstimated << ","
+            << hBeforeStepEstimated << ","
+            << bestHAfterStepEstimated << ","
+            << bestMarginalDelta << ","
+            << targetSBefore << ","
+            << targetSAfter << ","
+            << (targetSAfter - targetSBefore) << ","
+            << switchCountInCycle << ","
+            << remainingBefore << ","
+            << usersAt(usersPerAp, 0) << ","
+            << usersAt(usersPerAp, 1) << ","
+            << usersAt(usersPerAp, 2) << ","
+            << rttAt(0) << ","
+            << rttAt(1) << ","
+            << rttAt(2) << std::endl;
+
+        stepAssignment[bestTermIdx] = assignmentAfter[bestTermIdx];
+    }
 }
 
 void

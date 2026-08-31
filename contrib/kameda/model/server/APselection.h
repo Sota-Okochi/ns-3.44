@@ -183,6 +183,10 @@ private:
     void RecordHarmonicMean(double value);
     void WriteMasterLog();
     void WriteMeasuredRewardLogRow(double hAfterMeasured);
+    void WriteCentralizedTeacherLogRows(const std::vector<int>& assignmentBefore,
+                                        const std::vector<int>& assignmentAfter,
+                                        double hBeforeCycleEstimated,
+                                        double hAfterFinalEstimated);
     void WriteDecisionLogRow(const DqnAction& action,
                              int previousBsId,
                              bool applied,
@@ -248,9 +252,11 @@ private:
     bool m_masterLogInitialized = false;       // master_log.csv ヘッダー書き込み済みフラグ
     bool m_decisionLogInitialized = false;     // decision_log.csv ヘッダー書き込み済みフラグ
     bool m_rewardLogInitialized = false;       // measured_reward_log.csv ヘッダー書き込み済みフラグ
+    bool m_centralizedTeacherLogInitialized = false; // centralized teacher log ヘッダー書き込み済みフラグ
     std::string m_masterLogPath;               // 実行ごとのmaster_logファイルパス
     std::string m_decisionLogPath;             // 実行ごとのdecision_logファイルパス
     std::string m_rewardLogPath;               // 実行ごとの実測rewardログファイルパス
+    std::string m_centralizedTeacherLogPath;    // centralized DQN BC 用 teacher action ログ
     std::string m_logisticModelPath;            // 学習済みロジスティック回帰モデル
     bool m_logisticModelLoaded = false;
     std::vector<int> m_logisticClasses;
