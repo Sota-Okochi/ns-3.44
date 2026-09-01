@@ -1,0 +1,5 @@
+seed,method,max_switches,action_cycle_id,measured_cycle_id,h_before,h_after_estimated,estimated_reward,h_after_measured,measured_reward,cycle_reward,switch_count,num_degraded_users
+19,logistic,1,1,2,0.310701,0.725122,0.414422,0.523716,0.213015,0.131015,53,29
+19,logistic,1,2,3,0.523716,0.523716,0.000000,0.587076,0.063360,0.035360,0,28
+19,logistic,1,3,4,0.587076,0.587076,0.000000,0.592316,0.005239,-0.014761,0,20
+19,logistic,1,4,5,0.592316,0.592316,0.000000,0.588082,-0.004234,-0.065234,0,61
