@@ -5,6 +5,8 @@ import json
 import socketserver
 from pathlib import Path
 
+import torch
+
 from centralized_agent import make_agent
 from centralized_protocol import ACTION_DIM, NUM_APS, STATE_DIM, make_error, state_to_vector
 
@@ -20,7 +22,17 @@ class CentralizedDqnService:
             gamma=args.gamma,
             device=args.device,
         )
+        self.normalization_enabled = False
+        self.feature_mean: list[float] | None = None
+        self.feature_std: list[float] | None = None
         if args.checkpoint and Path(args.checkpoint).exists():
+            # load_checkpoint() は重みだけを読むため，normalization統計量はここで別途読む。
+            ckpt = torch.load(args.checkpoint, map_location=args.device)
+            extra = ckpt.get("extra", {}) if isinstance(ckpt, dict) else {}
+            norm = extra.get("normalization", {}) if isinstance(extra, dict) else {}
+            self.normalization_enabled = bool(norm.get("enabled", False))
+            self.feature_mean = norm.get("feature_mean")
+            self.feature_std = norm.get("feature_std")
             self.agent.load_checkpoint(args.checkpoint)
         self.args = args
         self.pending: dict[tuple[int, int], tuple[list[float], int, float]] = {}
@@ -32,6 +44,13 @@ class CentralizedDqnService:
             return make_error("unsupported message type")
 
         state = state_to_vector(msg.get("state", {}))
+        if self.normalization_enabled and self.feature_mean is not None and self.feature_std is not None:
+            if len(self.feature_mean) != len(state) or len(self.feature_std) != len(state):
+                return make_error("normalization_state_dim_mismatch")
+            state = [
+                (x - mean) / (std if abs(std) >= 1e-12 else 1.0)
+                for x, mean, std in zip(state, self.feature_mean, self.feature_std)
+            ]
         cycle_id = int(msg.get("cycle_id", msg.get("state", {}).get("cycle_id", 0)))
         step_id = int(msg.get("step_id", 0))
         h_now = float(msg.get("harmonic_mean", 0.0))
@@ -91,7 +110,7 @@ class CentralizedDqnService:
             if self.args.checkpoint_out and self.steps % self.args.checkpoint_interval == 0:
                 self.agent.save_checkpoint(
                     self.args.checkpoint_out,
-                    {"steps": self.steps, "state_dim": self.args.state_dim, "action_dim": self.args.action_dim},
+                    {"steps": self.steps, "state_dim": self.args.state_dim, "action_dim": self.args.action_dim, "normalization": {"enabled": self.normalization_enabled, "feature_mean": self.feature_mean, "feature_std": self.feature_std}},
                 )
         return {
             "type": "action",
@@ -147,7 +166,7 @@ def main():
         srv.service = CentralizedDqnService(args)  # type: ignore[attr-defined]
         mode = "eval-only" if args.eval_only else "online-learning"
         print(
-            f"[CentralizedDQN] listening on {args.host}:{args.port} mode={mode} state_dim={args.state_dim} action_dim={args.action_dim}",
+            f"[CentralizedDQN] listening on {args.host}:{args.port} mode={mode} state_dim={args.state_dim} action_dim={args.action_dim} normalization={srv.service.normalization_enabled}",
             flush=True,
         )
         srv.serve_forever()

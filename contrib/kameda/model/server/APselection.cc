@@ -2596,7 +2596,12 @@ void APselection::centralized_dqn_assignment()
         {
             assignment[targetIdx] = selectedBsId + 1;
             switchedTargets.insert(targetIdx);
-            bannedActionIds.insert(decodedActionId);
+            // 同一 cycle 内で同じ UE が再選択されると already_switched_in_cycle skip が発生する。
+            // 次 step の valid_action_ids からこの UE の全 AP action を除外し、無駄な server 呼び出しを防ぐ。
+            for (int ap = 0; ap < aps; ++ap)
+            {
+                bannedActionIds.insert(targetIdx * aps + ap);
+            }
             ++applied;
             std::cout << "[CentralizedDQN] cycle=" << m_cycleIndex
                       << " step=" << stepId
