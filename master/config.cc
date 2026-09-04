@@ -259,6 +259,7 @@ NetSim::NetSim()
     m_rewardSwitchPenaltyAlpha = 0.001;
     m_rewardDegradedPenaltyBeta = 0.001;
     m_onlineDqnSafetyThreshold = 0.0;
+    m_centralizedDqnBootstrapCycles = 0;
     m_rngSeed = 1;
     m_outputDir = OUTPUT_ROOT_DIR;
     server_udpVoice = nullptr;
@@ -336,6 +337,9 @@ void NetSim::Init(int argc, char *argv[]){
     cmd.AddValue("onlineDqnSafetyThreshold",
                  "Skip an online_dqn handover when estimated H delta of the selected BS is <= this threshold",
                  m_onlineDqnSafetyThreshold);
+    cmd.AddValue("centralizedDqnBootstrapCycles",
+                 "Number of initial cycles controlled by logistic before centralized_dqn starts. 0 disables bootstrap.",
+                 m_centralizedDqnBootstrapCycles);
     cmd.AddValue("mob", "1 is constant, 2 is randomwalk", m_mob);
     cmd.Parse(argc, argv);
 
@@ -391,6 +395,10 @@ void NetSim::Init(int argc, char *argv[]){
                                "_min" + std::to_string(m_kMin) +
                                "_decay" + std::to_string(m_kDecayRate);
         }
+        if (m_assignmentMethod == "centralized_dqn" && m_centralizedDqnBootstrapCycles > 0)
+        {
+            outputMethodDir += "_bootstrap" + std::to_string(m_centralizedDqnBootstrapCycles);
+        }
     }
     m_outputDir = OUTPUT_ROOT_DIR + std::to_string(termNum) + "/" + outputMethodDir + "/";
     SystemPath::MakeDirectories(m_outputDir);
@@ -428,6 +436,7 @@ void NetSim::Init(int argc, char *argv[]){
     m_apSelectionInput.kMin = m_kMin;
     m_apSelectionInput.kDecayRate = m_kDecayRate;
     m_apSelectionInput.onlineDqnSafetyThreshold = m_onlineDqnSafetyThreshold;
+    m_apSelectionInput.centralizedDqnBootstrapCycles = m_centralizedDqnBootstrapCycles;
     m_apSelectionInput.rewardSwitchPenaltyAlpha = m_rewardSwitchPenaltyAlpha;
     m_apSelectionInput.rewardDegradedPenaltyBeta = m_rewardDegradedPenaltyBeta;
     m_apSelectionInput.warmupBeforeCycleSec = setting.warmupBeforeCycleSec;

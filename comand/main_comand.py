@@ -194,6 +194,7 @@ def ns3_program(
     k_decay_rate: int,
     reward_switch_penalty_alpha: float,
     reward_degraded_penalty_beta: float,
+    centralized_dqn_bootstrap_cycles: int,
 ) -> str:
     parts = [
         f"master --method={method}",
@@ -204,6 +205,7 @@ def ns3_program(
         f"--kDecayRate={k_decay_rate}",
         f"--rewardSwitchPenaltyAlpha={reward_switch_penalty_alpha}",
         f"--rewardDegradedPenaltyBeta={reward_degraded_penalty_beta}",
+        f"--centralizedDqnBootstrapCycles={centralized_dqn_bootstrap_cycles}",
     ]
     if method in {"online_dqn", "centralized_dqn"}:
         parts.extend(
@@ -230,6 +232,7 @@ def ns3_command(
     k_decay_rate: int,
     reward_switch_penalty_alpha: float,
     reward_degraded_penalty_beta: float,
+    centralized_dqn_bootstrap_cycles: int,
 ) -> list[str]:
     return [
         "./ns3",
@@ -247,6 +250,7 @@ def ns3_command(
             k_decay_rate,
             reward_switch_penalty_alpha,
             reward_degraded_penalty_beta,
+            centralized_dqn_bootstrap_cycles,
         ),
     ]
 
@@ -255,7 +259,7 @@ def printable_command(job: RunJob, args: argparse.Namespace, port: int | str | N
     display_port = args.port if port is None else port
     return (
         f"seed{job.seed}: ./ns3 run \""
-        f"{ns3_program(job.method, job.seed, job.max_switches, args.host, display_port, args.drlTimeoutMs, args.onlineDqnSafetyThreshold, args.kScheduleType, args.kMin, args.kDecayRate, args.rewardSwitchPenaltyAlpha, args.rewardDegradedPenaltyBeta)}"
+        f"{ns3_program(job.method, job.seed, job.max_switches, args.host, display_port, args.drlTimeoutMs, args.onlineDqnSafetyThreshold, args.kScheduleType, args.kMin, args.kDecayRate, args.rewardSwitchPenaltyAlpha, args.rewardDegradedPenaltyBeta, args.centralizedDqnBootstrapCycles)}"
         f"\""
     )
 
@@ -315,6 +319,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--action-dim", type=int, default=0, help="DQN server の action 次元。0なら method に応じて online_dqn=3, centralized_dqn=240。")
     parser.add_argument("--rewardSwitchPenaltyAlpha", type=float, default=0.001, help="cycle reward の switch_count ペナルティ係数")
     parser.add_argument("--rewardDegradedPenaltyBeta", type=float, default=0.001, help="cycle reward の num_degraded_users ペナルティ係数")
+    parser.add_argument(
+        "--centralizedDqnBootstrapCycles",
+        type=int,
+        default=0,
+        help="centralized_dqn の先頭何cycleを logistic で初期割当するか。0なら無効。",
+    )
     parser.add_argument(
         "--no-server",
         action="store_true",
@@ -380,6 +390,7 @@ def run_job(root: Path, job: RunJob, index: int, total: int, args: argparse.Name
             args.kDecayRate,
             args.rewardSwitchPenaltyAlpha,
             args.rewardDegradedPenaltyBeta,
+            args.centralizedDqnBootstrapCycles,
         )
         print(
             f"[{index}/{total}] 実行開始: "

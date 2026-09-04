@@ -149,6 +149,7 @@ private:
     double m_rewardSwitchPenaltyAlpha;
     double m_rewardDegradedPenaltyBeta;
     double m_onlineDqnSafetyThreshold;
+    uint32_t m_centralizedDqnBootstrapCycles;
     uint32_t m_rngSeed;
     std::string m_outputDir;  // OUTPUT/<端末数>/<手法>/（実行ログ・補助ログの出力先）
 

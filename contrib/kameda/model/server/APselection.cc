@@ -252,6 +252,7 @@ void APselection::init(const ApSelectionInput& input){
     m_kMin = input.kMin;
     m_kDecayRate = input.kDecayRate;
     m_onlineDqnSafetyThreshold = input.onlineDqnSafetyThreshold;
+    m_centralizedDqnBootstrapCycles = input.centralizedDqnBootstrapCycles;
     m_rewardSwitchPenaltyAlpha = input.rewardSwitchPenaltyAlpha;
     m_rewardDegradedPenaltyBeta = input.rewardDegradedPenaltyBeta;
     m_warmupBeforeCycleSec = input.warmupBeforeCycleSec;
@@ -298,7 +299,11 @@ void APselection::init(const ApSelectionInput& input){
     m_pendingRewardHAfterEstimated = 0.0;
     m_pendingRewardSwitchCount = 0;
     m_pendingRewardSatisfactionBefore.clear();
-    if (m_assignmentMethod == "logistic")
+    m_effectiveAssignmentMethod = m_assignmentMethod;
+    m_pendingRewardEffectiveMethod = m_assignmentMethod;
+    m_pendingRewardBootstrapCycle = false;
+    if (m_assignmentMethod == "logistic" ||
+        (m_assignmentMethod == "centralized_dqn" && m_centralizedDqnBootstrapCycles > 0))
     {
         m_logisticModelLoaded = LoadLogisticModel();
     }
@@ -345,7 +350,8 @@ void APselection::init(const ApSelectionInput& input){
                   << " kScheduleType=" << m_kScheduleType
                   << " kMin=" << m_kMin
                   << " kDecayRate=" << m_kDecayRate
-                  << " safetyThreshold=" << m_onlineDqnSafetyThreshold << std::endl;
+                  << " safetyThreshold=" << m_onlineDqnSafetyThreshold
+                  << " bootstrapCycles=" << m_centralizedDqnBootstrapCycles << std::endl;
         std::cout << "[HandoverCooldown] cycles=" << m_handoverCooldownCycles << std::endl;
         std::cout << "意思決定ログパス: " << m_decisionLogPath << std::endl;
         std::cout << "実測rewardログパス: " << m_rewardLogPath << std::endl;
@@ -500,7 +506,16 @@ void APselection::tmain(){
         }
         else if (m_assignmentMethod == "centralized_dqn")
         {
-            centralized_dqn_assignment();
+            if (m_cycleIndex <= m_centralizedDqnBootstrapCycles)
+            {
+                m_effectiveAssignmentMethod = "logistic_bootstrap";
+                logistic_assignment();
+            }
+            else
+            {
+                m_effectiveAssignmentMethod = "centralized_dqn";
+                centralized_dqn_assignment();
+            }
         }
         else if (m_assignmentMethod == "no_switch")
         {
@@ -856,6 +871,8 @@ APselection::PrepareDecisionLogState(const std::vector<int>& assignmentBefore,
     m_pendingRewardHBefore = hBefore;
     m_pendingRewardHAfterEstimated = hAfterEstimated;
     m_pendingRewardSwitchCount = switchCount;
+    m_pendingRewardEffectiveMethod = m_effectiveAssignmentMethod;
+    m_pendingRewardBootstrapCycle = (m_effectiveAssignmentMethod == "logistic_bootstrap");
     m_pendingRewardSatisfactionBefore.assign(terms, APConstants::MIN_SATISFACTION_THRESHOLD);
     const int evalTerms = std::min(terms, static_cast<int>(assignmentBefore.size()));
     for (int i = 0; i < evalTerms; ++i)
@@ -3502,6 +3519,8 @@ APselection::WriteMeasuredRewardLogRow(double hAfterMeasured)
         std::ofstream headerOfs(m_rewardLogPath, std::ios::trunc);
         headerOfs << "seed,"
                   << "method,"
+                  << "effective_method,"
+                  << "bootstrap_cycle_flag,"
                   << "max_switches,"
                   << "action_cycle_id,"
                   << "measured_cycle_id,"
@@ -3549,6 +3568,8 @@ APselection::WriteMeasuredRewardLogRow(double hAfterMeasured)
     ofs << std::fixed << std::setprecision(6)
         << m_rngSeed << ","
         << m_assignmentMethod << ","
+        << m_pendingRewardEffectiveMethod << ","
+        << (m_pendingRewardBootstrapCycle ? 1 : 0) << ","
         << m_MaxSwitches << ","
         << m_pendingRewardCycleId << ","
         << m_cycleIndex << ","
@@ -3620,6 +3641,8 @@ APselection::WriteDecisionLogRow(const DqnAction& action,
         std::ofstream headerOfs(m_decisionLogPath, std::ios::trunc);
         headerOfs << "seed,"
                   << "method,"
+                  << "effective_method,"
+                  << "bootstrap_cycle_flag,"
                   << "max_switches,"
                   << "cycle_id,"
                   << "step_id,"
@@ -3711,6 +3734,8 @@ APselection::WriteDecisionLogRow(const DqnAction& action,
     ofs << std::fixed << std::setprecision(6)
         << m_rngSeed << ","
         << m_assignmentMethod << ","
+        << m_effectiveAssignmentMethod << ","
+        << ((m_effectiveAssignmentMethod == "logistic_bootstrap") ? 1 : 0) << ","
         << m_MaxSwitches << ","
         << m_cycleIndex << ","
         << action.stepId << ","
@@ -3768,6 +3793,8 @@ void APselection::WriteMasterLog()
         std::ofstream ofs(filePath, std::ios::trunc);
         ofs << "seed,"
             << "method,"
+            << "effective_method,"
+            << "bootstrap_cycle_flag,"
             << "max_switches,"
             << "cycle_id,"
             << "ue_id,"
@@ -4024,6 +4051,8 @@ void APselection::WriteMasterLog()
 
         ofs << m_rngSeed << ","
             << m_assignmentMethod << ","
+            << m_effectiveAssignmentMethod << ","
+            << ((m_effectiveAssignmentMethod == "logistic_bootstrap") ? 1 : 0) << ","
             << m_MaxSwitches << ","
             << m_cycleIndex << ","
             << (i + 1) << ","

@@ -756,3 +756,79 @@ logistic は Hungarian 教師を模倣する一括分類型 baseline である�
 3. logistic より seed 間ばらつきが小さい方策を得る
 4. online fine-tuning 後に logistic を上回る H を達成する
 ```
+---
+
+## 18. Logistic bootstrap + Centralized DQN
+
+Centralized DQN が logistic の一括割当を最初から逐次的に完全模倣するのは難しいため、初期 cycle だけ logistic による一括割当を行い、その後を centralized DQN で微調整する hybrid 構成を追加する。
+
+### 18.1 目的
+
+```text
+cycle 1: logistic で高い初期 H を作る
+cycle 2以降: centralized_dqn で H を壊さず、切替数・degraded users を抑えながら調整する
+```
+
+この方式は DQN 単体で logistic を置き換える手法ではなく、以下の役割分担として扱う。
+
+```text
+logistic: 初期一括割当
+centralized_dqn: 実測 reward に基づく逐次的な再調整
+```
+
+### 18.2 実行オプション
+
+```bash
+--method centralized_dqn \
+--centralizedDqnBootstrapCycles 1
+```
+
+`centralizedDqnBootstrapCycles` の意味は以下の通り。
+
+| 値 | 動作 |
+|---:|---|
+| 0 | 従来通り cycle 1 から centralized_dqn |
+| 1 | cycle 1 のみ logistic、cycle 2 以降 centralized_dqn |
+| N | cycle 1〜N を logistic、cycle N+1 以降 centralized_dqn |
+
+出力先は通常の `centralized_dqn_K<maxSwitches>` と区別するため、bootstrap 有効時は以下の形式にする。
+
+```text
+OUTPUT/<端末数>/centralized_dqn_K<maxSwitches>_bootstrap<N>/
+```
+
+### 18.3 ログ方針
+
+`method` は実験条件として `centralized_dqn` のまま残し、実際にその cycle で使った手法は `effective_method` に記録する。
+
+```text
+cycle 1: method=centralized_dqn, effective_method=logistic_bootstrap
+cycle 2: method=centralized_dqn, effective_method=centralized_dqn
+```
+
+`master_log`、`decision_log`、`measured_reward_log` には比較用に以下を追加する。
+
+```text
+effective_method
+bootstrap_cycle_flag
+```
+
+### 18.4 online fine-tuning 時の扱い
+
+bootstrap cycle の logistic 行動は DQN が選んだ行動ではないため、DQN の行動系列としては扱わない。cycle 2 以降に centralized DQN が選択した行動を online fine-tuning の対象とする。
+
+初期検証コマンド例:
+
+```bash
+python3 comand/main_comand.py \
+    --preset custom \
+    --method centralized_dqn \
+    --maxSwitches 80 \
+    --centralizedDqnBootstrapCycles 1 \
+    --seeds 1002 1003 1007 \
+    --checkpoint models/centralized_dqn_bc_logistic_seed1to54_positive_norm.pt \
+    --eval-only \
+    --epsilon 0.0 \
+    --onlineDqnSafetyThreshold 0.005 \
+    --port auto
+```
