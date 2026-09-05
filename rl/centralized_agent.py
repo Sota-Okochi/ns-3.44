@@ -6,6 +6,7 @@ import random
 import torch
 
 from agent import AgentConfig, OnlineDQNAgent
+from centralized_models import make_q_network
 
 
 class CentralizedDQNAgent(OnlineDQNAgent):
@@ -35,6 +36,8 @@ def make_agent(
     lr: float,
     gamma: float,
     device: str,
+    model_type: str = "mlp_v1",
+    emb_dim: int = 64,
 ) -> CentralizedDQNAgent:
     cfg = AgentConfig(
         state_dim=state_dim,
@@ -45,4 +48,12 @@ def make_agent(
         seed=seed,
         device=device,
     )
-    return CentralizedDQNAgent(cfg)
+    agent = CentralizedDQNAgent(cfg)
+    if model_type not in {"mlp_v1", "centralized_mlp_v1"}:
+        # Keep OnlineDQNAgent replay/update logic, but replace the Q networks
+        # with the requested centralized architecture.
+        agent.q = make_q_network(model_type, state_dim, action_dim, hidden_dim, emb_dim).to(agent.device)
+        agent.target = make_q_network(model_type, state_dim, action_dim, hidden_dim, emb_dim).to(agent.device)
+        agent.target.load_state_dict(agent.q.state_dict())
+        agent.optim = torch.optim.Adam(agent.q.parameters(), lr=lr)
+    return agent

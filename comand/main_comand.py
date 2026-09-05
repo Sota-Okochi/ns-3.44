@@ -130,6 +130,8 @@ def start_dqn_server(
     action_dim: int,
     reward_switch_penalty_alpha: float,
     reward_degraded_penalty_beta: float,
+    model_type: str,
+    schema_version: str,
 ) -> subprocess.Popen:
     if checkpoint_out:
         checkpoint_out_path = Path(checkpoint_out)
@@ -158,6 +160,8 @@ def start_dqn_server(
         "--checkpoint-out",
         str(checkpoint_out_path),
     ]
+    if method == "centralized_dqn":
+        cmd.extend(["--model-type", model_type, "--schema-version", schema_version])
     if checkpoint:
         cmd.extend(["--checkpoint", checkpoint])
     if eval_only:
@@ -195,6 +199,7 @@ def ns3_program(
     reward_switch_penalty_alpha: float,
     reward_degraded_penalty_beta: float,
     centralized_dqn_bootstrap_cycles: int,
+    centralized_dqn_state_schema: str,
 ) -> str:
     parts = [
         f"master --method={method}",
@@ -207,6 +212,8 @@ def ns3_program(
         f"--rewardDegradedPenaltyBeta={reward_degraded_penalty_beta}",
         f"--centralizedDqnBootstrapCycles={centralized_dqn_bootstrap_cycles}",
     ]
+    if method == "centralized_dqn":
+        parts.append(f"--centralizedDqnStateSchema={centralized_dqn_state_schema}")
     if method in {"online_dqn", "centralized_dqn"}:
         parts.extend(
             [
@@ -233,6 +240,7 @@ def ns3_command(
     reward_switch_penalty_alpha: float,
     reward_degraded_penalty_beta: float,
     centralized_dqn_bootstrap_cycles: int,
+    centralized_dqn_state_schema: str,
 ) -> list[str]:
     return [
         "./ns3",
@@ -251,6 +259,7 @@ def ns3_command(
             reward_switch_penalty_alpha,
             reward_degraded_penalty_beta,
             centralized_dqn_bootstrap_cycles,
+            centralized_dqn_state_schema,
         ),
     ]
 
@@ -259,7 +268,7 @@ def printable_command(job: RunJob, args: argparse.Namespace, port: int | str | N
     display_port = args.port if port is None else port
     return (
         f"seed{job.seed}: ./ns3 run \""
-        f"{ns3_program(job.method, job.seed, job.max_switches, args.host, display_port, args.drlTimeoutMs, args.onlineDqnSafetyThreshold, args.kScheduleType, args.kMin, args.kDecayRate, args.rewardSwitchPenaltyAlpha, args.rewardDegradedPenaltyBeta, args.centralizedDqnBootstrapCycles)}"
+        f"{ns3_program(job.method, job.seed, job.max_switches, args.host, display_port, args.drlTimeoutMs, args.onlineDqnSafetyThreshold, args.kScheduleType, args.kMin, args.kDecayRate, args.rewardSwitchPenaltyAlpha, args.rewardDegradedPenaltyBeta, args.centralizedDqnBootstrapCycles, args.centralizedDqnStateSchema)}"
         f"\""
     )
 
@@ -326,6 +335,18 @@ def parse_args() -> argparse.Namespace:
         help="centralized_dqn の先頭何cycleを logistic で初期割当するか。0なら無効。",
     )
     parser.add_argument(
+        "--centralizedDqnStateSchema",
+        default="v1",
+        choices=["v1", "v2_onehot", "centralized_state_v1", "centralized_state_v2_onehot"],
+        help="centralized_dqn の state schema。v2_onehot は factorized/MLP v2 checkpoint 用。",
+    )
+    parser.add_argument(
+        "--centralized-model-type",
+        default="mlp_v1",
+        choices=["mlp_v1", "mlp_v2_onehot", "factorized_v2"],
+        help="checkpoint が無い場合に centralized_server.py へ渡す model type。checkpoint metadata がある場合はそちらが優先される。",
+    )
+    parser.add_argument(
         "--no-server",
         action="store_true",
         help="online_dqn でも Python server を起動せず、既存サーバを使う",
@@ -375,6 +396,8 @@ def run_job(root: Path, job: RunJob, index: int, total: int, args: argparse.Name
                 effective_action_dim,
                 args.rewardSwitchPenaltyAlpha,
                 args.rewardDegradedPenaltyBeta,
+                args.centralized_model_type,
+                args.centralizedDqnStateSchema,
             )
 
         cmd = ns3_command(
@@ -391,6 +414,7 @@ def run_job(root: Path, job: RunJob, index: int, total: int, args: argparse.Name
             args.rewardSwitchPenaltyAlpha,
             args.rewardDegradedPenaltyBeta,
             args.centralizedDqnBootstrapCycles,
+            args.centralizedDqnStateSchema,
         )
         print(
             f"[{index}/{total}] 実行開始: "

@@ -9,10 +9,26 @@ import torch
 
 from centralized_agent import make_agent
 from centralized_protocol import ACTION_DIM, NUM_APS, STATE_DIM, make_error, state_to_vector
+from centralized_protocol_v2 import STATE_DIM_V2, state_to_vector_v2
 
 
 class CentralizedDqnService:
     def __init__(self, args):
+        self.model_type = args.model_type
+        self.schema_version = args.schema_version
+        self.checkpoint_extra = {}
+        if args.checkpoint and Path(args.checkpoint).exists():
+            ckpt = torch.load(args.checkpoint, map_location=args.device)
+            self.checkpoint_extra = ckpt.get("extra", {}) if isinstance(ckpt, dict) else {}
+            if isinstance(self.checkpoint_extra, dict):
+                self.model_type = self.checkpoint_extra.get("model_type", self.model_type)
+                self.schema_version = self.checkpoint_extra.get("schema_version", self.schema_version)
+                args.state_dim = int(self.checkpoint_extra.get("state_dim", args.state_dim))
+                args.action_dim = int(self.checkpoint_extra.get("action_dim", args.action_dim))
+                args.hidden_dim = int(self.checkpoint_extra.get("hidden_dim", args.hidden_dim))
+                args.emb_dim = int(self.checkpoint_extra.get("emb_dim", args.emb_dim))
+        if self.schema_version in {"v2", "v2_onehot", "centralized_state_v2", "centralized_state_v2_onehot"}:
+            args.state_dim = STATE_DIM_V2
         self.agent = make_agent(
             state_dim=args.state_dim,
             action_dim=args.action_dim,
@@ -21,15 +37,15 @@ class CentralizedDqnService:
             lr=args.lr,
             gamma=args.gamma,
             device=args.device,
+            model_type=self.model_type,
+            emb_dim=args.emb_dim,
         )
         self.normalization_enabled = False
         self.feature_mean: list[float] | None = None
         self.feature_std: list[float] | None = None
         if args.checkpoint and Path(args.checkpoint).exists():
             # load_checkpoint() は重みだけを読むため，normalization統計量はここで別途読む。
-            ckpt = torch.load(args.checkpoint, map_location=args.device)
-            extra = ckpt.get("extra", {}) if isinstance(ckpt, dict) else {}
-            norm = extra.get("normalization", {}) if isinstance(extra, dict) else {}
+            norm = self.checkpoint_extra.get("normalization", {}) if isinstance(self.checkpoint_extra, dict) else {}
             self.normalization_enabled = bool(norm.get("enabled", False))
             self.feature_mean = norm.get("feature_mean")
             self.feature_std = norm.get("feature_std")
@@ -43,7 +59,10 @@ class CentralizedDqnService:
         if msg.get("type", "act") != "act":
             return make_error("unsupported message type")
 
-        state = state_to_vector(msg.get("state", {}))
+        if self.schema_version in {"v2", "v2_onehot", "centralized_state_v2", "centralized_state_v2_onehot"}:
+            state = state_to_vector_v2(msg.get("state", {}))
+        else:
+            state = state_to_vector(msg.get("state", {}))
         if self.normalization_enabled and self.feature_mean is not None and self.feature_std is not None:
             if len(self.feature_mean) != len(state) or len(self.feature_std) != len(state):
                 return make_error("normalization_state_dim_mismatch")
@@ -144,6 +163,9 @@ def main():
     p.add_argument("--state-dim", type=int, default=STATE_DIM)
     p.add_argument("--action-dim", type=int, default=ACTION_DIM)
     p.add_argument("--hidden-dim", type=int, default=512)
+    p.add_argument("--emb-dim", type=int, default=64)
+    p.add_argument("--model-type", choices=["mlp_v1", "mlp_v2_onehot", "factorized_v2"], default="mlp_v1")
+    p.add_argument("--schema-version", choices=["v1", "v2_onehot", "centralized_state_v1", "centralized_state_v2_onehot"], default="v1")
     p.add_argument("--epsilon", type=float, default=0.1)
     p.add_argument("--batch-size", type=int, default=64)
     p.add_argument("--seed", type=int, default=1)
@@ -166,7 +188,7 @@ def main():
         srv.service = CentralizedDqnService(args)  # type: ignore[attr-defined]
         mode = "eval-only" if args.eval_only else "online-learning"
         print(
-            f"[CentralizedDQN] listening on {args.host}:{args.port} mode={mode} state_dim={args.state_dim} action_dim={args.action_dim} normalization={srv.service.normalization_enabled}",
+            f"[CentralizedDQN] listening on {args.host}:{args.port} mode={mode} model_type={srv.service.model_type} schema={srv.service.schema_version} state_dim={args.state_dim} action_dim={args.action_dim} normalization={srv.service.normalization_enabled}",
             flush=True,
         )
         srv.serve_forever()

@@ -8,6 +8,17 @@ from pathlib import Path
 import pandas as pd
 
 from centralized_protocol import ACTION_DIM, AP_FEATURES, GLOBAL_FEATURES, NUM_APS, NUM_UES, STATE_DIM, UE_FEATURES
+from centralized_protocol_v2 import (
+    AP_FEATURES_V2,
+    GLOBAL_FEATURES_V2,
+    SCHEMA_VERSION_V2,
+    STATE_DIM_V2,
+    UE_FEATURES_V2,
+    ap_static_features,
+    app_features,
+    current_ap_onehot,
+    feature_schema as feature_schema_v2,
+)
 
 MASTER_PREFIX = "master_log_"
 TEACHER_PREFIX = "centralized_teacher_log_"
@@ -156,15 +167,120 @@ def build_state_vector(cycle_df: pd.DataFrame, step_assignment: dict[int, int], 
     return features
 
 
+def build_state_vector_v2(cycle_df: pd.DataFrame, step_assignment: dict[int, int], teacher_row: pd.Series) -> list[float]:
+    rows = {int(r.ue_id): r for r in cycle_df.itertuples(index=False)}
+    features: list[float] = []
+
+    monitor_rtt = {
+        0: float(cycle_df["monitor_rtt_ap0"].iloc[0]) if "monitor_rtt_ap0" in cycle_df else 0.0,
+        1: float(cycle_df["monitor_rtt_ap1"].iloc[0]) if "monitor_rtt_ap1" in cycle_df else 0.0,
+        2: float(cycle_df["monitor_rtt_ap2"].iloc[0]) if "monitor_rtt_ap2" in cycle_df else 0.0,
+    }
+
+    users_per_ap = {0: 0, 1: 0, 2: 0}
+    tp_sum = {0: 0.0, 1: 0.0, 2: 0.0}
+    tp_count = {0: 0, 1: 0, 2: 0}
+    sat_sum = {0: 0.0, 1: 0.0, 2: 0.0}
+    sat_count = {0: 0, 1: 0, 2: 0}
+    unsat = {0: 0, 1: 0, 2: 0}
+
+    for ue_id, row in rows.items():
+        bs = int(step_assignment.get(ue_id, int(row.current_bs_id)))
+        if bs not in users_per_ap:
+            continue
+        users_per_ap[bs] += 1
+        tp = float(getattr(row, "tp_mbps", 0.0))
+        if tp > 0.0:
+            tp_sum[bs] += tp
+            tp_count[bs] += 1
+        sat = float(getattr(row, f"estimated_satisfaction_if_ap{bs}", getattr(row, "satisfaction", 0.0)))
+        sat_sum[bs] += sat
+        sat_count[bs] += 1
+        if sat < 0.5:
+            unsat[bs] += 1
+
+    for idx in range(NUM_UES):
+        ue_id = idx + 1
+        row = rows.get(ue_id)
+        exists = row is not None
+        current_bs = int(step_assignment.get(ue_id, int(row.current_bs_id) if exists else -1))
+        app_type = int(row.app_type) if exists else 0
+        tp_mbps = float(row.tp_mbps) if exists else 0.0
+        rtt_ms = monitor_rtt.get(current_bs, 0.0) if exists else 0.0
+        satisfaction = (
+            float(getattr(row, f"estimated_satisfaction_if_ap{current_bs}", row.satisfaction))
+            if exists and 0 <= current_bs < NUM_APS
+            else 0.0
+        )
+        measurement_valid = float(row.measurement_valid) if exists and hasattr(row, "measurement_valid") else 0.0
+        est_s = [0.0, 0.0, 0.0]
+        est_d = [0.0, 0.0, 0.0]
+        if exists:
+            for ap in range(NUM_APS):
+                est_s[ap] = float(getattr(row, f"estimated_satisfaction_if_ap{ap}", 0.0))
+                est_d[ap] = float(getattr(row, f"estimated_h_delta_if_ap{ap}", 0.0))
+        best_d = max([est_d[ap] for ap in range(NUM_APS) if ap != current_bs] or [0.0])
+        features.extend(
+            [
+                float(idx) / float(max(NUM_UES - 1, 1)),
+                *current_ap_onehot(current_bs),
+                *app_features(app_type),
+                tp_mbps,
+                rtt_ms,
+                satisfaction,
+                measurement_valid,
+                0.0,  # Offline logs do not contain exact cooldown state for arbitrary step assignment.
+                0.0,
+                est_s[0],
+                est_s[1],
+                est_s[2],
+                est_d[0],
+                est_d[1],
+                est_d[2],
+                best_d,
+            ]
+        )
+
+    for ap in range(NUM_APS):
+        features.extend(
+            [
+                *ap_static_features(ap),
+                float(users_per_ap[ap]),
+                float(monitor_rtt[ap]),
+                tp_sum[ap] / float(tp_count[ap]) if tp_count[ap] else 0.0,
+                sat_sum[ap] / float(sat_count[ap]) if sat_count[ap] else 0.0,
+                float(unsat[ap]),
+            ]
+        )
+
+    features.extend(
+        [
+            float(teacher_row.cycle_id),
+            float(teacher_row.h_before_step_estimated),
+            float((cycle_df["num_unsatisfied_users"].iloc[0] if "num_unsatisfied_users" in cycle_df else 0.0)),
+            float((cycle_df["switch_count"].iloc[0] if "switch_count" in cycle_df else 0.0)),
+            float((cycle_df["num_degraded_users"].iloc[0] if "num_degraded_users" in cycle_df else 0.0)),
+            float((cycle_df["measured_reward"].iloc[0] if "measured_reward" in cycle_df else 0.0)),
+        ]
+    )
+
+    if len(features) != STATE_DIM_V2:
+        raise ValueError(f"v2 state_dim mismatch: got {len(features)}, expected {STATE_DIM_V2}")
+    return features
+
+
 def build_dataset(
     pairs: list[tuple[Path, Path]],
     min_measured_delta: float | None,
     min_step_delta: float | None,
     weight_lambda: float,
+    schema_version: str,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     samples: list[dict] = []
     summaries: list[dict] = []
-    feature_cols = [f"f{i}" for i in range(STATE_DIM)]
+    use_v2 = schema_version in {"v2", "v2_onehot", SCHEMA_VERSION_V2, "centralized_state_v2"}
+    state_dim = STATE_DIM_V2 if use_v2 else STATE_DIM
+    feature_cols = [f"f{i}" for i in range(state_dim)]
 
     for run_index, (master_path, teacher_path) in enumerate(pairs):
         master = pd.read_csv(master_path)
@@ -196,7 +312,7 @@ def build_dataset(
                 action_id = int(row_s["action_id"])
                 if action_id < 0 or action_id >= ACTION_DIM:
                     continue
-                x = build_state_vector(cycle_df, step_assignment, row_s)
+                x = build_state_vector_v2(cycle_df, step_assignment, row_s) if use_v2 else build_state_vector(cycle_df, step_assignment, row_s)
                 rec = {col: val for col, val in zip(feature_cols, x)}
                 rec.update(
                     {
@@ -247,11 +363,12 @@ def main() -> None:
     parser.add_argument("--min-measured-delta", type=float, default=None, help="Drop runs whose final H - initial H is below this value.")
     parser.add_argument("--min-step-delta", type=float, default=None, help="Drop teacher actions whose estimated_marginal_delta is below this value.")
     parser.add_argument("--weight-lambda", type=float, default=20.0)
+    parser.add_argument("--schema-version", choices=["v1", "v2_onehot", "centralized_state_v1", "centralized_state_v2_onehot"], default="v1")
     parser.add_argument("--no-recursive", action="store_true")
     args = parser.parse_args()
 
     pairs = collect_pairs(args.inputs, recursive=not args.no_recursive)
-    data, summary = build_dataset(pairs, args.min_measured_delta, args.min_step_delta, args.weight_lambda)
+    data, summary = build_dataset(pairs, args.min_measured_delta, args.min_step_delta, args.weight_lambda, args.schema_version)
 
     out = Path(args.output)
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -262,18 +379,22 @@ def main() -> None:
 
     data.to_csv(out, index=False)
     summary.to_csv(summary_out, index=False)
+    use_v2 = args.schema_version in {"v2_onehot", "centralized_state_v2_onehot"}
+    state_dim = STATE_DIM_V2 if use_v2 else STATE_DIM
     meta = {
         "inputs": args.inputs,
         "num_pairs": len(pairs),
         "num_samples": int(len(data)),
-        "state_dim": STATE_DIM,
+        "schema_version": SCHEMA_VERSION_V2 if use_v2 else "centralized_state_v1",
+        "state_dim": state_dim,
         "action_dim": ACTION_DIM,
         "num_ues": NUM_UES,
         "num_aps": NUM_APS,
-        "ue_features": UE_FEATURES,
-        "ap_features": AP_FEATURES,
-        "global_features": GLOBAL_FEATURES,
-        "feature_columns": [f"f{i}" for i in range(STATE_DIM)],
+        "ue_features": UE_FEATURES_V2 if use_v2 else UE_FEATURES,
+        "ap_features": AP_FEATURES_V2 if use_v2 else AP_FEATURES,
+        "global_features": GLOBAL_FEATURES_V2 if use_v2 else GLOBAL_FEATURES,
+        "feature_schema": feature_schema_v2() if use_v2 else {"schema_version": "centralized_state_v1", "ue_features": UE_FEATURES, "ap_features": AP_FEATURES, "global_features": GLOBAL_FEATURES},
+        "feature_columns": [f"f{i}" for i in range(state_dim)],
         "label_column": "expert_action_id",
         "min_measured_delta": args.min_measured_delta,
         "min_step_delta": args.min_step_delta,

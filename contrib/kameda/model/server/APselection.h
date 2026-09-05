@@ -71,6 +71,7 @@ struct ApSelectionInput {
     uint32_t kDecayRate = 1;
     double onlineDqnSafetyThreshold = 0.0;
     uint32_t centralizedDqnBootstrapCycles = 0;
+    std::string centralizedDqnStateSchema = "v1";
     double rewardSwitchPenaltyAlpha = 0.001;
     double rewardDegradedPenaltyBeta = 0.001;
     double warmupBeforeCycleSec = 0.0;
@@ -261,6 +262,7 @@ private:
     uint32_t m_drlTimeoutMs = 200;               // online_dqn socket timeout [ms]
     double m_onlineDqnSafetyThreshold = 0.0;     // selected action safety threshold for estimated H delta
     uint32_t m_centralizedDqnBootstrapCycles = 0; // centralized_dqn の初期 logistic bootstrap cycle 数
+    std::string m_centralizedDqnStateSchema = "v1"; // centralized_dqn state schema: v1 or v2_onehot
     std::string m_effectiveAssignmentMethod = "random"; // 実際に当該cycleで使った手法
     std::string m_pendingRewardEffectiveMethod = "random"; // 実測reward対象cycleの実効手法
     bool m_pendingRewardBootstrapCycle = false;  // 実測reward対象cycleがbootstrapか

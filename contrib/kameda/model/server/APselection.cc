@@ -253,6 +253,7 @@ void APselection::init(const ApSelectionInput& input){
     m_kDecayRate = input.kDecayRate;
     m_onlineDqnSafetyThreshold = input.onlineDqnSafetyThreshold;
     m_centralizedDqnBootstrapCycles = input.centralizedDqnBootstrapCycles;
+    m_centralizedDqnStateSchema = input.centralizedDqnStateSchema;
     m_rewardSwitchPenaltyAlpha = input.rewardSwitchPenaltyAlpha;
     m_rewardDegradedPenaltyBeta = input.rewardDegradedPenaltyBeta;
     m_warmupBeforeCycleSec = input.warmupBeforeCycleSec;
@@ -351,7 +352,8 @@ void APselection::init(const ApSelectionInput& input){
                   << " kMin=" << m_kMin
                   << " kDecayRate=" << m_kDecayRate
                   << " safetyThreshold=" << m_onlineDqnSafetyThreshold
-                  << " bootstrapCycles=" << m_centralizedDqnBootstrapCycles << std::endl;
+                  << " bootstrapCycles=" << m_centralizedDqnBootstrapCycles
+                  << " centralizedStateSchema=" << m_centralizedDqnStateSchema << std::endl;
         std::cout << "[HandoverCooldown] cycles=" << m_handoverCooldownCycles << std::endl;
         std::cout << "意思決定ログパス: " << m_decisionLogPath << std::endl;
         std::cout << "実測rewardログパス: " << m_rewardLogPath << std::endl;
@@ -2137,9 +2139,38 @@ APselection::BuildCentralizedDqnStateJson(const std::vector<int>& assignment,
         - m_rewardSwitchPenaltyAlpha * static_cast<double>(m_lastMeasuredRewardSwitchCount)
         - m_rewardDegradedPenaltyBeta * static_cast<double>(m_lastNumDegradedUsersMeasured);
 
+    const bool useV2Onehot =
+        (m_centralizedDqnStateSchema == "v2" ||
+         m_centralizedDqnStateSchema == "v2_onehot" ||
+         m_centralizedDqnStateSchema == "centralized_state_v2_onehot");
     std::vector<double> features;
-    features.reserve(static_cast<size_t>(80 * 16 + 3 * 5 + 6));
+    features.reserve(useV2Onehot ? static_cast<size_t>(80 * 25 + 3 * 10 + 6)
+                                 : static_cast<size_t>(80 * 16 + 3 * 5 + 6));
     const int paddedTerms = std::max(terms, 80);
+    auto pushCurrentApOnehot = [&features](int currentBsId) {
+        for (int ap = 0; ap < 3; ++ap)
+        {
+            features.push_back(currentBsId == ap ? 1.0 : 0.0);
+        }
+    };
+    auto pushAppFeatures = [&features](int appNum) {
+        const bool isBrowser = appNum == static_cast<int>(APConstants::AppType::BROWSER);
+        const bool isVideo = appNum == static_cast<int>(APConstants::AppType::VIDEO);
+        const bool isVoice = appNum == static_cast<int>(APConstants::AppType::VOICE_CALL);
+        const bool isGame = appNum == static_cast<int>(APConstants::AppType::ONLINE_GAME);
+        features.push_back(isBrowser ? 1.0 : 0.0);
+        features.push_back(isVideo ? 1.0 : 0.0);
+        features.push_back(isVoice ? 1.0 : 0.0);
+        features.push_back(isGame ? 1.0 : 0.0);
+        features.push_back((isBrowser || isVideo) ? 1.0 : 0.0);
+        features.push_back((isVoice || isGame) ? 1.0 : 0.0);
+        if (isBrowser) { features.push_back(APConstants::BROWSER_REQUIRED_TP); }
+        else if (isVideo) { features.push_back(APConstants::VIDEO_REQUIRED_TP); }
+        else { features.push_back(0.0); }
+        if (isVoice) { features.push_back(APConstants::VOICE_CALL_REQUIRED_RTT); }
+        else if (isGame) { features.push_back(APConstants::ONLINE_GAME_REQUIRED_RTT); }
+        else { features.push_back(0.0); }
+    };
     for (int i = 0; i < paddedTerms; ++i)
     {
         const bool exists = (i < evalTerms);
@@ -2178,28 +2209,59 @@ APselection::BuildCentralizedDqnStateJson(const std::vector<int>& assignment,
         }
         const double denom = std::max(1, paddedTerms - 1);
         features.push_back(exists ? static_cast<double>(i) / static_cast<double>(denom) : 0.0);
-        features.push_back(static_cast<double>(currentBsId));
-        features.push_back(static_cast<double>(appNum));
-        features.push_back(tpMbps);
-        features.push_back(rttMs);
-        features.push_back(exists ? sat[i] : 0.0);
-        features.push_back((exists && ((isTpApp && tpMbps > 0.0) || (!isTpApp && rttMs > 0.0))) ? 1.0 : 0.0);
-        features.push_back((exists && IsInHandoverCooldown(i)) ? 1.0 : 0.0);
-        features.push_back((exists && i < static_cast<int>(m_switchCycle.size()) && m_switchCycle[i] > 0 && m_cycleIndex >= m_switchCycle[i])
-                               ? static_cast<double>(m_cycleIndex - m_switchCycle[i])
-                               : 0.0);
-        features.push_back(estimatedS[0]);
-        features.push_back(estimatedS[1]);
-        features.push_back(estimatedS[2]);
-        features.push_back(estimatedDelta[0]);
-        features.push_back(estimatedDelta[1]);
-        features.push_back(estimatedDelta[2]);
-        features.push_back(bestDelta);
+        if (useV2Onehot)
+        {
+            pushCurrentApOnehot(currentBsId);
+            pushAppFeatures(appNum);
+            features.push_back(tpMbps);
+            features.push_back(rttMs);
+            features.push_back(exists ? sat[i] : 0.0);
+            features.push_back((exists && ((isTpApp && tpMbps > 0.0) || (!isTpApp && rttMs > 0.0))) ? 1.0 : 0.0);
+            features.push_back((exists && IsInHandoverCooldown(i)) ? 1.0 : 0.0);
+            features.push_back((exists && i < static_cast<int>(m_switchCycle.size()) && m_switchCycle[i] > 0 && m_cycleIndex >= m_switchCycle[i])
+                                   ? static_cast<double>(m_cycleIndex - m_switchCycle[i])
+                                   : 0.0);
+            features.push_back(estimatedS[0]);
+            features.push_back(estimatedS[1]);
+            features.push_back(estimatedS[2]);
+            features.push_back(estimatedDelta[0]);
+            features.push_back(estimatedDelta[1]);
+            features.push_back(estimatedDelta[2]);
+            features.push_back(bestDelta);
+        }
+        else
+        {
+            features.push_back(static_cast<double>(currentBsId));
+            features.push_back(static_cast<double>(appNum));
+            features.push_back(tpMbps);
+            features.push_back(rttMs);
+            features.push_back(exists ? sat[i] : 0.0);
+            features.push_back((exists && ((isTpApp && tpMbps > 0.0) || (!isTpApp && rttMs > 0.0))) ? 1.0 : 0.0);
+            features.push_back((exists && IsInHandoverCooldown(i)) ? 1.0 : 0.0);
+            features.push_back((exists && i < static_cast<int>(m_switchCycle.size()) && m_switchCycle[i] > 0 && m_cycleIndex >= m_switchCycle[i])
+                                   ? static_cast<double>(m_cycleIndex - m_switchCycle[i])
+                                   : 0.0);
+            features.push_back(estimatedS[0]);
+            features.push_back(estimatedS[1]);
+            features.push_back(estimatedS[2]);
+            features.push_back(estimatedDelta[0]);
+            features.push_back(estimatedDelta[1]);
+            features.push_back(estimatedDelta[2]);
+            features.push_back(bestDelta);
+        }
     }
 
     for (int apIdx = 0; apIdx < 3; ++apIdx)
     {
         const bool exists = apIdx < aps;
+        if (useV2Onehot)
+        {
+            features.push_back(apIdx == 0 ? 1.0 : 0.0);
+            features.push_back(apIdx == 1 ? 1.0 : 0.0);
+            features.push_back(apIdx == 2 ? 1.0 : 0.0);
+            features.push_back(apIdx == 0 ? 1.0 : 0.0); // AP0 is 5G gNB.
+            features.push_back((apIdx == 1 || apIdx == 2) ? 1.0 : 0.0); // AP1/AP2 are Wi-Fi.
+        }
         features.push_back(exists ? static_cast<double>(usersPerAp[apIdx]) : 0.0);
         features.push_back((exists && apIdx < static_cast<int>(m_has_rtt.size()) && m_has_rtt[apIdx]) ? m_monitor_rtt[apIdx] : 0.0);
         features.push_back((exists && tpCount[apIdx] > 0) ? tpSum[apIdx] / static_cast<double>(tpCount[apIdx]) : 0.0);
@@ -2223,6 +2285,7 @@ APselection::BuildCentralizedDqnStateJson(const std::vector<int>& assignment,
         << "\"num_ues\":" << terms << ","
         << "\"num_aps\":" << aps << ","
         << "\"action_dim\":" << actionDim << ","
+        << "\"state_schema\":\"" << (useV2Onehot ? "centralized_state_v2_onehot" : "centralized_state_v1") << "\","
         << "\"harmonic_mean\":" << harmonicMean << ","
         << "\"prev_cycle_measured_reward\":" << m_lastMeasuredRewardFromPrevious << ","
         << "\"prev_cycle_switch_count\":" << m_lastMeasuredRewardSwitchCount << ","
