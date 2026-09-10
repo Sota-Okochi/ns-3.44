@@ -742,3 +742,68 @@ H_logistic から H_final までの変化を seed ごとに確認できるか
 ```
 
 案 A の初回検証で明らかに不安定な場合のみ，案 B として logistic 後の残差改善 action による軽い事前学習を検討する。
+
+### 17.1 DQN server の auto port
+
+初回検証を複数 seed で自動実行しやすくするため，`rl/centralized_server.py` は以下を受け付ける。
+
+```text
+--port auto
+--port-file <path>
+```
+
+`--port auto` を指定した場合，OS が空き TCP port を自動割当する。実際に割り当てられた port は server 起動ログに表示され，`--port-file` を指定した場合はそのファイルにも書き出される。
+
+例:
+
+```bash
+python3 rl/centralized_server.py \
+  --host 127.0.0.1 \
+  --port auto \
+  --port-file /tmp/centralized_dqn_seed1.port \
+  --model-type factorized_v2 \
+  --schema-version centralized_state_v2_onehot \
+  --epsilon 0.02 \
+  --checkpoint '' \
+  --checkpoint-out ''
+```
+
+ns-3 実行時には，`--port-file` に書かれた port を `--drlServerPort` に渡す。
+
+### 17.2 `comand/main_comand.py` による並列実行
+
+初回検証を効率化するため，`comand/main_comand.py` は `--parallel N` による複数 seed の並列実行に対応する。
+
+DQN server を run ごとに起動する場合，port 衝突を避けるため以下を指定する。
+
+```text
+--port auto
+```
+
+案 A / K=5 / 10 seed の例:
+
+```bash
+python3 comand/main_comand.py \
+  --preset custom \
+  --method centralized_dqn \
+  --maxSwitches 5 \
+  --seeds 1 2 3 4 5 6 7 8 9 10 \
+  --port auto \
+  --parallel 2 \
+  --centralizedDqnBootstrapCycles 1 \
+  --centralizedDqnStateSchema v2_onehot \
+  --centralized-model-type factorized_v2 \
+  --epsilon 0.02 \
+  --batch-size 1 \
+  --target-sync-interval 1 \
+  --rewardSwitchPenaltyAlpha 0.0 \
+  --rewardDegradedPenaltyBeta 0.0 \
+  --onlineDqnSafetyThreshold 0.0 \
+  --no-checkpoint-out
+```
+
+注意:
+
+- 並列実行前に `./ns3 build` を完了させておく。
+- `--parallel` を大きくしすぎると CPU・メモリ・I/O が競合し，1 run あたりの時間が伸びる可能性がある。
+- まずは `--parallel 2` から開始する。

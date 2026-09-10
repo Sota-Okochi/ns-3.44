@@ -159,7 +159,8 @@ class Handler(socketserver.StreamRequestHandler):
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--host", default="127.0.0.1")
-    p.add_argument("--port", type=int, default=50051)
+    p.add_argument("--port", default="50051", help="TCP port number, or 'auto' to bind an ephemeral free port.")
+    p.add_argument("--port-file", default="", help="Optional path to write the actual bound port. Useful with --port auto.")
     p.add_argument("--state-dim", type=int, default=STATE_DIM)
     p.add_argument("--action-dim", type=int, default=ACTION_DIM)
     p.add_argument("--hidden-dim", type=int, default=512)
@@ -180,15 +181,29 @@ def main():
     p.add_argument("--reward-degraded-penalty-beta", type=float, default=0.001)
     p.add_argument("--eval-only", "--no-update", action="store_true", dest="eval_only")
     args = p.parse_args()
+    if str(args.port).lower() == "auto":
+        bind_port = 0
+    else:
+        try:
+            bind_port = int(args.port)
+        except ValueError as exc:
+            raise SystemExit("--port must be an integer or 'auto'") from exc
+        if not (0 <= bind_port <= 65535):
+            raise SystemExit("--port must be in range 0..65535, or 'auto'")
 
     class Server(socketserver.ThreadingTCPServer):
         allow_reuse_address = True
 
-    with Server((args.host, args.port), Handler) as srv:
+    with Server((args.host, bind_port), Handler) as srv:
+        actual_host, actual_port = srv.server_address
+        args.port = int(actual_port)
+        if args.port_file:
+            Path(args.port_file).parent.mkdir(parents=True, exist_ok=True)
+            Path(args.port_file).write_text(f"{actual_port}\n")
         srv.service = CentralizedDqnService(args)  # type: ignore[attr-defined]
         mode = "eval-only" if args.eval_only else "online-learning"
         print(
-            f"[CentralizedDQN] listening on {args.host}:{args.port} mode={mode} model_type={srv.service.model_type} schema={srv.service.schema_version} state_dim={args.state_dim} action_dim={args.action_dim} normalization={srv.service.normalization_enabled}",
+            f"[CentralizedDQN] listening on {actual_host}:{actual_port} mode={mode} model_type={srv.service.model_type} schema={srv.service.schema_version} state_dim={args.state_dim} action_dim={args.action_dim} normalization={srv.service.normalization_enabled}",
             flush=True,
         )
         srv.serve_forever()

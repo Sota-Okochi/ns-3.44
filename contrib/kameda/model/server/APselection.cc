@@ -205,6 +205,18 @@ bool ExtractJsonIntScalar(const std::string& content, const std::string& key, in
     return false;
 }
 
+bool ExtractJsonDoubleScalar(const std::string& content, const std::string& key, double& out)
+{
+    std::regex re("\\\"" + key + "\\\"\\s*:\\s*([-+]?(?:[0-9]*\\.[0-9]+|[0-9]+\\.?)(?:[eE][-+]?[0-9]+)?)");
+    std::smatch match;
+    if (std::regex_search(content, match, re))
+    {
+        out = std::stod(match[1]);
+        return true;
+    }
+    return false;
+}
+
 } // namespace
 
 // split関数の定義
@@ -2393,12 +2405,14 @@ APselection::SendCentralizedStateReceiveAction(const std::string& requestJson,
                                                int& actionId,
                                                int& targetUeId,
                                                int& selectedBsId,
+                                               double& qValue,
                                                std::vector<double>& qValues,
                                                std::string& errorMessage) const
 {
     actionId = -1;
     targetUeId = -1;
     selectedBsId = -1;
+    qValue = 0.0;
     qValues.clear();
 
     int fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -2471,6 +2485,7 @@ APselection::SendCentralizedStateReceiveAction(const std::string& requestJson,
     }
     ExtractJsonIntScalar(response, "target_ue_id", targetUeId);
     ExtractJsonIntScalar(response, "selected_bs_id", selectedBsId);
+    ExtractJsonDoubleScalar(response, "q_value", qValue);
     if (targetUeId <= 0 && actionId >= 0 && aps > 0)
     {
         targetUeId = (actionId / aps) + 1;
@@ -2525,12 +2540,14 @@ void APselection::centralized_dqn_assignment()
         int actionId = -1;
         int targetUeId = -1;
         int selectedBsId = -1;
+        double selectedQValue = 0.0;
         std::vector<double> qValues;
         std::string errorMessage;
         if (!SendCentralizedStateReceiveAction(requestJson,
                                                actionId,
                                                targetUeId,
                                                selectedBsId,
+                                               selectedQValue,
                                                qValues,
                                                errorMessage))
         {
@@ -2573,6 +2590,10 @@ void APselection::centralized_dqn_assignment()
         if (decodedActionId >= 0 && decodedActionId < static_cast<int>(qValues.size()))
         {
             action.advantage = qValues[decodedActionId];
+        }
+        else
+        {
+            action.advantage = selectedQValue;
         }
 
         std::string skipReason;

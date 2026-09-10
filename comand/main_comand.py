@@ -34,6 +34,7 @@
 from __future__ import annotations
 
 import argparse
+import concurrent.futures
 import json
 import os
 import socket
@@ -132,12 +133,17 @@ def start_dqn_server(
     reward_degraded_penalty_beta: float,
     model_type: str,
     schema_version: str,
+    batch_size: int,
+    target_sync_interval: int,
+    disable_checkpoint_out: bool,
 ) -> subprocess.Popen:
-    if checkpoint_out:
-        checkpoint_out_path = Path(checkpoint_out)
+    if disable_checkpoint_out:
+        checkpoint_out_path = ""
+    elif checkpoint_out:
+        checkpoint_out_path = str(Path(checkpoint_out))
     else:
         default_name = "centralized_dqn" if method == "centralized_dqn" else "online_dqn"
-        checkpoint_out_path = root / "models" / f"{default_name}_seed{seed}.pt"
+        checkpoint_out_path = str(root / "models" / f"{default_name}_seed{seed}.pt")
 
     server_script = "centralized_server.py" if method == "centralized_dqn" else "server.py"
     cmd = [
@@ -151,6 +157,10 @@ def start_dqn_server(
         str(seed),
         "--epsilon",
         str(epsilon),
+        "--batch-size",
+        str(batch_size),
+        "--target-sync-interval",
+        str(target_sync_interval),
         "--action-dim",
         str(action_dim),
         "--reward-switch-penalty-alpha",
@@ -354,7 +364,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--checkpoint", default="", help="online_dqn server に渡す checkpoint")
     parser.add_argument("--checkpoint-out", default="", help="online_dqn server の checkpoint 保存先")
     parser.add_argument("--epsilon", type=float, default=0.1, help="online_dqn server の epsilon。default: 0.1")
+    parser.add_argument("--batch-size", type=int, default=64, help="DQN server の online update batch size。default: 64")
+    parser.add_argument("--target-sync-interval", type=int, default=100, help="DQN target network sync interval。default: 100")
+    parser.add_argument("--no-checkpoint-out", action="store_true", help="DQN server の checkpoint 保存を無効化する")
     parser.add_argument("--eval-only", action="store_true", help="online_dqn server を eval-only で起動")
+    parser.add_argument("--parallel", type=int, default=1, help="並列実行数。default: 1。online/centralized DQN の並列実行では --port auto 推奨。")
     parser.add_argument(
         "--no-restore-setting",
         action="store_true",
@@ -398,6 +412,9 @@ def run_job(root: Path, job: RunJob, index: int, total: int, args: argparse.Name
                 args.rewardDegradedPenaltyBeta,
                 args.centralized_model_type,
                 args.centralizedDqnStateSchema,
+                args.batch_size,
+                args.target_sync_interval,
+                args.no_checkpoint_out,
             )
 
         cmd = ns3_command(
@@ -463,10 +480,31 @@ def main() -> int:
         print("dry-run のため実行しません。", flush=True)
         return 0
 
-    for i, job in enumerate(jobs, start=1):
-        code = run_job(root, job, i, len(jobs), args)
-        if code != 0:
-            return code
+    if args.parallel > 1:
+        if args.port != "auto" and any(job.method in {"online_dqn", "centralized_dqn"} for job in jobs) and not args.no_server:
+            print("ERROR: --parallel > 1 で DQN server を各run起動する場合は --port auto を指定してください。", file=sys.stderr)
+            return 1
+        print(f"並列実行数: {args.parallel}", flush=True)
+        with concurrent.futures.ThreadPoolExecutor(max_workers=args.parallel) as executor:
+            future_to_job = {
+                executor.submit(run_job, root, job, i, len(jobs), args): job
+                for i, job in enumerate(jobs, start=1)
+            }
+            for future in concurrent.futures.as_completed(future_to_job):
+                job = future_to_job[future]
+                try:
+                    code = future.result()
+                except Exception as exc:
+                    print(f"ERROR: method={job.method} seed={job.seed} の並列実行で例外: {exc}", file=sys.stderr)
+                    return 1
+                if code != 0:
+                    print(f"ERROR: method={job.method} seed={job.seed} が失敗しました。残りの完了を待たず終了します。", file=sys.stderr)
+                    return code
+    else:
+        for i, job in enumerate(jobs, start=1):
+            code = run_job(root, job, i, len(jobs), args)
+            if code != 0:
+                return code
 
     print("=" * 80, flush=True)
     print("全シミュレーションが正常終了しました。", flush=True)

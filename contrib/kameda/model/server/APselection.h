@@ -174,6 +174,7 @@ private:
                                            int& actionId,
                                            int& targetUeId,
                                            int& selectedBsId,
+                                           double& qValue,
                                            std::vector<double>& qValues,
                                            std::string& errorMessage) const;
     double calculate_harmonic_mean_for_assignment(const std::vector<int>& assignment);
