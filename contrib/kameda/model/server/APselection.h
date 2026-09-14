@@ -268,6 +268,7 @@ private:
     std::string m_pendingRewardEffectiveMethod = "random"; // 実測reward対象cycleの実効手法
     bool m_pendingRewardBootstrapCycle = false;  // 実測reward対象cycleがbootstrapか
     std::string m_outputDir = "OUTPUT/";        // master_log 出力先
+    double m_lastAssignmentComputeMs = 0.0;      // 当該cycleの割当算出処理時間[ms]（steady_clock計測）
     std::map<uint32_t, std::vector<DqnAction>> m_dqnActions; // cycle_id -> actions
     uint32_t m_rngSeed = 1;                    // 割り当て手法用乱数seed
     bool m_masterLogInitialized = false;       // master_log.csv ヘッダー書き込み済みフラグ

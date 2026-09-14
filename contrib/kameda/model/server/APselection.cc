@@ -315,6 +315,7 @@ void APselection::init(const ApSelectionInput& input){
     m_effectiveAssignmentMethod = m_assignmentMethod;
     m_pendingRewardEffectiveMethod = m_assignmentMethod;
     m_pendingRewardBootstrapCycle = false;
+    m_lastAssignmentComputeMs = 0.0;
     if (m_assignmentMethod == "logistic" ||
         (m_assignmentMethod == "centralized_dqn" && m_centralizedDqnBootstrapCycles > 0))
     {
@@ -476,6 +477,7 @@ void APselection::tmain(){
         PrepareDecisionLogState(initial_AP, initial_AP, hBefore, hBefore);
     }
 
+    const auto assignmentComputeStart = std::chrono::steady_clock::now();
     if (m_totalCycles == 0 || m_cycleIndex < m_totalCycles)
     {
         if (m_assignmentMethod == "random")
@@ -544,6 +546,14 @@ void APselection::tmain(){
     {
         m_lastAssignment = initial_AP;
     }
+    const auto assignmentComputeEnd = std::chrono::steady_clock::now();
+    m_lastAssignmentComputeMs =
+        std::chrono::duration<double, std::milli>(assignmentComputeEnd - assignmentComputeStart).count();
+    std::cout << "[AssignmentComputeTime] cycle=" << m_cycleIndex
+              << " method=" << m_assignmentMethod
+              << " effective_method=" << m_effectiveAssignmentMethod
+              << " assignment_compute_ms=" << std::fixed << std::setprecision(6)
+              << m_lastAssignmentComputeMs << std::endl;
 
     if (!m_lastAssignment.empty())
     {
@@ -3925,6 +3935,7 @@ void APselection::WriteMasterLog()
             << "k_min,"
             << "k_decay_rate,"
             << "stop_action_flag,"
+            << "assignment_compute_ms,"
             << "warmup_before_cycle_sec,"
             << "cycle_start_offset_sec" << std::endl;
         ofs.close();
@@ -4183,6 +4194,7 @@ void APselection::WriteMasterLog()
             << ((m_assignmentMethod == "online_dqn" || m_assignmentMethod == "centralized_dqn") ? m_kMin : m_MaxSwitches) << ","
             << ((m_assignmentMethod == "online_dqn" || m_assignmentMethod == "centralized_dqn") ? m_kDecayRate : 0) << ","
             << 0 << ","
+            << m_lastAssignmentComputeMs << ","
             << m_warmupBeforeCycleSec << ","
             << m_cycleStartOffsetSec << std::endl;
     }
