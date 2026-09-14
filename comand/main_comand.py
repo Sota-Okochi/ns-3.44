@@ -136,6 +136,9 @@ def start_dqn_server(
     batch_size: int,
     target_sync_interval: int,
     disable_checkpoint_out: bool,
+    lr: float,
+    gamma: float,
+    save_on_exit: bool,
 ) -> subprocess.Popen:
     if disable_checkpoint_out:
         checkpoint_out_path = ""
@@ -157,6 +160,10 @@ def start_dqn_server(
         str(seed),
         "--epsilon",
         str(epsilon),
+        "--lr",
+        str(lr),
+        "--gamma",
+        str(gamma),
         "--batch-size",
         str(batch_size),
         "--target-sync-interval",
@@ -174,6 +181,8 @@ def start_dqn_server(
         cmd.extend(["--model-type", model_type, "--schema-version", schema_version])
     if checkpoint:
         cmd.extend(["--checkpoint", checkpoint])
+    if save_on_exit:
+        cmd.append("--save-on-exit")
     if eval_only:
         cmd.append("--eval-only")
 
@@ -364,9 +373,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--checkpoint", default="", help="online_dqn server に渡す checkpoint")
     parser.add_argument("--checkpoint-out", default="", help="online_dqn server の checkpoint 保存先")
     parser.add_argument("--epsilon", type=float, default=0.1, help="online_dqn server の epsilon。default: 0.1")
+    parser.add_argument("--lr", type=float, default=1e-3, help="DQN server の learning rate。default: 1e-3")
+    parser.add_argument("--gamma", type=float, default=0.99, help="DQN server の discount factor。default: 0.99")
     parser.add_argument("--batch-size", type=int, default=64, help="DQN server の online update batch size。default: 64")
     parser.add_argument("--target-sync-interval", type=int, default=100, help="DQN target network sync interval。default: 100")
     parser.add_argument("--no-checkpoint-out", action="store_true", help="DQN server の checkpoint 保存を無効化する")
+    parser.add_argument("--save-on-exit", action="store_true", help="DQN server 終了時に checkpoint-out へ保存する")
+    parser.add_argument("--chain-checkpoint", default="", help="方式B用。seed間で継続学習する checkpoint path。training は parallel=1 で実行する。")
     parser.add_argument("--eval-only", action="store_true", help="online_dqn server を eval-only で起動")
     parser.add_argument("--parallel", type=int, default=1, help="並列実行数。default: 1。online/centralized DQN の並列実行では --port auto 推奨。")
     parser.add_argument(
@@ -415,6 +428,9 @@ def run_job(root: Path, job: RunJob, index: int, total: int, args: argparse.Name
                 args.batch_size,
                 args.target_sync_interval,
                 args.no_checkpoint_out,
+                args.lr,
+                args.gamma,
+                args.save_on_exit,
             )
 
         cmd = ns3_command(
@@ -469,6 +485,18 @@ def main() -> int:
         return 1
 
     jobs = build_pretrain_k1_jobs() if args.preset == "pretrain-k1" else build_custom_jobs(args)
+
+    if args.chain_checkpoint:
+        if args.parallel != 1:
+            print("ERROR: --chain-checkpoint を使う継続学習 training は --parallel 1 で実行してください。", file=sys.stderr)
+            return 1
+        if args.no_checkpoint_out:
+            print("ERROR: --chain-checkpoint と --no-checkpoint-out は同時に指定できません。", file=sys.stderr)
+            return 1
+        args.checkpoint = args.chain_checkpoint
+        args.checkpoint_out = args.chain_checkpoint
+        args.save_on_exit = True
+        print(f"方式B 継続学習 checkpoint: {args.chain_checkpoint}", flush=True)
 
     print("これから実行するコマンド一覧:")
     for i, job in enumerate(jobs, start=1):

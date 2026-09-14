@@ -807,3 +807,119 @@ python3 comand/main_comand.py \
 - 並列実行前に `./ns3 build` を完了させておく。
 - `--parallel` を大きくしすぎると CPU・メモリ・I/O が競合し，1 run あたりの時間が伸びる可能性がある。
 - まずは `--parallel 2` から開始する。
+
+---
+
+## 18. 方式 B: training seeds で online 学習済みモデルを作り，test seeds で評価する実装方針
+
+方式 B では，logistic teacher imitation は行わず，training seed における ns-3 実測 reward で DQN を継続学習する。
+
+### 18.1 training phase
+
+training phase では，seed をまたいで同一 checkpoint を継続更新する。
+
+```text
+seed 1:
+    checkpoint が存在しなければ random init
+    online fine tuning
+    checkpoint 保存
+
+seed 2:
+    seed 1 後の checkpoint を読み込み
+    online fine tuning
+    checkpoint 保存
+
+...
+
+seed N:
+    seed N-1 後の checkpoint を読み込み
+    online fine tuning
+    final checkpoint 保存
+```
+
+このため，training phase は原則として並列実行しない。
+
+```text
+training: --parallel 1
+```
+
+`comand/main_comand.py` では，方式 B 用に以下を指定できる。
+
+```text
+--chain-checkpoint <path>
+```
+
+これを指定すると，各 seed の DQN server は同じ checkpoint path を読み込み，同じ path に終了時保存する。
+
+例:
+
+```bash
+python3 comand/main_comand.py \
+  --preset custom \
+  --method centralized_dqn \
+  --maxSwitches 4 \
+  --seeds 1 2 3 4 5 6 7 8 9 10 \
+  --port auto \
+  --parallel 1 \
+  --centralizedDqnBootstrapCycles 1 \
+  --centralizedDqnStateSchema v2_onehot \
+  --centralized-model-type factorized_v2 \
+  --epsilon 0.02 \
+  --lr 0.0001 \
+  --batch-size 1 \
+  --target-sync-interval 1 \
+  --rewardSwitchPenaltyAlpha 0.0 \
+  --rewardDegradedPenaltyBeta 0.0 \
+  --onlineDqnSafetyThreshold 0.01 \
+  --chain-checkpoint models/proposed_B_train_K4_th001.pt
+```
+
+### 18.2 evaluation phase
+
+評価では，training phase で作成した checkpoint を読み込む。
+
+評価中にモデルを更新しない場合は，以下を指定する。
+
+```text
+--checkpoint models/proposed_B_train_K4_th001.pt
+--eval-only
+--epsilon 0.0
+--no-checkpoint-out
+```
+
+eval-only の評価は seed 間に依存がないため，並列実行できる。
+
+```text
+evaluation: --parallel 2 以上可
+```
+
+例:
+
+```bash
+python3 comand/main_comand.py \
+  --preset custom \
+  --method centralized_dqn \
+  --maxSwitches 4 \
+  --seeds 1001 1002 1003 1004 1005 1006 1007 1008 1009 1010 \
+  --port auto \
+  --parallel 2 \
+  --centralizedDqnBootstrapCycles 1 \
+  --centralizedDqnStateSchema v2_onehot \
+  --centralized-model-type factorized_v2 \
+  --epsilon 0.0 \
+  --batch-size 1 \
+  --target-sync-interval 1 \
+  --rewardSwitchPenaltyAlpha 0.0 \
+  --rewardDegradedPenaltyBeta 0.0 \
+  --onlineDqnSafetyThreshold 0.01 \
+  --checkpoint models/proposed_B_train_K4_th001.pt \
+  --eval-only \
+  --no-checkpoint-out
+```
+
+### 18.3 実装上の注意
+
+- `rl/centralized_server.py` は `--save-on-exit` に対応し，server 終了時に `--checkpoint-out` へ最終モデルを保存する。
+- `comand/main_comand.py` の `--chain-checkpoint` は `--save-on-exit` を自動的に有効化する。
+- `--chain-checkpoint` と `--no-checkpoint-out` は同時に指定しない。
+- `--chain-checkpoint` 使用時は `--parallel 1` とする。

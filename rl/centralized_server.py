@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import signal
 import socketserver
+import threading
 from pathlib import Path
 
 import torch
@@ -54,6 +56,34 @@ class CentralizedDqnService:
         self.pending: dict[tuple[int, int], tuple[list[float], int, float]] = {}
         self.last_cycle: int | None = None
         self.steps = 0
+
+    def checkpoint_metadata(self) -> dict:
+        return {
+            "steps": self.steps,
+            "state_dim": self.args.state_dim,
+            "action_dim": self.args.action_dim,
+            "hidden_dim": self.args.hidden_dim,
+            "emb_dim": self.args.emb_dim,
+            "model_type": self.model_type,
+            "schema_version": self.schema_version,
+            "lr": self.args.lr,
+            "gamma": self.args.gamma,
+            "seed": self.args.seed,
+            "normalization": {
+                "enabled": self.normalization_enabled,
+                "feature_mean": self.feature_mean,
+                "feature_std": self.feature_std,
+            },
+        }
+
+    def save_checkpoint(self, reason: str) -> None:
+        if self.args.eval_only or not self.args.checkpoint_out:
+            return
+        self.agent.save_checkpoint(self.args.checkpoint_out, self.checkpoint_metadata())
+        print(
+            f"[CentralizedDQN] checkpoint saved reason={reason} path={self.args.checkpoint_out} steps={self.steps}",
+            flush=True,
+        )
 
     def handle(self, msg: dict) -> dict:
         if msg.get("type", "act") != "act":
@@ -127,10 +157,7 @@ class CentralizedDqnService:
             if self.steps % self.args.target_sync_interval == 0:
                 self.agent.sync_target()
             if self.args.checkpoint_out and self.steps % self.args.checkpoint_interval == 0:
-                self.agent.save_checkpoint(
-                    self.args.checkpoint_out,
-                    {"steps": self.steps, "state_dim": self.args.state_dim, "action_dim": self.args.action_dim, "normalization": {"enabled": self.normalization_enabled, "feature_mean": self.feature_mean, "feature_std": self.feature_std}},
-                )
+                self.save_checkpoint("interval")
         return {
             "type": "action",
             "action_id": action_id,
@@ -176,6 +203,7 @@ def main():
     p.add_argument("--checkpoint", default="")
     p.add_argument("--checkpoint-out", default="models/centralized_dqn.pt")
     p.add_argument("--checkpoint-interval", type=int, default=10)
+    p.add_argument("--save-on-exit", action="store_true", help="Save checkpoint_out when the server shuts down. Useful for cross-seed training.")
     p.add_argument("--target-sync-interval", type=int, default=100)
     p.add_argument("--reward-switch-penalty-alpha", type=float, default=0.001)
     p.add_argument("--reward-degraded-penalty-beta", type=float, default=0.001)
@@ -201,12 +229,27 @@ def main():
             Path(args.port_file).parent.mkdir(parents=True, exist_ok=True)
             Path(args.port_file).write_text(f"{actual_port}\n")
         srv.service = CentralizedDqnService(args)  # type: ignore[attr-defined]
+
+        def request_shutdown(signum, _frame):
+            print(f"[CentralizedDQN] received signal={signum}; shutting down", flush=True)
+            threading.Thread(target=srv.shutdown, daemon=True).start()
+
+        previous_sigterm = signal.getsignal(signal.SIGTERM)
+        previous_sigint = signal.getsignal(signal.SIGINT)
+        signal.signal(signal.SIGTERM, request_shutdown)
+        signal.signal(signal.SIGINT, request_shutdown)
         mode = "eval-only" if args.eval_only else "online-learning"
         print(
             f"[CentralizedDQN] listening on {actual_host}:{actual_port} mode={mode} model_type={srv.service.model_type} schema={srv.service.schema_version} state_dim={args.state_dim} action_dim={args.action_dim} normalization={srv.service.normalization_enabled}",
             flush=True,
         )
-        srv.serve_forever()
+        try:
+            srv.serve_forever()
+        finally:
+            signal.signal(signal.SIGTERM, previous_sigterm)
+            signal.signal(signal.SIGINT, previous_sigint)
+            if args.save_on_exit:
+                srv.service.save_checkpoint("exit")  # type: ignore[attr-defined]
 
 
 if __name__ == "__main__":
