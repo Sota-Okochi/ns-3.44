@@ -8,6 +8,7 @@ namespace ns3 {
 
 void NetSim::ConfigureCycleParameters()
 {
+    ResearchWallProfiler::Scope perfScope("NetSim::ConfigureCycleParameters");
     if (!m_cycleDuration.IsPositive())
     {
         m_cycleDuration = Seconds(7.0);
@@ -50,6 +51,7 @@ void NetSim::ScheduleMonitorWindows()
 
 void NetSim::HandoverRequest(const std::vector<int>& assignment)
 {
+    ResearchWallProfiler::Scope perfScope("NetSim::HandoverRequest");
     if (assignment.empty())
     {
         std::cout << "[Handover] Received empty assignment; skipping" << std::endl;
@@ -115,6 +117,7 @@ void NetSim::PrintAssignmentSummary(const std::vector<int>& assignment) const
 
 void NetSim::ApplyHandoverBatch(const std::vector<std::pair<uint32_t, int>>& switchList)
 {
+    ResearchWallProfiler::Scope perfScope("NetSim::ApplyHandoverBatch");
     for (const auto& entry : switchList)
     {
         uint32_t termIdx = entry.first;
@@ -204,12 +207,14 @@ void NetSim::ApplyHandoverState(uint32_t termIdx, int newAp, RatType newRat, Ipv
     TermAccessState& state = m_termAccessState[termIdx];
     RebindTerminalApps(termIdx, newIp);
     state.currentAp = newAp;
+    ResearchWallProfiler::Get().SelectAp(terms[termIdx]->GetId(), newAp);
     state.currentRat = newRat;
     state.lastSwitchTime = Simulator::Now();
 }
 
 void NetSim::WifiToWifiHandover(uint32_t termIdx, int oldAp, int newAp)
 {
+    ResearchWallProfiler::Scope perfScope("NetSim::WifiToWifiHandover");
     Ptr<Node> term = terms[termIdx];
     TermAccessState& state = m_termAccessState[termIdx];
 
@@ -229,6 +234,7 @@ void NetSim::WifiToWifiHandover(uint32_t termIdx, int oldAp, int newAp)
 
 void NetSim::NrToWifiHandover(uint32_t termIdx, int newAp)
 {
+    ResearchWallProfiler::Scope perfScope("NetSim::NrToWifiHandover");
     Ptr<Node> term = terms[termIdx];
     TermAccessState& state = m_termAccessState[termIdx];
 
@@ -248,6 +254,7 @@ void NetSim::NrToWifiHandover(uint32_t termIdx, int newAp)
 
 void NetSim::WifiToNrHandover(uint32_t termIdx)
 {
+    ResearchWallProfiler::Scope perfScope("NetSim::WifiToNrHandover");
     Ptr<Node> term = terms[termIdx];
     TermAccessState& state = m_termAccessState[termIdx];
 

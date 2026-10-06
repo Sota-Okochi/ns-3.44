@@ -1,4 +1,5 @@
 /* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
+#include "ns3/research-wall-profiler.h"
 #include "ns3/log.h"
 #include "ns3/ipv4-address.h"
 #include "ns3/address-utils.h"
@@ -291,6 +292,13 @@ std::vector<std::string> KamedaAppServer::SplitString(const std::string &input, 
 }
 
 void KamedaAppServer::Ending(){
+    // Existing cycle boundary: no new events and no AP-selection timers.
+    auto& profiler = ResearchWallProfiler::Get();
+    if (profiler.Enabled())
+    {
+        profiler.Boundary("cycle_end", m_cycleIndex + 1,
+                          Simulator::Now().GetSeconds(), Simulator::GetEventCount());
+    }
     std::cout << "=== KamedaAppServer::Ending() called at " << Simulator::Now().GetSeconds()
               << "s (cycle " << (m_cycleIndex + 1) << ") ===" << std::endl;
 

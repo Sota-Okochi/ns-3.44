@@ -1,6 +1,8 @@
 #include "NetSim.h"
 #include "ns3/system-path.h"
 #include <algorithm>
+#include <filesystem>
+#include <unistd.h>
 
 NS_LOG_COMPONENT_DEFINE("researchMain");
 
@@ -300,7 +302,15 @@ void NetSim::Init(int argc, char *argv[]){
     NS_LOG_FUNCTION(this);
 
     uint32_t cliRngSeed = 0;
+    bool perfTiming = false;
+    bool perfDetailed = false;
+    uint64_t perfWifiSampleEvery = 1024;
+    std::string perfOutputDir = "results/perf";
     CommandLine cmd;
+    cmd.AddValue("perfTiming", "Enable wall-clock timing without changing simulation events", perfTiming);
+    cmd.AddValue("perfDetailed", "Also time NR/Wi-Fi/FlowMonitor internals (implies perfTiming)", perfDetailed);
+    cmd.AddValue("perfWifiSampleEvery", "Sample Wi-Fi subphases once per N receptions (positive)", perfWifiSampleEvery);
+    cmd.AddValue("perfOutputDir", "Parent directory for unique timing run directories", perfOutputDir);
     cmd.AddValue("method", "Assignment method: no_switch, random, all5g, rulebase, greedy, multi_greedy, multi_offload, logistic, dqn, multi_dqn, online_dqn", m_assignmentMethod);
     cmd.AddValue("rngSeed",
                  "Override rngSeed from data/setting.json when non-zero. This avoids editing setting.json during parallel runs.",
@@ -509,6 +519,40 @@ void NetSim::Init(int argc, char *argv[]){
         }
     }
     std::cout << "]" << std::endl;
+    if (perfTiming || perfDetailed)
+    {
+        const auto stamp = std::chrono::duration_cast<std::chrono::microseconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count();
+        const std::string runId = m_assignmentMethod + "_seed" + std::to_string(m_rngSeed) +
+            "_" + std::to_string(stamp) + "_pid" + std::to_string(getpid());
+        const std::filesystem::path directory = std::filesystem::path(perfOutputDir) / runId;
+        ResearchWallProfiler::Get().Start(directory.string(), perfDetailed, perfWifiSampleEvery);
+        std::filesystem::copy_file(settingPath, directory / "setting.json");
+        std::ofstream metadata(directory / "metadata.txt");
+#if defined(NS3_BUILD_PROFILE_OPTIMIZED)
+        constexpr const char* buildProfile = "optimized";
+#elif defined(NS3_BUILD_PROFILE_DEBUG)
+        constexpr const char* buildProfile = "debug";
+#else
+        constexpr const char* buildProfile = "other";
+#endif
+        metadata << "run_id=" << runId << "\nseed=" << m_rngSeed
+                 << "\nmethod=" << m_assignmentMethod << "\nperf_detailed=" << perfDetailed
+                 << "\nprofiler_schema=2\nperf_wifi_sample_every=" << perfWifiSampleEvery
+                 << "\nbuild_profile=" << buildProfile
+                 << "\nns3_version=3.44\ntiming=inclusive_steady_clock\n"
+                 << "threading=single_simulation_thread\n";
+        for (int i = 0; i < argc; ++i)
+        {
+            metadata << "argv[" << i << "]=" << argv[i] << '\n';
+        }
+        if (!metadata)
+        {
+            NS_FATAL_ERROR("Cannot write performance metadata");
+        }
+        std::cout << "[Perf] output=" << directory.string()
+                  << " detailed=" << perfDetailed << std::endl;
+    }
     m_activeAssignment = m_apSelectionInput.initialAp;
 
     // 各基地局の接続数を表示
@@ -536,6 +580,7 @@ void NetSim::Init(int argc, char *argv[]){
 
 
 void NetSim::Configure(){
+    ResearchWallProfiler::Scope perfScope("NetSim::Configure");
     NS_LOG_FUNCTION(this);
 
     //LogComponentEnable("KamedaAppClient", LOG_LEVEL_INFO);
@@ -563,6 +608,7 @@ void NetSim::Configure(){
 }
 
 void NetSim::RunSim(){
+    ResearchWallProfiler::Scope perfScope("NetSim::RunSim");
 
     NS_LOG_FUNCTION(this);
 
@@ -571,6 +617,37 @@ void NetSim::RunSim(){
     CreateNetworkTopology(); // ノードの生成
     ConfigureDataLinkLayer();
     ConfigureNetworkLayer();
+    // Register actual NetDevice indices, not IPv4 interface indices.
+    auto& deviceProfiler = ResearchWallProfiler::Get();
+    if (deviceProfiler.Detailed())
+    {
+        auto registerDevices = [&](const NetDeviceContainer& devices, int ap, const char* rat) {
+            for (auto it = devices.Begin(); it != devices.End(); ++it)
+            {
+                const auto node = (*it)->GetNode();
+                std::string role = "base_station";
+                for (const auto& terminal : terms)
+                {
+                    if (terminal == node) { role = "terminal"; break; }
+                }
+                for (const auto& monitor : monitorTerminals)
+                {
+                    if (monitor == node) { role = "monitor"; break; }
+                }
+                deviceProfiler.RegisterDevice(node->GetId(), (*it)->GetIfIndex(), ap, rat, role);
+            }
+        };
+        registerDevices(m_nrGnbDevs, 1, "nr");
+        registerDevices(m_nrUeDevs, 1, "nr");
+        for (uint32_t ap = 1; ap < wifiDevices.size(); ++ap)
+        {
+            registerDevices(wifiDevices[ap], ap + 1, "wifi");
+        }
+        for (uint32_t i = 0; i < terms.size() && i < m_termAccessState.size(); ++i)
+        {
+            deviceProfiler.SelectAp(terms[i]->GetId(), m_termAccessState[i].currentAp);
+        }
+    }
 
     // Keep per-cycle FlowMonitor diagnostics scoped to this simulation run.
     if (kEnableFlowOutputLogs)
@@ -607,7 +684,11 @@ void NetSim::RunSim(){
     {
         terminalMonitorNodes.Add(server_udpVideo);
     }
-    Ptr<FlowMonitor> flowMonitor = flowmonHelper.Install(terminalMonitorNodes);
+    Ptr<FlowMonitor> flowMonitor;
+    {
+        ResearchWallProfiler::Scope timer("FlowMonitorHelper::Install");
+        flowMonitor = flowmonHelper.Install(terminalMonitorNodes);
+    }
     Ptr<Ipv4FlowClassifier> flowClassifier = DynamicCast<Ipv4FlowClassifier>(flowmonHelper.GetClassifier());
 
     // 端末別TP計測用にFlowMonitor/Classifierを保持
@@ -634,8 +715,24 @@ void NetSim::RunSim(){
     }
 
     std::cout << "=====Simulator::Start()=====" << std::endl;
-    Simulator::Run();
-    Simulator::Destroy();
+    auto& profiler = ResearchWallProfiler::Get();
+    if (profiler.Enabled())
+    {
+        profiler.Boundary("run_start", 0, Simulator::Now().GetSeconds(), Simulator::GetEventCount());
+    }
+    {
+        ResearchWallProfiler::Scope timer("Simulator::Run");
+        Simulator::Run();
+    }
+    if (profiler.Enabled())
+    {
+        profiler.Boundary("run_end", 0, Simulator::Now().GetSeconds(), Simulator::GetEventCount());
+    }
+    {
+        ResearchWallProfiler::Scope timer("Simulator::Destroy");
+        Simulator::Destroy();
+    }
+    profiler.Snapshot("after_destroy", 0);
     std::cout << "=====Simulator::End()=====" << std::endl;
 }
 

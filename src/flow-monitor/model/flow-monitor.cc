@@ -6,6 +6,7 @@
 // Author: Gustavo J. A. M. Carneiro  <gjc@inescporto.pt> <gjcarneiro@gmail.com>
 //
 
+#include "ns3/research-wall-profiler.h"
 #include "flow-monitor.h"
 
 #include "ns3/double.h"
@@ -141,6 +142,7 @@ FlowMonitor::ReportFirstTx(Ptr<FlowProbe> probe,
                            uint32_t packetId,
                            uint32_t packetSize)
 {
+    ResearchWallProfiler::Scope perfScope("FlowMonitor::ReportFirstTx", true);
     NS_LOG_FUNCTION(this << probe << flowId << packetId << packetSize);
     if (!m_enabled)
     {
@@ -173,6 +175,7 @@ FlowMonitor::ReportForwarding(Ptr<FlowProbe> probe,
                               uint32_t packetId,
                               uint32_t packetSize)
 {
+    ResearchWallProfiler::Scope perfScope("FlowMonitor::ReportForwarding", true);
     NS_LOG_FUNCTION(this << probe << flowId << packetId << packetSize);
     if (!m_enabled)
     {
@@ -201,6 +204,7 @@ FlowMonitor::ReportLastRx(Ptr<FlowProbe> probe,
                           uint32_t packetId,
                           uint32_t packetSize)
 {
+    ResearchWallProfiler::Scope perfScope("FlowMonitor::ReportLastRx", true);
     NS_LOG_FUNCTION(this << probe << flowId << packetId << packetSize);
     if (!m_enabled)
     {
@@ -278,6 +282,7 @@ FlowMonitor::ReportDrop(Ptr<FlowProbe> probe,
                         uint32_t packetSize,
                         uint32_t reasonCode)
 {
+    ResearchWallProfiler::Scope perfScope("FlowMonitor::ReportDrop", true);
     NS_LOG_FUNCTION(this << probe << flowId << packetId << packetSize << reasonCode);
     if (!m_enabled)
     {
@@ -319,6 +324,7 @@ FlowMonitor::GetFlowStats() const
 void
 FlowMonitor::CheckForLostPackets(Time maxDelay)
 {
+    ResearchWallProfiler::Scope perfScope("FlowMonitor::CheckForLostPackets", true);
     NS_LOG_FUNCTION(this << maxDelay.As(Time::S));
     Time now = Simulator::Now();
 
@@ -530,6 +536,7 @@ FlowMonitor::SerializeToXmlFile(std::string fileName, bool enableHistograms, boo
 void
 FlowMonitor::ResetAllStats()
 {
+    ResearchWallProfiler::Scope perfScope("FlowMonitor::ResetAllStats", true);
     NS_LOG_FUNCTION(this);
 
     for (auto& iter : m_flowStats)

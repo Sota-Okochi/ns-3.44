@@ -8,6 +8,7 @@
         std::clog << " [ CellId " << GetCellId() << ", bwpId " << GetBwpId() << "] ";              \
     } while (false);
 
+#include "ns3/research-wall-profiler.h"
 #include "nr-mac-scheduler-ofdma.h"
 
 #include "nr-fh-control.h"
@@ -340,6 +341,7 @@ NrMacSchedulerOfdma::DeallocateResourcesDueToFronthaulConstraint(
 NrMacSchedulerNs3::BeamSymbolMap
 NrMacSchedulerOfdma::AssignDLRBG(uint32_t symAvail, const ActiveUeMap& activeDl) const
 {
+    ResearchWallProfiler::Scope perfScope("NrMacSchedulerOfdma::AssignDLRBG", true);
     NS_LOG_FUNCTION(this);
 
     NS_LOG_DEBUG("# beams active flows: " << activeDl.size() << ", # sym: " << symAvail);
@@ -476,6 +478,7 @@ NrMacSchedulerOfdma::AssignDLRBG(uint32_t symAvail, const ActiveUeMap& activeDl)
 NrMacSchedulerNs3::BeamSymbolMap
 NrMacSchedulerOfdma::AssignULRBG(uint32_t symAvail, const ActiveUeMap& activeUl) const
 {
+    ResearchWallProfiler::Scope perfScope("NrMacSchedulerOfdma::AssignULRBG", true);
     NS_LOG_FUNCTION(this);
 
     NS_LOG_DEBUG("# beams active flows: " << activeUl.size() << ", # sym: " << symAvail);

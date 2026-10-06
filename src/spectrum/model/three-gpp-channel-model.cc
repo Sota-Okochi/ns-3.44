@@ -8,6 +8,7 @@
  *
  */
 
+#include "ns3/research-wall-profiler.h"
 #include "three-gpp-channel-model.h"
 
 #include "ns3/double.h"
@@ -2475,6 +2476,7 @@ ThreeGppChannelModel::GetChannel(Ptr<const MobilityModel> aMob,
                                  Ptr<const PhasedArrayModel> aAntenna,
                                  Ptr<const PhasedArrayModel> bAntenna)
 {
+    ResearchWallProfiler::Scope perfScope("ThreeGppChannelModel::GetChannel", true);
     NS_LOG_FUNCTION(this);
 
     // Compute the channel params key. The key is reciprocal, i.e., key (a, b) = key (b, a)
@@ -2584,6 +2586,7 @@ ThreeGppChannelModel::GenerateChannelParameters(const Ptr<const ChannelCondition
                                                 const Ptr<const MobilityModel> aMob,
                                                 const Ptr<const MobilityModel> bMob) const
 {
+    ResearchWallProfiler::Scope perfScope("ThreeGppChannelModel::GenerateChannelParameters", true);
     NS_LOG_FUNCTION(this);
     // create a channel matrix instance
     Ptr<ThreeGppChannelParams> channelParams = Create<ThreeGppChannelParams>();
@@ -3236,6 +3239,7 @@ ThreeGppChannelModel::GetNewChannel(Ptr<const ThreeGppChannelParams> channelPara
                                     Ptr<const PhasedArrayModel> sAntenna,
                                     Ptr<const PhasedArrayModel> uAntenna) const
 {
+    ResearchWallProfiler::Scope perfScope("ThreeGppChannelModel::GetNewChannel", true);
     NS_LOG_FUNCTION(this);
 
     NS_ASSERT_MSG(m_frequency > 0.0, "Set the operating frequency first!");

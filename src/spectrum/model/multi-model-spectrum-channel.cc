@@ -7,6 +7,7 @@
  */
 
 #include "multi-model-spectrum-channel.h"
+#include "ns3/research-wall-profiler.h"
 
 #include "spectrum-converter.h"
 #include "spectrum-phy.h"
@@ -217,6 +218,16 @@ MultiModelSpectrumChannel::FindAndEventuallyAddTxSpectrumModel(
 void
 MultiModelSpectrumChannel::StartTx(Ptr<SpectrumSignalParameters> txParams)
 {
+    ResearchWallProfiler::Scope timer("MultiModelSpectrumChannel::StartTx", true);
+    auto& profiler = ResearchWallProfiler::Get();
+    if (profiler.Detailed() && txParams->txPhy && txParams->txPhy->GetDevice() &&
+        txParams->txPhy->GetDevice()->GetNode())
+    {
+        auto device = txParams->txPhy->GetDevice();
+        profiler.Count(device->GetNode()->GetId(), device->GetIfIndex(),
+                       ResearchWallProfiler::Metric::TX_SIGNAL);
+    }
+
     NS_LOG_FUNCTION(this << txParams);
 
     NS_ASSERT(txParams->txPhy);
@@ -333,6 +344,11 @@ MultiModelSpectrumChannel::StartTx(Ptr<SpectrumSignalParameters> txParams)
                     }
                 }
 
+                if (profiler.Detailed() && rxNetDevice && rxNetDevice->GetNode())
+                {
+                    profiler.Count(rxNetDevice->GetNode()->GetId(), rxNetDevice->GetIfIndex(),
+                                   ResearchWallProfiler::Metric::RX_SCHEDULED);
+                }
                 if (rxNetDevice)
                 {
                     // the receiver has a NetDevice, so we expect that it is attached to a Node
@@ -373,6 +389,15 @@ MultiModelSpectrumChannel::StartRx(
     Ptr<SpectrumPhy> receiver,
     const std::map<SpectrumModelUid_t, Ptr<SpectrumValue>>& availableConvertedPsds)
 {
+    ResearchWallProfiler::Scope timer("MultiModelSpectrumChannel::StartRx", true);
+    auto& profiler = ResearchWallProfiler::Get();
+    if (profiler.Detailed() && receiver->GetDevice() && receiver->GetDevice()->GetNode())
+    {
+        auto device = receiver->GetDevice();
+        profiler.Count(device->GetNode()->GetId(), device->GetIfIndex(),
+                       ResearchWallProfiler::Metric::RX_ARRIVAL);
+    }
+
     NS_LOG_FUNCTION(this);
 
     const auto rxSpectrumModelUid = params->psd->GetSpectrumModelUid();

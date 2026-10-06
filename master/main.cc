@@ -17,9 +17,25 @@ int main(int argc, char *argv[]){
               << std::put_time(std::localtime(&startTime), "%Y-%m-%d %H:%M:%S")
               << std::endl;
 
-    ns3::NetSim sim;
-    sim.Init(argc, argv);
-    sim.RunSim();
+    using Profiler = ns3::ResearchWallProfiler;
+    auto& profiler = Profiler::Get();
+    Profiler::Clock::time_point destructionStart;
+    {
+        const auto constructStart = Profiler::Clock::now();
+        ns3::NetSim sim;
+        const double constructMs = Profiler::ElapsedMs(constructStart);
+        const auto initStart = Profiler::Clock::now();
+        sim.Init(argc, argv);
+        profiler.Record("NetSim::constructor", constructMs);
+        profiler.Record("NetSim::Init", Profiler::ElapsedMs(initStart));
+        profiler.Snapshot("after_init", 0);
+        sim.RunSim();
+        // The enclosing scope includes member destruction, not just ~NetSim's body.
+        destructionStart = Profiler::Clock::now();
+    }
+    profiler.Record("NetSim::destruction", Profiler::ElapsedMs(destructionStart));
+    profiler.Record("main::lifetime_before_report", Profiler::ElapsedMs(wallClockStart));
+    profiler.Finish();
 
     const auto wallClockEnd = std::chrono::steady_clock::now();
     const auto elapsedMinutes =

@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-2.0-only
 
+#include "ns3/research-wall-profiler.h"
 #include "nr-amc.h"
 
 #include "lena-error-model.h"
@@ -115,6 +116,7 @@ NrAmc::SetNumRefScPerRb(uint8_t nref)
 uint32_t
 NrAmc::CalculateTbSize(uint8_t mcs, uint8_t rank, uint32_t nprb) const
 {
+    ResearchWallProfiler::Scope perfScope("NrAmc::CalculateTbSize", true);
     NS_LOG_FUNCTION(this << static_cast<uint32_t>(mcs));
 
     NS_ASSERT_MSG(mcs <= m_errorModel->GetMaxMcs(),

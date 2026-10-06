@@ -48,6 +48,7 @@ void DumpIpv4Info(const std::string& title, Ptr<Node> node)
 // ------------------------------------------------------------
 // ネットワークトポロジーの作成
 void NetSim::CreateNetworkTopology(){
+    ResearchWallProfiler::Scope perfScope("NetSim::CreateNetworkTopology");
     NS_LOG_FUNCTION(this);
 
     InitializeNodeContainers(); // ノードコンテナの初期化
@@ -162,6 +163,7 @@ void NetSim::CreateServerNodes()
 // データリンク層の設定
 // ------------------------------------------------------------
 void NetSim::ConfigureDataLinkLayer(){
+    ResearchWallProfiler::Scope perfScope("NetSim::ConfigureDataLinkLayer");
     NS_LOG_FUNCTION(this);
 
     ConfigureMobility(); // モビリティ設定
@@ -335,6 +337,7 @@ Vector NetSim::GetMonitorPosition(uint32_t apId) const
 // 5G基地局の設定
 void NetSim::ConfigureNrForAp0()
 {
+    ResearchWallProfiler::Scope perfScope("NetSim::ConfigureNrForAp0");
     if (APnum == 0 || wifiNodes.empty())
     {
         return;
@@ -414,6 +417,7 @@ void NetSim::ConfigureNrForAp0()
 }
 
 void NetSim::ConfigureWifiForAP1(){
+    ResearchWallProfiler::Scope perfScope("NetSim::ConfigureWifiForAP1");
     NS_LOG_FUNCTION(this);
 
     constexpr uint32_t apIndex = 1;
@@ -475,6 +479,7 @@ void NetSim::ConfigureWifiForAP1(){
 }
 
 void NetSim::ConfigureWifiForAP2(){
+    ResearchWallProfiler::Scope perfScope("NetSim::ConfigureWifiForAP2");
     NS_LOG_FUNCTION(this);
 
     constexpr uint32_t apIndex = 2;
@@ -632,6 +637,7 @@ void NetSim::ConfigureP2P(uint32_t count){
 }
 
 void NetSim::ConfigureNetworkLayer(){
+    ResearchWallProfiler::Scope perfScope("NetSim::ConfigureNetworkLayer");
     NS_LOG_FUNCTION(this);
 
     NS_LOG_LOGIC("Install internet stack");
@@ -964,6 +970,7 @@ void NetSim::ConfigureNetworkLayer(){
 
 void NetSim::ConfigureNrIpAfterNetwork()
 {
+    ResearchWallProfiler::Scope perfScope("NetSim::ConfigureNrIpAfterNetwork");
     if (!m_nrEpcHelper || m_nrUeDevs.GetN() == 0)
     {
         return;

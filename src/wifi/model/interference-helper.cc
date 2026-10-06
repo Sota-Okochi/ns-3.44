@@ -7,6 +7,7 @@
  *          Sébastien Deronne <sebastien.deronne@gmail.com>
  */
 
+#include "ns3/research-wall-profiler.h"
 #include "interference-helper.h"
 
 #include "error-rate-model.h"
@@ -746,6 +747,7 @@ InterferenceHelper::CalculatePayloadSnrPer(Ptr<Event> event,
                                            uint16_t staId,
                                            std::pair<Time, Time> relativeMpduStartStop) const
 {
+    ResearchWallProfiler::Scope perfScope("InterferenceHelper::CalculatePayloadSnrPer", true);
     NS_LOG_FUNCTION(this << channelWidth << band << staId << relativeMpduStartStop.first
                          << relativeMpduStartStop.second);
     NiChangesPerBand ni;
@@ -781,6 +783,7 @@ InterferenceHelper::CalculatePhyHeaderSnrPer(Ptr<Event> event,
                                              const WifiSpectrumBandInfo& band,
                                              WifiPpduField header) const
 {
+    ResearchWallProfiler::Scope perfScope("InterferenceHelper::CalculatePhyHeaderSnrPer", true);
     NS_LOG_FUNCTION(this << band << header);
     NiChangesPerBand ni;
     const auto noiseInterference = CalculateNoiseInterferenceW(event, ni, band);

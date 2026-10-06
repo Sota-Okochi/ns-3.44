@@ -188,6 +188,7 @@ set(source_files
     model/show-progress.cc
     model/time-printer.cc
     model/system-wall-clock-ms.cc
+    model/research-wall-profiler.cc
     model/system-wall-clock-timestamp.cc
     model/length.cc
     model/trickle-timer.cc
@@ -280,6 +281,7 @@ set(header_files
     model/synchronizer.h
     model/system-path.h
     model/system-wall-clock-ms.h
+    model/research-wall-profiler.h
     model/system-wall-clock-timestamp.h
     model/test.h
     model/time-printer.h

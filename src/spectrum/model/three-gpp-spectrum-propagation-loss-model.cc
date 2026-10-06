@@ -8,6 +8,7 @@
  *
  */
 
+#include "ns3/research-wall-profiler.h"
 #include "three-gpp-spectrum-propagation-loss-model.h"
 
 #include "spectrum-signal-parameters.h"
@@ -206,6 +207,7 @@ ThreeGppSpectrumPropagationLossModel::CalcBeamformingGain(
     bool isReverse) const
 
 {
+    ResearchWallProfiler::Scope perfScope("ThreeGppSpectrumPropagationLossModel::CalcBeamformingGain", true);
     NS_LOG_FUNCTION(this);
     Ptr<SpectrumSignalParameters> rxParams = params->Copy();
     size_t numCluster = channelMatrix->m_channel.GetNumPages();
@@ -343,6 +345,7 @@ ThreeGppSpectrumPropagationLossModel::GenSpectrumChannelMatrix(
     uint8_t numRxPorts,
     bool isReverse) const
 {
+    ResearchWallProfiler::Scope perfScope("ThreeGppSpectrumPropagationLossModel::GenSpectrumChannelMatrix", true);
     size_t numCluster = channelMatrix->m_channel.GetNumPages();
     auto numRb = inPsd->GetValuesN();
 
@@ -426,6 +429,7 @@ ThreeGppSpectrumPropagationLossModel::GetLongTerm(
     Ptr<const PhasedArrayModel> aPhasedArrayModel,
     Ptr<const PhasedArrayModel> bPhasedArrayModel) const
 {
+    ResearchWallProfiler::Scope perfScope("ThreeGppSpectrumPropagationLossModel::GetLongTerm", true);
     Ptr<const MatrixBasedChannelModel::Complex3DVector>
         longTerm; // vector containing the long term component for each cluster
 
@@ -502,6 +506,7 @@ ThreeGppSpectrumPropagationLossModel::DoCalcRxPowerSpectralDensity(
     Ptr<const PhasedArrayModel> aPhasedArrayModel,
     Ptr<const PhasedArrayModel> bPhasedArrayModel) const
 {
+    ResearchWallProfiler::Scope perfScope("ThreeGppSpectrumPropagationLossModel::DoCalcRxPowerSpectralDensity", true);
     NS_LOG_FUNCTION(this << spectrumSignalParams << a << b << aPhasedArrayModel
                          << bPhasedArrayModel);
 

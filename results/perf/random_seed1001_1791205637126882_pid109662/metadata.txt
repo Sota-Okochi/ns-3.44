@@ -1,0 +1,12 @@
+run_id=random_seed1001_1791205637126882_pid109662
+seed=1001
+method=random
+perf_detailed=1
+build_profile=optimized
+ns3_version=3.44
+timing=inclusive_steady_clock
+threading=single_simulation_thread
+argv[0]=/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/build/master/ns3.44-master-optimized
+argv[1]=--method=random
+argv[2]=--rngSeed=1001
+argv[3]=--perfDetailed=1

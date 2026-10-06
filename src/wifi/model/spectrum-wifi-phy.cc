@@ -11,6 +11,7 @@
  * with Nicola Baldo and Dean Armstrong
  */
 
+#include "ns3/research-wall-profiler.h"
 #include "spectrum-wifi-phy.h"
 
 #include "interference-helper.h"
@@ -463,7 +464,18 @@ void
 SpectrumWifiPhy::StartRx(Ptr<SpectrumSignalParameters> rxParams,
                          Ptr<const WifiSpectrumPhyInterface> interface)
 {
+    ResearchWallProfiler::Scope perfScope("SpectrumWifiPhy::StartRx", true);
     NS_LOG_FUNCTION(this << rxParams << interface);
+    auto& profiler = ResearchWallProfiler::Get();
+    const bool sample = profiler.SampleWifiRx();
+    auto countRx = [&](ResearchWallProfiler::Metric metric) {
+        if (profiler.Detailed() && GetDevice() && GetDevice()->GetNode())
+        {
+            profiler.Count(GetDevice()->GetNode()->GetId(), GetDevice()->GetIfIndex(), metric);
+        }
+    };
+    countRx(ResearchWallProfiler::Metric::WIFI_START);
+
     Time rxDuration = rxParams->duration;
     Ptr<SpectrumValue> receivedSignalPsd = rxParams->psd;
     if (interface)
@@ -494,51 +506,67 @@ SpectrumWifiPhy::StartRx(Ptr<SpectrumSignalParameters> rxParams,
 
     const auto rxGainRatio = DbToRatio(GetRxGain());
 
-    std::size_t index = 0;
-    MHz_u prevBw{0};
-    for (const auto& band : bands)
+    auto powerForBand = [&](const auto& indices) {
+        if (!sample) { return WifiSpectrumValueHelper::GetBandPowerW(receivedSignalPsd, indices); }
+        ResearchWallProfiler::Scope timer("WifiRx.sampled.band_power", true);
+        return WifiSpectrumValueHelper::GetBandPowerW(receivedSignalPsd, indices);
+    };
+    auto insertPower = [&](const auto& band, auto power) {
+        if (!sample) { rxPowers.insert({band, power}); return; }
+        ResearchWallProfiler::Scope timer("WifiRx.sampled.map_insert", true);
+        rxPowers.insert({band, power});
+    };
     {
-        const auto bw =
-            std::accumulate(band.frequencies.cbegin(),
-                            band.frequencies.cend(),
-                            MHz_u{0},
-                            [](MHz_u sum, const auto& startStopFreqs) {
-                                return sum + HzToMHz(startStopFreqs.second - startStopFreqs.first);
-                            });
-        NS_ASSERT(bw <= channelWidth);
-        index = ((bw != prevBw) ? 0 : (index + 1));
-        auto rxPowerPerBand =
-            WifiSpectrumValueHelper::GetBandPowerW(receivedSignalPsd, band.indices);
-        NS_LOG_DEBUG("Signal power received (watts) before antenna gain for "
-                     << bw << " MHz channel band " << index << ": " << band);
-        rxPowerPerBand *= rxGainRatio;
-        rxPowers.insert({band, rxPowerPerBand});
-        NS_LOG_DEBUG("Signal power received after antenna gain for "
-                     << bw << " MHz channel band " << index << ": " << rxPowerPerBand << " W"
-                     << (rxPowerPerBand > Watt_u{0.0}
-                             ? " (" + std::to_string(WToDbm(rxPowerPerBand)) + " dBm)"
-                             : ""));
-        if (bw <= MHz_u{20})
+        ResearchWallProfiler::Scope timer("WifiRx.sampled.regular_bands", true, sample);
+        std::size_t index = 0;
+        MHz_u prevBw{0};
+        for (const auto& band : bands)
         {
-            totalRxPower += rxPowerPerBand;
+            const auto bw =
+                std::accumulate(band.frequencies.cbegin(),
+                                band.frequencies.cend(),
+                                MHz_u{0},
+                                [](MHz_u sum, const auto& startStopFreqs) {
+                                    return sum + HzToMHz(startStopFreqs.second - startStopFreqs.first);
+                                });
+            NS_ASSERT(bw <= channelWidth);
+            index = ((bw != prevBw) ? 0 : (index + 1));
+            auto rxPowerPerBand =
+                powerForBand(band.indices);
+            NS_LOG_DEBUG("Signal power received (watts) before antenna gain for "
+                         << bw << " MHz channel band " << index << ": " << band);
+            rxPowerPerBand *= rxGainRatio;
+            insertPower(band, rxPowerPerBand);
+            NS_LOG_DEBUG("Signal power received after antenna gain for "
+                         << bw << " MHz channel band " << index << ": " << rxPowerPerBand << " W"
+                         << (rxPowerPerBand > Watt_u{0.0}
+                                 ? " (" + std::to_string(WToDbm(rxPowerPerBand)) + " dBm)"
+                                 : ""));
+            if (bw <= MHz_u{20})
+            {
+                totalRxPower += rxPowerPerBand;
+            }
+            prevBw = bw;
         }
-        prevBw = bw;
-    }
+
+    } // regular bands
 
     if (GetStandard() >= WIFI_STANDARD_80211ax)
     {
+        ResearchWallProfiler::Scope timer("WifiRx.sampled.he_ru_bands", true, sample);
         const auto& heRuBands =
             interface ? interface->GetHeRuBands() : m_currentSpectrumPhyInterface->GetHeRuBands();
         NS_ASSERT(!heRuBands.empty());
         for (const auto& [band, ru] : heRuBands)
         {
             auto rxPowerPerBand =
-                WifiSpectrumValueHelper::GetBandPowerW(receivedSignalPsd, band.indices);
+                powerForBand(band.indices);
             rxPowerPerBand *= rxGainRatio;
-            rxPowers.insert({band, rxPowerPerBand});
+            insertPower(band, rxPowerPerBand);
         }
     }
 
+    ResearchWallProfiler::Scope postTimer("WifiRx.sampled.post_power", true, sample);
     NS_ASSERT_MSG(totalRxPower >= Watt_u{0.0}, "Negative RX power");
     NS_LOG_DEBUG("Total signal power received after antenna gain: "
                  << totalRxPower << " W"
@@ -558,6 +586,7 @@ SpectrumWifiPhy::StartRx(Ptr<SpectrumSignalParameters> rxParams,
     if (m_trackSignalsInactiveInterfaces && interface &&
         (interface != m_currentSpectrumPhyInterface))
     {
+        countRx(ResearchWallProfiler::Metric::WIFI_INACTIVE_PHY);
         NS_LOG_INFO("Received Wi-Fi signal from a non-active PHY interface "
                     << interface->GetFrequencyRange());
         m_interference->AddForeignSignal(rxDuration, rxPowers, interface->GetFrequencyRange());
@@ -566,6 +595,7 @@ SpectrumWifiPhy::StartRx(Ptr<SpectrumSignalParameters> rxParams,
 
     if (!wifiRxParams)
     {
+        countRx(ResearchWallProfiler::Metric::WIFI_FOREIGN);
         NS_LOG_INFO("Received non Wi-Fi signal");
         m_interference->AddForeignSignal(rxDuration,
                                          rxPowers,
@@ -577,6 +607,7 @@ SpectrumWifiPhy::StartRx(Ptr<SpectrumSignalParameters> rxParams,
 
     if (wifiRxParams && m_disableWifiReception)
     {
+        countRx(ResearchWallProfiler::Metric::WIFI_DISABLED);
         NS_LOG_INFO("Received Wi-Fi signal but blocked from syncing");
         NS_ASSERT(interface);
         m_interference->AddForeignSignal(rxDuration, rxPowers, interface->GetFrequencyRange());
@@ -590,6 +621,7 @@ SpectrumWifiPhy::StartRx(Ptr<SpectrumSignalParameters> rxParams,
     const auto ppdu = GetRxPpduFromTxPpdu(wifiRxParams->ppdu);
     if (totalRxPower < DbmToW(GetRxSensitivity()) * (ppdu->GetTxChannelWidth() / MHz_u{20}))
     {
+        countRx(ResearchWallProfiler::Metric::WIFI_WEAK);
         NS_LOG_INFO("Received signal too weak to process: "
                     << totalRxPower << " W"
                     << (totalRxPower > Watt_u{0.0}
@@ -604,6 +636,7 @@ SpectrumWifiPhy::StartRx(Ptr<SpectrumSignalParameters> rxParams,
     {
         if (!CanStartRx(ppdu))
         {
+            countRx(ResearchWallProfiler::Metric::WIFI_CANNOT_START);
             NS_LOG_INFO("Cannot start reception of the PPDU, consider it as interference");
             m_interference->Add(ppdu, rxDuration, rxPowers, GetCurrentFrequencyRange());
             SwitchMaybeToCcaBusy(ppdu);
@@ -611,7 +644,9 @@ SpectrumWifiPhy::StartRx(Ptr<SpectrumSignalParameters> rxParams,
         }
     }
 
+    countRx(ResearchWallProfiler::Metric::WIFI_PREAMBLE);
     NS_LOG_INFO("Received Wi-Fi signal");
+    ResearchWallProfiler::Scope preambleTimer("WifiRx.sampled.start_preamble", true, sample);
     StartReceivePreamble(ppdu, rxPowers, rxDuration);
 }
 

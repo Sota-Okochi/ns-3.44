@@ -3,6 +3,7 @@
 //
 // SPDX-License-Identifier: GPL-2.0-only
 
+#include "ns3/research-wall-profiler.h"
 #include "nr-eesm-error-model.h"
 
 #include "fast-exp.h"
@@ -257,6 +258,7 @@ NrEesmErrorModel::GetTbDecodificationStats(const SpectrumValue& sinr,
                                            uint8_t mcs,
                                            const NrErrorModelHistory& sinrHistory)
 {
+    ResearchWallProfiler::Scope perfScope("NrEesmErrorModel::GetTbDecodificationStats", true);
     return GetTbBitDecodificationStats(sinr, map, size * 8, mcs, sinrHistory);
 }
 

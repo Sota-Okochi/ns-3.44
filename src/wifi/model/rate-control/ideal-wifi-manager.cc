@@ -6,6 +6,7 @@
  * Author: Mathieu Lacage <mathieu.lacage@sophia.inria.fr>
  */
 
+#include "ns3/research-wall-profiler.h"
 #include "ideal-wifi-manager.h"
 
 #include "ns3/ht-configuration.h"
@@ -343,6 +344,7 @@ IdealWifiManager::DoReportFinalDataFailed(WifiRemoteStation* station)
 WifiTxVector
 IdealWifiManager::DoGetDataTxVector(WifiRemoteStation* st, MHz_u allowedWidth)
 {
+    ResearchWallProfiler::Scope perfScope("IdealWifiManager::DoGetDataTxVector", true);
     NS_LOG_FUNCTION(this << st << allowedWidth);
     auto station = static_cast<IdealWifiRemoteStation*>(st);
     // We search within the Supported rate set the mode with the

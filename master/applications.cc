@@ -688,6 +688,7 @@ void NetSim::AttachMonitorApplication(uint32_t apId, Ptr<Node> monitor)
 }
 
 void NetSim::SetAppLayer(){
+    ResearchWallProfiler::Scope perfScope("NetSim::SetAppLayer");
     NS_LOG_FUNCTION(this);
 
     SetGreedy();
@@ -1203,6 +1204,7 @@ void NetSim::SetOnlineGameApp()
 
 void NetSim::BuildTerminalIpMap()
 {
+    ResearchWallProfiler::Scope perfScope("NetSim::BuildTerminalIpMap");
     m_terminalIpAddresses.resize(terms.size(), Ipv4Address("0.0.0.0"));
     for (uint32_t i = 0; i < terms.size(); ++i)
     {
@@ -1239,6 +1241,7 @@ void NetSim::BuildTerminalIpMap()
 
 void NetSim::ResetTerminalFlowStats()
 {
+    ResearchWallProfiler::Scope perfScope("NetSim::ResetTerminalFlowStats");
     // TPは「サイクル固定窓」平均で評価するため、窓開始時刻を保持する。
     m_terminalTpWindowStart = Simulator::Now();
     if (m_termFlowMonitor != nullptr)
@@ -1249,6 +1252,7 @@ void NetSim::ResetTerminalFlowStats()
 
 void NetSim::CollectTerminalThroughput()
 {
+    ResearchWallProfiler::Scope perfScope("NetSim::CollectTerminalThroughput");
     if (m_kamedaServer == nullptr || m_termFlowMonitor == nullptr ||
         m_termFlowClassifier == nullptr)
     {
@@ -1435,6 +1439,7 @@ void NetSim::CollectTerminalThroughput()
 
 void NetSim::RebindTerminalApps(uint32_t termIdx, Ipv4Address newIp)
 {
+    ResearchWallProfiler::Scope perfScope("NetSim::RebindTerminalApps");
     if (termIdx >= m_termAppStates.size() || termIdx >= terms.size())
     {
         return;
