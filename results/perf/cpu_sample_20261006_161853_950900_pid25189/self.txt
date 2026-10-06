@@ -1,0 +1,714 @@
+# To display the perf.data header info, please use --header/--header-only options.
+#
+#
+# Total Lost Samples: 0
+#
+# Samples: 2K of event 'cpu-clock:u'
+# Event count (approx.): 59959182894
+#
+# Overhead  Command          Shared Object                           Symbol                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         
+# ........  ...............  ......................................  ...............................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................
+#
+    12.22%  ns3.44-master-o  libc.so.6                               [.] malloc_consolidate
+            |
+            ---malloc_consolidate
+               |          
+                --12.15%--_int_malloc
+                          __GI___libc_malloc (inlined)
+                          operator new
+                          |          
+                          |--9.43%--ns3::SpectrumValue::SpectrumValue
+                          |          |          
+                          |           --9.29%--ns3::Create<ns3::SpectrumValue, ns3::Ptr<ns3::SpectrumModel> >
+                          |                     |          
+                          |                     |--4.77%--ns3::WifiSpectrumValueHelper::CreateOfdmTxPowerSpectralDensity
+                          |                     |          ns3::OfdmPhy::GetTxPowerSpectralDensity
+                          |                     |          ns3::PhyEntity::StartTx
+                          |                     |          ns3::SpectrumWifiPhy::StartTx
+                          |                     |          ns3::WifiPhy::Send
+                          |                     |          ns3::WifiPhy::Send
+                          |                     |          ns3::HtFrameExchangeManager::ForwardPsduDown
+                          |                     |          |          
+                          |                     |          |--3.71%--ns3::HtFrameExchangeManager::ForwardMpduDown
+                          |                     |          |          |          
+                          |                     |          |           --3.10%--ns3::FrameExchangeManager::SendNormalAck
+                          |                     |          |                     ns3::DefaultSimulatorImpl::ProcessOneEvent
+                          |                     |          |                     ns3::DefaultSimulatorImpl::Run
+                          |                     |          |                     ns3::NetSim::RunSim
+                          |                     |          |                     main
+                          |                     |          |                     __libc_start_call_main
+                          |                     |          |                     __libc_start_main_impl (inlined)
+                          |                     |          |                     _start
+                          |                     |          |          
+                          |                     |           --1.06%--ns3::HtFrameExchangeManager::SendBlockAck
+                          |                     |                     std::_Function_handler<void (), std::_Bind<void (ns3::HtFrameExchangeManager::*(ns3::HtFrameExchangeManager*, std::reference_wrapper<ns3::RecipientBlockAckAgreement const>, ns3::Time, ns3::WifiTxVector, double, std::nullopt_t))(ns3::RecipientBlockAckAgreement const&, ns3::Time, ns3::WifiTxVector&, double, std::optional<ns3::Mac48Address>)> >::_M_invoke
+                          |                     |                     ns3::DefaultSimulatorImpl::ProcessOneEvent
+                          |                     |                     ns3::DefaultSimulatorImpl::Run
+                          |                     |                     ns3::NetSim::RunSim
+                          |                     |                     main
+                          |                     |                     __libc_start_call_main
+                          |                     |                     __libc_start_main_impl (inlined)
+                          |                     |                     _start
+                          |                     |          
+                          |                     |--3.51%--ns3::WifiSpectrumValueHelper::CreateHeOfdmTxPowerSpectralDensity
+                          |                     |          ns3::HePhy::GetTxPowerSpectralDensity
+                          |                     |          ns3::HePhy::GetTxPowerSpectralDensity
+                          |                     |          ns3::PhyEntity::StartTx
+                          |                     |          ns3::HePhy::StartTx
+                          |                     |          ns3::SpectrumWifiPhy::StartTx
+                          |                     |          ns3::WifiPhy::Send
+                          |                     |          ns3::WifiPhy::Send
+                          |                     |          ns3::HtFrameExchangeManager::ForwardPsduDown
+                          |                     |          |          
+                          |                     |          |--2.69%--ns3::HtFrameExchangeManager::ForwardMpduDown
+                          |                     |          |          ns3::FrameExchangeManager::SendMpdu
+                          |                     |          |          ns3::HtFrameExchangeManager::SendDataFrame
+                          |                     |          |          ns3::HtFrameExchangeManager::StartFrameExchange
+                          |                     |          |          ns3::HeFrameExchangeManager::StartFrameExchange
+                          |                     |          |          ns3::QosFrameExchangeManager::StartTransmission
+                          |                     |          |          ns3::QosFrameExchangeManager::StartTransmission
+                          |                     |          |          ns3::ChannelAccessManager::DoGrantDcfAccess
+                          |                     |          |          ns3::ChannelAccessManager::AccessTimeout
+                          |                     |          |          ns3::DefaultSimulatorImpl::ProcessOneEvent
+                          |                     |          |          ns3::DefaultSimulatorImpl::Run
+                          |                     |          |          ns3::NetSim::RunSim
+                          |                     |          |          main
+                          |                     |          |          __libc_start_call_main
+                          |                     |          |          __libc_start_main_impl (inlined)
+                          |                     |          |          _start
+                          |                     |          |          
+                          |                     |           --0.82%--ns3::HtFrameExchangeManager::SendPsdu
+                          |                     |                     |          
+                          |                     |                      --0.51%--ns3::HtFrameExchangeManager::SendDataFrame
+                          |                     |                                ns3::HtFrameExchangeManager::StartFrameExchange
+                          |                     |                                ns3::HeFrameExchangeManager::StartFrameExchange
+                          |                     |                                ns3::QosFrameExchangeManager::StartTransmission
+                          |                     |                                ns3::QosFrameExchangeManager::StartTransmission
+                          |                     |                                ns3::ChannelAccessManager::DoGrantDcfAccess
+                          |                     |                                ns3::ChannelAccessManager::AccessTimeout
+                          |                     |                                ns3::DefaultSimulatorImpl::ProcessOneEvent
+                          |                     |                                ns3::DefaultSimulatorImpl::Run
+                          |                     |                                ns3::NetSim::RunSim
+                          |                     |                                main
+                          |                     |                                __libc_start_call_main
+                          |                     |                                __libc_start_main_impl (inlined)
+                          |                     |                                _start
+                          |                     |          
+                          |                      --0.78%--ns3::WifiSpectrumValueHelper::CreateDsssTxPowerSpectralDensity
+                          |                                ns3::DsssPhy::GetTxPowerSpectralDensity
+                          |                                ns3::PhyEntity::StartTx
+                          |                                ns3::SpectrumWifiPhy::StartTx
+                          |                                ns3::WifiPhy::Send
+                          |                                ns3::WifiPhy::Send
+                          |                                ns3::HtFrameExchangeManager::ForwardPsduDown
+                          |                                ns3::HtFrameExchangeManager::ForwardMpduDown
+                          |          
+                          |--1.57%--ns3::operator-
+                          |          ns3::NrInterference::ConditionallyEvaluateChunk
+                          |          ns3::NrInterferenceBase::DoSubtractSignal
+                          |          ns3::NrInterference::DoSubtractSignalMimo
+                          |          std::_Function_handler<void (), std::_Bind<void (ns3::NrInterference::*(ns3::NrInterference*, ns3::Ptr<ns3::SpectrumSignalParameters const>, unsigned int))(ns3::Ptr<ns3::SpectrumSignalParameters const>, unsigned int)> >::_M_invoke
+                          |          ns3::DefaultSimulatorImpl::ProcessOneEvent
+                          |          ns3::DefaultSimulatorImpl::Run
+                          |          ns3::NetSim::RunSim
+                          |          main
+                          |          __libc_start_call_main
+                          |          __libc_start_main_impl (inlined)
+                          |          _start
+                          |          
+                           --0.65%--std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::reserve
+                                     std::__cxx11::basic_stringbuf<char, std::char_traits<char>, std::allocator<char> >::overflow
+                                     std::basic_streambuf<char, std::char_traits<char> >::xsputn
+                                     std::__ostream_insert<char, std::char_traits<char> >
+                                     ns3::operator<<
+                                     ns3::NrPhy::PushBackSlotAllocInfo
+                                     ns3::NrGnbMac::DoSchedConfigIndication
+                                     ns3::NrMacMemberMacSchedSapUser::SchedConfigInd
+                                     |          
+                                      --0.54%--ns3::NrMacSchedulerNs3::ScheduleUl
+                                                ns3::NrMacSchedulerNs3::DoSchedUlTriggerReq
+                                                ns3::NrGnbMac::DoSlotUlIndication
+                                                ns3::NrGnbPhy::CallMacForSlotIndication
+                                                ns3::NrGnbPhy::StartSlot
+                                                ns3::DefaultSimulatorImpl::ProcessOneEvent
+                                                ns3::DefaultSimulatorImpl::Run
+                                                ns3::NetSim::RunSim
+                                                main
+                                                __libc_start_call_main
+                                                __libc_start_main_impl (inlined)
+                                                _start
+
+    12.01%  ns3.44-master-o  libc.so.6                               [.] _int_malloc
+            |          
+            |--9.87%--_int_malloc
+            |          __GI___libc_malloc (inlined)
+            |          |          
+            |           --9.84%--operator new
+            |                     |          
+            |                     |--3.37%--ns3::SpectrumValue::SpectrumValue
+            |                     |          |          
+            |                     |          |--1.60%--ns3::Create<ns3::SpectrumValue, ns3::Ptr<ns3::SpectrumModel> >
+            |                     |          |          |          
+            |                     |          |           --0.99%--ns3::WifiSpectrumValueHelper::CreateOfdmTxPowerSpectralDensity
+            |                     |          |                     ns3::OfdmPhy::GetTxPowerSpectralDensity
+            |                     |          |                     ns3::PhyEntity::StartTx
+            |                     |          |                     ns3::SpectrumWifiPhy::StartTx
+            |                     |          |                     ns3::WifiPhy::Send
+            |                     |          |                     ns3::WifiPhy::Send
+            |                     |          |                     ns3::HtFrameExchangeManager::ForwardPsduDown
+            |                     |          |                     |          
+            |                     |          |                      --0.85%--ns3::HtFrameExchangeManager::ForwardMpduDown
+            |                     |          |                                |          
+            |                     |          |                                 --0.75%--ns3::FrameExchangeManager::SendNormalAck
+            |                     |          |                                           ns3::DefaultSimulatorImpl::ProcessOneEvent
+            |                     |          |                                           ns3::DefaultSimulatorImpl::Run
+            |                     |          |                                           ns3::NetSim::RunSim
+            |                     |          |                                           main
+            |                     |          |                                           __libc_start_call_main
+            |                     |          |                                           __libc_start_main_impl (inlined)
+            |                     |          |                                           _start
+            |                     |          |          
+            |                     |           --1.43%--ns3::SpectrumValue::Copy
+            |                     |                     ns3::SpectrumSignalParameters::SpectrumSignalParameters
+            |                     |                     |          
+            |                     |                      --1.40%--ns3::WifiSpectrumSignalParameters::Copy
+            |                     |                                ns3::MultiModelSpectrumChannel::StartTx
+            |                     |                                ns3::WifiSpectrumPhyInterface::StartTx
+            |                     |                                ns3::SpectrumWifiPhy::Transmit
+            |                     |                                ns3::PhyEntity::Transmit
+            |                     |                                ns3::PhyEntity::StartTx
+            |                     |                                |          
+            |                     |                                 --0.92%--ns3::SpectrumWifiPhy::StartTx
+            |                     |                                           ns3::WifiPhy::Send
+            |                     |                                           ns3::WifiPhy::Send
+            |                     |                                           ns3::HtFrameExchangeManager::ForwardPsduDown
+            |                     |                                           |          
+            |                     |                                            --0.88%--ns3::HtFrameExchangeManager::ForwardMpduDown
+            |                     |                                                      |          
+            |                     |                                                       --0.65%--ns3::FrameExchangeManager::SendNormalAck
+            |                     |                                                                 ns3::DefaultSimulatorImpl::ProcessOneEvent
+            |                     |                                                                 ns3::DefaultSimulatorImpl::Run
+            |                     |                                                                 ns3::NetSim::RunSim
+            |                     |                                                                 main
+            |                     |                                                                 __libc_start_call_main
+            |                     |                                                                 __libc_start_main_impl (inlined)
+            |                     |                                                                 _start
+            |                     |          
+            |                     |--1.77%--ns3::WifiSpectrumValueHelper::CreateSpectrumMaskForOfdm
+            |                     |          |          
+            |                     |          |--0.92%--ns3::WifiSpectrumValueHelper::CreateOfdmTxPowerSpectralDensity
+            |                     |          |          ns3::OfdmPhy::GetTxPowerSpectralDensity
+            |                     |          |          ns3::PhyEntity::StartTx
+            |                     |          |          ns3::SpectrumWifiPhy::StartTx
+            |                     |          |          ns3::WifiPhy::Send
+            |                     |          |          ns3::WifiPhy::Send
+            |                     |          |          ns3::HtFrameExchangeManager::ForwardPsduDown
+            |                     |          |          |          
+            |                     |          |           --0.71%--ns3::HtFrameExchangeManager::ForwardMpduDown
+            |                     |          |                     |          
+            |                     |          |                      --0.61%--ns3::FrameExchangeManager::SendNormalAck
+            |                     |          |                                ns3::DefaultSimulatorImpl::ProcessOneEvent
+            |                     |          |                                ns3::DefaultSimulatorImpl::Run
+            |                     |          |                                ns3::NetSim::RunSim
+            |                     |          |                                main
+            |                     |          |                                __libc_start_call_main
+            |                     |          |                                __libc_start_main_impl (inlined)
+            |                     |          |                                _start
+            |                     |          |          
+            |                     |           --0.82%--ns3::WifiSpectrumValueHelper::CreateHeOfdmTxPowerSpectralDensity
+            |                     |                     ns3::HePhy::GetTxPowerSpectralDensity
+            |                     |                     ns3::HePhy::GetTxPowerSpectralDensity
+            |                     |                     ns3::PhyEntity::StartTx
+            |                     |                     ns3::HePhy::StartTx
+            |                     |                     ns3::SpectrumWifiPhy::StartTx
+            |                     |                     ns3::WifiPhy::Send
+            |                     |                     ns3::WifiPhy::Send
+            |                     |                     ns3::HtFrameExchangeManager::ForwardPsduDown
+            |                     |                     |          
+            |                     |                      --0.54%--ns3::HtFrameExchangeManager::ForwardMpduDown
+            |                     |                                ns3::FrameExchangeManager::SendMpdu
+            |                     |                                ns3::HtFrameExchangeManager::SendDataFrame
+            |                     |                                ns3::HtFrameExchangeManager::StartFrameExchange
+            |                     |                                ns3::HeFrameExchangeManager::StartFrameExchange
+            |                     |                                ns3::QosFrameExchangeManager::StartTransmission
+            |                     |                                ns3::QosFrameExchangeManager::StartTransmission
+            |                     |                                ns3::ChannelAccessManager::DoGrantDcfAccess
+            |                     |                                ns3::ChannelAccessManager::AccessTimeout
+            |                     |                                ns3::DefaultSimulatorImpl::ProcessOneEvent
+            |                     |                                ns3::DefaultSimulatorImpl::Run
+            |                     |                                ns3::NetSim::RunSim
+            |                     |                                main
+            |                     |                                __libc_start_call_main
+            |                     |                                __libc_start_main_impl (inlined)
+            |                     |                                _start
+            |                     |          
+            |                     |--1.36%--std::_Rb_tree<ns3::WifiSpectrumBandInfo, std::pair<ns3::WifiSpectrumBandInfo const, double>, std::_Select1st<std::pair<ns3::WifiSpectrumBandInfo const, double> >, std::less<ns3::WifiSpectrumBandInfo>, std::allocator<std::pair<ns3::WifiSpectrumBandInfo const, double> > >::_M_insert_unique<std::pair<ns3::WifiSpectrumBandInfo const, double> >
+            |                     |          ns3::SpectrumWifiPhy::StartRx
+            |                     |          ns3::WifiSpectrumPhyInterface::StartRx
+            |                     |          ns3::MultiModelSpectrumChannel::StartRx
+            |                     |          std::_Function_handler<void (), std::_Bind<void (ns3::MultiModelSpectrumChannel::*(ns3::MultiModelSpectrumChannel*, ns3::Ptr<ns3::SpectrumValue>, double, ns3::Ptr<ns3::SpectrumSignalParameters>, ns3::Ptr<ns3::SpectrumPhy>, std::map<unsigned int, ns3::Ptr<ns3::SpectrumValue>, std::less<unsigned int>, std::allocator<std::pair<unsigned int const, ns3::Ptr<ns3::SpectrumValue> > > >))(ns3::Ptr<ns3::SpectrumValue>, double, ns3::Ptr<ns3::SpectrumSignalParameters>, ns3::Ptr<ns3::SpectrumPhy>, std::map<unsigned int, ns3::Ptr<ns3::SpectrumValue>, std::less<unsigned int>, std::allocator<std::pair<unsigned int const, ns3::Ptr<ns3::SpectrumValue> > > > const&)> >::_M_invoke
+            |                     |          ns3::DefaultSimulatorImpl::ProcessOneEvent
+            |                     |          ns3::DefaultSimulatorImpl::Run
+            |                     |          ns3::NetSim::RunSim
+            |                     |          main
+            |                     |          __libc_start_call_main
+            |                     |          __libc_start_main_impl (inlined)
+            |                     |          _start
+            |                     |          
+            |                      --1.26%--ns3::WifiSpectrumBandInfo::WifiSpectrumBandInfo
+            |                                std::_Rb_tree<ns3::WifiSpectrumBandInfo, std::pair<ns3::WifiSpectrumBandInfo const, double>, std::_Select1st<std::pair<ns3::WifiSpectrumBandInfo const, double> >, std::less<ns3::WifiSpectrumBandInfo>, std::allocator<std::pair<ns3::WifiSpectrumBandInfo const, double> > >::_M_insert_unique<std::pair<ns3::WifiSpectrumBandInfo const, double> >
+            |                                ns3::SpectrumWifiPhy::StartRx
+            |                                ns3::WifiSpectrumPhyInterface::StartRx
+            |                                ns3::MultiModelSpectrumChannel::StartRx
+            |                                std::_Function_handler<void (), std::_Bind<void (ns3::MultiModelSpectrumChannel::*(ns3::MultiModelSpectrumChannel*, ns3::Ptr<ns3::SpectrumValue>, double, ns3::Ptr<ns3::SpectrumSignalParameters>, ns3::Ptr<ns3::SpectrumPhy>, std::map<unsigned int, ns3::Ptr<ns3::SpectrumValue>, std::less<unsigned int>, std::allocator<std::pair<unsigned int const, ns3::Ptr<ns3::SpectrumValue> > > >))(ns3::Ptr<ns3::SpectrumValue>, double, ns3::Ptr<ns3::SpectrumSignalParameters>, ns3::Ptr<ns3::SpectrumPhy>, std::map<unsigned int, ns3::Ptr<ns3::SpectrumValue>, std::less<unsigned int>, std::allocator<std::pair<unsigned int const, ns3::Ptr<ns3::SpectrumValue> > > > const&)> >::_M_invoke
+            |                                ns3::DefaultSimulatorImpl::ProcessOneEvent
+            |                                ns3::DefaultSimulatorImpl::Run
+            |                                ns3::NetSim::RunSim
+            |                                main
+            |                                __libc_start_call_main
+            |                                __libc_start_main_impl (inlined)
+            |                                _start
+            |          
+             --2.11%--tcache_put (inlined)
+                       _int_malloc
+                       __GI___libc_malloc (inlined)
+                       operator new
+                       |          
+                       |--1.06%--std::_Rb_tree<ns3::WifiSpectrumBandInfo, std::pair<ns3::WifiSpectrumBandInfo const, double>, std::_Select1st<std::pair<ns3::WifiSpectrumBandInfo const, double> >, std::less<ns3::WifiSpectrumBandInfo>, std::allocator<std::pair<ns3::WifiSpectrumBandInfo const, double> > >::_M_insert_unique<std::pair<ns3::WifiSpectrumBandInfo const, double> >
+                       |          ns3::SpectrumWifiPhy::StartRx
+                       |          ns3::WifiSpectrumPhyInterface::StartRx
+                       |          ns3::MultiModelSpectrumChannel::StartRx
+                       |          std::_Function_handler<void (), std::_Bind<void (ns3::MultiModelSpectrumChannel::*(ns3::MultiModelSpectrumChannel*, ns3::Ptr<ns3::SpectrumValue>, double, ns3::Ptr<ns3::SpectrumSignalParameters>, ns3::Ptr<ns3::SpectrumPhy>, std::map<unsigned int, ns3::Ptr<ns3::SpectrumValue>, std::less<unsigned int>, std::allocator<std::pair<unsigned int const, ns3::Ptr<ns3::SpectrumValue> > > >))(ns3::Ptr<ns3::SpectrumValue>, double, ns3::Ptr<ns3::SpectrumSignalParameters>, ns3::Ptr<ns3::SpectrumPhy>, std::map<unsigned int, ns3::Ptr<ns3::SpectrumValue>, std::less<unsigned int>, std::allocator<std::pair<unsigned int const, ns3::Ptr<ns3::SpectrumValue> > > > const&)> >::_M_invoke
+                       |          ns3::DefaultSimulatorImpl::ProcessOneEvent
+                       |          ns3::DefaultSimulatorImpl::Run
+                       |          ns3::NetSim::RunSim
+                       |          main
+                       |          __libc_start_call_main
+                       |          __libc_start_main_impl (inlined)
+                       |          _start
+                       |          
+                        --0.58%--ns3::WifiSpectrumBandInfo::WifiSpectrumBandInfo
+                                  std::_Rb_tree<ns3::WifiSpectrumBandInfo, std::pair<ns3::WifiSpectrumBandInfo const, double>, std::_Select1st<std::pair<ns3::WifiSpectrumBandInfo const, double> >, std::less<ns3::WifiSpectrumBandInfo>, std::allocator<std::pair<ns3::WifiSpectrumBandInfo const, double> > >::_M_insert_unique<std::pair<ns3::WifiSpectrumBandInfo const, double> >
+                                  ns3::SpectrumWifiPhy::StartRx
+                                  ns3::WifiSpectrumPhyInterface::StartRx
+                                  ns3::MultiModelSpectrumChannel::StartRx
+                                  std::_Function_handler<void (), std::_Bind<void (ns3::MultiModelSpectrumChannel::*(ns3::MultiModelSpectrumChannel*, ns3::Ptr<ns3::SpectrumValue>, double, ns3::Ptr<ns3::SpectrumSignalParameters>, ns3::Ptr<ns3::SpectrumPhy>, std::map<unsigned int, ns3::Ptr<ns3::SpectrumValue>, std::less<unsigned int>, std::allocator<std::pair<unsigned int const, ns3::Ptr<ns3::SpectrumValue> > > >))(ns3::Ptr<ns3::SpectrumValue>, double, ns3::Ptr<ns3::SpectrumSignalParameters>, ns3::Ptr<ns3::SpectrumPhy>, std::map<unsigned int, ns3::Ptr<ns3::SpectrumValue>, std::less<unsigned int>, std::allocator<std::pair<unsigned int const, ns3::Ptr<ns3::SpectrumValue> > > > const&)> >::_M_invoke
+                                  ns3::DefaultSimulatorImpl::ProcessOneEvent
+                                  ns3::DefaultSimulatorImpl::Run
+                                  ns3::NetSim::RunSim
+                                  main
+                                  __libc_start_call_main
+                                  __libc_start_main_impl (inlined)
+                                  _start
+
+     7.93%  ns3.44-master-o  libns3.44-wifi-optimized.so             [.] std::_Rb_tree<ns3::WifiSpectrumBandInfo, std::pair<ns3::WifiSpectrumBandInfo const, double>, std::_Select1st<std::pair<ns3::WifiSpectrumBandInfo const, double> >, std::less<ns3::WifiSpectrumBandInfo>, std::allocator<std::pair<ns3::WifiSpectrumBandInfo const, double> > >::_M_erase
+            |
+            ---std::_Rb_tree<ns3::WifiSpectrumBandInfo, std::pair<ns3::WifiSpectrumBandInfo const, double>, std::_Select1st<std::pair<ns3::WifiSpectrumBandInfo const, double> >, std::less<ns3::WifiSpectrumBandInfo>, std::allocator<std::pair<ns3::WifiSpectrumBandInfo const, double> > >::_M_erase
+               |          
+                --7.79%--ns3::Ptr<ns3::Event>::~Ptr
+                          |          
+                           --7.69%--std::_Function_handler<void (), std::_Bind<void (ns3::PhyEntity::*(ns3::PhyEntity*, ns3::WifiPpduField, ns3::Ptr<ns3::Event>))(ns3::WifiPpduField, ns3::Ptr<ns3::Event>)> >::_M_manager
+                                     ns3::MakeEvent<void (ns3::PhyEntity::*)(ns3::WifiPpduField, ns3::Ptr<ns3::Event>), ns3::PhyEntity*, ns3::WifiPpduField, ns3::Ptr<ns3::Event> >(void (ns3::PhyEntity::*)(ns3::WifiPpduField, ns3::Ptr<ns3::Event>), ns3::PhyEntity*, ns3::WifiPpduField, ns3::Ptr<ns3::Event>)::EventMemberImpl::~EventMemberImpl
+                                     ns3::PhyEntity::EndPreambleDetectionPeriod
+                                     std::_Function_handler<void (), std::_Bind<void (ns3::PhyEntity::*(ns3::PhyEntity*, ns3::Ptr<ns3::Event>))(ns3::Ptr<ns3::Event>)> >::_M_invoke
+                                     ns3::DefaultSimulatorImpl::ProcessOneEvent
+                                     ns3::DefaultSimulatorImpl::Run
+                                     ns3::NetSim::RunSim
+                                     main
+                                     __libc_start_call_main
+                                     __libc_start_main_impl (inlined)
+                                     _start
+
+     7.66%  ns3.44-master-o  libc.so.6                               [.] unlink_chunk.constprop.0
+            |
+            ---unlink_chunk (inlined)
+               |          
+               |--6.47%--_int_malloc
+               |          __GI___libc_malloc (inlined)
+               |          operator new
+               |          |          
+               |          |--3.40%--std::_Rb_tree<ns3::WifiSpectrumBandInfo, std::pair<ns3::WifiSpectrumBandInfo const, double>, std::_Select1st<std::pair<ns3::WifiSpectrumBandInfo const, double> >, std::less<ns3::WifiSpectrumBandInfo>, std::allocator<std::pair<ns3::WifiSpectrumBandInfo const, double> > >::_M_insert_unique<std::pair<ns3::WifiSpectrumBandInfo const, double> >
+               |          |          ns3::SpectrumWifiPhy::StartRx
+               |          |          ns3::WifiSpectrumPhyInterface::StartRx
+               |          |          ns3::MultiModelSpectrumChannel::StartRx
+               |          |          std::_Function_handler<void (), std::_Bind<void (ns3::MultiModelSpectrumChannel::*(ns3::MultiModelSpectrumChannel*, ns3::Ptr<ns3::SpectrumValue>, double, ns3::Ptr<ns3::SpectrumSignalParameters>, ns3::Ptr<ns3::SpectrumPhy>, std::map<unsigned int, ns3::Ptr<ns3::SpectrumValue>, std::less<unsigned int>, std::allocator<std::pair<unsigned int const, ns3::Ptr<ns3::SpectrumValue> > > >))(ns3::Ptr<ns3::SpectrumValue>, double, ns3::Ptr<ns3::SpectrumSignalParameters>, ns3::Ptr<ns3::SpectrumPhy>, std::map<unsigned int, ns3::Ptr<ns3::SpectrumValue>, std::less<unsigned int>, std::allocator<std::pair<unsigned int const, ns3::Ptr<ns3::SpectrumValue> > > > const&)> >::_M_invoke
+               |          |          ns3::DefaultSimulatorImpl::ProcessOneEvent
+               |          |          ns3::DefaultSimulatorImpl::Run
+               |          |          ns3::NetSim::RunSim
+               |          |          main
+               |          |          __libc_start_call_main
+               |          |          __libc_start_main_impl (inlined)
+               |          |          _start
+               |          |          
+               |           --2.76%--ns3::WifiSpectrumBandInfo::WifiSpectrumBandInfo
+               |                     std::_Rb_tree<ns3::WifiSpectrumBandInfo, std::pair<ns3::WifiSpectrumBandInfo const, double>, std::_Select1st<std::pair<ns3::WifiSpectrumBandInfo const, double> >, std::less<ns3::WifiSpectrumBandInfo>, std::allocator<std::pair<ns3::WifiSpectrumBandInfo const, double> > >::_M_insert_unique<std::pair<ns3::WifiSpectrumBandInfo const, double> >
+               |                     ns3::SpectrumWifiPhy::StartRx
+               |                     ns3::WifiSpectrumPhyInterface::StartRx
+               |                     ns3::MultiModelSpectrumChannel::StartRx
+               |                     std::_Function_handler<void (), std::_Bind<void (ns3::MultiModelSpectrumChannel::*(ns3::MultiModelSpectrumChannel*, ns3::Ptr<ns3::SpectrumValue>, double, ns3::Ptr<ns3::SpectrumSignalParameters>, ns3::Ptr<ns3::SpectrumPhy>, std::map<unsigned int, ns3::Ptr<ns3::SpectrumValue>, std::less<unsigned int>, std::allocator<std::pair<unsigned int const, ns3::Ptr<ns3::SpectrumValue> > > >))(ns3::Ptr<ns3::SpectrumValue>, double, ns3::Ptr<ns3::SpectrumSignalParameters>, ns3::Ptr<ns3::SpectrumPhy>, std::map<unsigned int, ns3::Ptr<ns3::SpectrumValue>, std::less<unsigned int>, std::allocator<std::pair<unsigned int const, ns3::Ptr<ns3::SpectrumValue> > > > const&)> >::_M_invoke
+               |                     ns3::DefaultSimulatorImpl::ProcessOneEvent
+               |                     ns3::DefaultSimulatorImpl::Run
+               |                     ns3::NetSim::RunSim
+               |                     main
+               |                     __libc_start_call_main
+               |                     __libc_start_main_impl (inlined)
+               |                     _start
+               |          
+                --1.16%--malloc_consolidate
+                          _int_malloc
+                          __GI___libc_malloc (inlined)
+                          operator new
+                          |          
+                           --0.88%--ns3::SpectrumValue::SpectrumValue
+                                     |          
+                                      --0.85%--ns3::Create<ns3::SpectrumValue, ns3::Ptr<ns3::SpectrumModel> >
+
+     7.28%  ns3.44-master-o  libns3.44-wifi-optimized.so             [.] ns3::InterferenceHelper::AppendEvent
+            |
+            ---ns3::InterferenceHelper::AppendEvent
+               ns3::InterferenceHelper::Add
+               ns3::PhyEntity::CreateInterferenceEvent
+               ns3::PhyEntity::DoGetEvent
+               |          
+               |--3.81%--ns3::HePhy::DoGetEvent
+               |          ns3::PhyEntity::StartReceivePreamble
+               |          ns3::HePhy::StartReceivePreamble
+               |          ns3::WifiPhy::StartReceivePreamble
+               |          ns3::SpectrumWifiPhy::StartRx
+               |          ns3::WifiSpectrumPhyInterface::StartRx
+               |          ns3::MultiModelSpectrumChannel::StartRx
+               |          std::_Function_handler<void (), std::_Bind<void (ns3::MultiModelSpectrumChannel::*(ns3::MultiModelSpectrumChannel*, ns3::Ptr<ns3::SpectrumValue>, double, ns3::Ptr<ns3::SpectrumSignalParameters>, ns3::Ptr<ns3::SpectrumPhy>, std::map<unsigned int, ns3::Ptr<ns3::SpectrumValue>, std::less<unsigned int>, std::allocator<std::pair<unsigned int const, ns3::Ptr<ns3::SpectrumValue> > > >))(ns3::Ptr<ns3::SpectrumValue>, double, ns3::Ptr<ns3::SpectrumSignalParameters>, ns3::Ptr<ns3::SpectrumPhy>, std::map<unsigned int, ns3::Ptr<ns3::SpectrumValue>, std::less<unsigned int>, std::allocator<std::pair<unsigned int const, ns3::Ptr<ns3::SpectrumValue> > > > const&)> >::_M_invoke
+               |          ns3::DefaultSimulatorImpl::ProcessOneEvent
+               |          ns3::DefaultSimulatorImpl::Run
+               |          ns3::NetSim::RunSim
+               |          main
+               |          __libc_start_call_main
+               |          __libc_start_main_impl (inlined)
+               |          _start
+               |          
+                --3.47%--ns3::PhyEntity::StartReceivePreamble
+                          ns3::WifiPhy::StartReceivePreamble
+                          ns3::SpectrumWifiPhy::StartRx
+                          ns3::WifiSpectrumPhyInterface::StartRx
+                          ns3::MultiModelSpectrumChannel::StartRx
+                          std::_Function_handler<void (), std::_Bind<void (ns3::MultiModelSpectrumChannel::*(ns3::MultiModelSpectrumChannel*, ns3::Ptr<ns3::SpectrumValue>, double, ns3::Ptr<ns3::SpectrumSignalParameters>, ns3::Ptr<ns3::SpectrumPhy>, std::map<unsigned int, ns3::Ptr<ns3::SpectrumValue>, std::less<unsigned int>, std::allocator<std::pair<unsigned int const, ns3::Ptr<ns3::SpectrumValue> > > >))(ns3::Ptr<ns3::SpectrumValue>, double, ns3::Ptr<ns3::SpectrumSignalParameters>, ns3::Ptr<ns3::SpectrumPhy>, std::map<unsigned int, ns3::Ptr<ns3::SpectrumValue>, std::less<unsigned int>, std::allocator<std::pair<unsigned int const, ns3::Ptr<ns3::SpectrumValue> > > > const&)> >::_M_invoke
+                          ns3::DefaultSimulatorImpl::ProcessOneEvent
+                          ns3::DefaultSimulatorImpl::Run
+                          ns3::NetSim::RunSim
+                          main
+                          __libc_start_call_main
+                          __libc_start_main_impl (inlined)
+                          _start
+
+     5.45%  ns3.44-master-o  libc.so.6                               [.] cfree@GLIBC_2.2.5
+            |          
+             --5.41%--__GI___libc_free (inlined)
+                       |          
+                       |--4.15%--std::_Rb_tree<ns3::WifiSpectrumBandInfo, std::pair<ns3::WifiSpectrumBandInfo const, double>, std::_Select1st<std::pair<ns3::WifiSpectrumBandInfo const, double> >, std::less<ns3::WifiSpectrumBandInfo>, std::allocator<std::pair<ns3::WifiSpectrumBandInfo const, double> > >::_M_erase
+                       |          |          
+                       |           --3.95%--ns3::Ptr<ns3::Event>::~Ptr
+                       |                     |          
+                       |                      --3.81%--std::_Function_handler<void (), std::_Bind<void (ns3::PhyEntity::*(ns3::PhyEntity*, ns3::WifiPpduField, ns3::Ptr<ns3::Event>))(ns3::WifiPpduField, ns3::Ptr<ns3::Event>)> >::_M_manager
+                       |                                ns3::MakeEvent<void (ns3::PhyEntity::*)(ns3::WifiPpduField, ns3::Ptr<ns3::Event>), ns3::PhyEntity*, ns3::WifiPpduField, ns3::Ptr<ns3::Event> >(void (ns3::PhyEntity::*)(ns3::WifiPpduField, ns3::Ptr<ns3::Event>), ns3::PhyEntity*, ns3::WifiPpduField, ns3::Ptr<ns3::Event>)::EventMemberImpl::~EventMemberImpl
+                       |                                ns3::PhyEntity::EndPreambleDetectionPeriod
+                       |                                std::_Function_handler<void (), std::_Bind<void (ns3::PhyEntity::*(ns3::PhyEntity*, ns3::Ptr<ns3::Event>))(ns3::Ptr<ns3::Event>)> >::_M_invoke
+                       |                                ns3::DefaultSimulatorImpl::ProcessOneEvent
+                       |                                ns3::DefaultSimulatorImpl::Run
+                       |                                ns3::NetSim::RunSim
+                       |                                main
+                       |                                __libc_start_call_main
+                       |                                __libc_start_main_impl (inlined)
+                       |                                _start
+                       |          
+                        --0.61%--ns3::InterferenceHelper::AppendEvent
+                                  ns3::InterferenceHelper::Add
+                                  ns3::PhyEntity::CreateInterferenceEvent
+                                  ns3::PhyEntity::DoGetEvent
+
+     4.94%  ns3.44-master-o  libns3.44-wifi-optimized.so             [.] ns3::InterferenceHelper::NotifyRxEnd
+            |
+            ---ns3::InterferenceHelper::NotifyRxEnd
+               |          
+                --4.77%--ns3::PhyEntity::NotifyInterferenceRxEndAndClear
+                          ns3::PhyEntity::DoEndReceivePayload
+                          |          
+                          |--2.48%--ns3::PhyEntity::EndReceivePayload
+                          |          std::_Function_handler<void (), std::_Bind<void (ns3::PhyEntity::*(ns3::PhyEntity*, ns3::Ptr<ns3::Event>))(ns3::Ptr<ns3::Event>)> >::_M_invoke
+                          |          ns3::DefaultSimulatorImpl::ProcessOneEvent
+                          |          ns3::DefaultSimulatorImpl::Run
+                          |          ns3::NetSim::RunSim
+                          |          main
+                          |          __libc_start_call_main
+                          |          __libc_start_main_impl (inlined)
+                          |          _start
+                          |          
+                           --2.28%--ns3::HePhy::DoEndReceivePayload
+                                     ns3::PhyEntity::EndReceivePayload
+                                     std::_Function_handler<void (), std::_Bind<void (ns3::PhyEntity::*(ns3::PhyEntity*, ns3::Ptr<ns3::Event>))(ns3::Ptr<ns3::Event>)> >::_M_invoke
+                                     ns3::DefaultSimulatorImpl::ProcessOneEvent
+                                     ns3::DefaultSimulatorImpl::Run
+                                     ns3::NetSim::RunSim
+                                     main
+                                     __libc_start_call_main
+                                     __libc_start_main_impl (inlined)
+                                     _start
+
+     4.42%  ns3.44-master-o  libns3.44-wifi-optimized.so             [.] std::_Rb_tree<ns3::WifiSpectrumBandInfo, std::pair<ns3::WifiSpectrumBandInfo const, std::multimap<ns3::Time, ns3::InterferenceHelper::NiChange, std::less<ns3::Time>, std::allocator<std::pair<ns3::Time const, ns3::InterferenceHelper::NiChange> > > >, std::_Select1st<std::pair<ns3::WifiSpectrumBandInfo const, std::multimap<ns3::Time, ns3::InterferenceHelper::NiChange, std::less<ns3::Time>, std::allocator<std::pair<ns3::Time const, ns3::InterferenceHelper::NiChange> > > > >, std::less<ns3::WifiSpectrumBandInfo>, std::allocator<std::pair<ns3::WifiSpectrumBandInfo const, std::multimap<ns3::Time, ns3::InterferenceHelper::NiChange, std::less<ns3::Time>, std::allocator<std::pair<ns3::Time const, ns3::InterferenceHelper::NiChange> > > > > >::find
+            |
+            ---std::_Rb_tree<ns3::WifiSpectrumBandInfo, std::pair<ns3::WifiSpectrumBandInfo const, std::multimap<ns3::Time, ns3::InterferenceHelper::NiChange, std::less<ns3::Time>, std::allocator<std::pair<ns3::Time const, ns3::InterferenceHelper::NiChange> > > >, std::_Select1st<std::pair<ns3::WifiSpectrumBandInfo const, std::multimap<ns3::Time, ns3::InterferenceHelper::NiChange, std::less<ns3::Time>, std::allocator<std::pair<ns3::Time const, ns3::InterferenceHelper::NiChange> > > > >, std::less<ns3::WifiSpectrumBandInfo>, std::allocator<std::pair<ns3::WifiSpectrumBandInfo const, std::multimap<ns3::Time, ns3::InterferenceHelper::NiChange, std::less<ns3::Time>, std::allocator<std::pair<ns3::Time const, ns3::InterferenceHelper::NiChange> > > > > >::find
+               |          
+               |--3.10%--ns3::InterferenceHelper::AppendEvent
+               |          ns3::InterferenceHelper::Add
+               |          ns3::PhyEntity::CreateInterferenceEvent
+               |          ns3::PhyEntity::DoGetEvent
+               |          |          
+               |          |--1.60%--ns3::HePhy::DoGetEvent
+               |          |          ns3::PhyEntity::StartReceivePreamble
+               |          |          ns3::HePhy::StartReceivePreamble
+               |          |          ns3::WifiPhy::StartReceivePreamble
+               |          |          ns3::SpectrumWifiPhy::StartRx
+               |          |          ns3::WifiSpectrumPhyInterface::StartRx
+               |          |          ns3::MultiModelSpectrumChannel::StartRx
+               |          |          std::_Function_handler<void (), std::_Bind<void (ns3::MultiModelSpectrumChannel::*(ns3::MultiModelSpectrumChannel*, ns3::Ptr<ns3::SpectrumValue>, double, ns3::Ptr<ns3::SpectrumSignalParameters>, ns3::Ptr<ns3::SpectrumPhy>, std::map<unsigned int, ns3::Ptr<ns3::SpectrumValue>, std::less<unsigned int>, std::allocator<std::pair<unsigned int const, ns3::Ptr<ns3::SpectrumValue> > > >))(ns3::Ptr<ns3::SpectrumValue>, double, ns3::Ptr<ns3::SpectrumSignalParameters>, ns3::Ptr<ns3::SpectrumPhy>, std::map<unsigned int, ns3::Ptr<ns3::SpectrumValue>, std::less<unsigned int>, std::allocator<std::pair<unsigned int const, ns3::Ptr<ns3::SpectrumValue> > > > const&)> >::_M_invoke
+               |          |          ns3::DefaultSimulatorImpl::ProcessOneEvent
+               |          |          ns3::DefaultSimulatorImpl::Run
+               |          |          ns3::NetSim::RunSim
+               |          |          main
+               |          |          __libc_start_call_main
+               |          |          __libc_start_main_impl (inlined)
+               |          |          _start
+               |          |          
+               |           --1.50%--ns3::PhyEntity::StartReceivePreamble
+               |                     ns3::WifiPhy::StartReceivePreamble
+               |                     ns3::SpectrumWifiPhy::StartRx
+               |                     ns3::WifiSpectrumPhyInterface::StartRx
+               |                     ns3::MultiModelSpectrumChannel::StartRx
+               |                     std::_Function_handler<void (), std::_Bind<void (ns3::MultiModelSpectrumChannel::*(ns3::MultiModelSpectrumChannel*, ns3::Ptr<ns3::SpectrumValue>, double, ns3::Ptr<ns3::SpectrumSignalParameters>, ns3::Ptr<ns3::SpectrumPhy>, std::map<unsigned int, ns3::Ptr<ns3::SpectrumValue>, std::less<unsigned int>, std::allocator<std::pair<unsigned int const, ns3::Ptr<ns3::SpectrumValue> > > >))(ns3::Ptr<ns3::SpectrumValue>, double, ns3::Ptr<ns3::SpectrumSignalParameters>, ns3::Ptr<ns3::SpectrumPhy>, std::map<unsigned int, ns3::Ptr<ns3::SpectrumValue>, std::less<unsigned int>, std::allocator<std::pair<unsigned int const, ns3::Ptr<ns3::SpectrumValue> > > > const&)> >::_M_invoke
+               |                     ns3::DefaultSimulatorImpl::ProcessOneEvent
+               |                     ns3::DefaultSimulatorImpl::Run
+               |                     ns3::NetSim::RunSim
+               |                     main
+               |                     __libc_start_call_main
+               |                     __libc_start_main_impl (inlined)
+               |                     _start
+               |          
+                --1.33%--ns3::InterferenceHelper::GetEnergyDuration
+                          ns3::PhyEntity::GetDelayUntilCcaEnd
+                          |          
+                           --1.29%--ns3::HePhy::GetPer20MHzDurations
+                                     |          
+                                      --1.26%--ns3::HePhy::NotifyCcaBusy
+                                                ns3::WifiPhy::NotifyCcaBusy
+                                                |          
+                                                |--0.68%--ns3::PhyEntity::EndPreambleDetectionPeriod
+                                                |          std::_Function_handler<void (), std::_Bind<void (ns3::PhyEntity::*(ns3::PhyEntity*, ns3::Ptr<ns3::Event>))(ns3::Ptr<ns3::Event>)> >::_M_invoke
+                                                |          ns3::DefaultSimulatorImpl::ProcessOneEvent
+                                                |          ns3::DefaultSimulatorImpl::Run
+                                                |          ns3::NetSim::RunSim
+                                                |          main
+                                                |          __libc_start_call_main
+                                                |          __libc_start_main_impl (inlined)
+                                                |          _start
+                                                |          
+                                                 --0.58%--ns3::PhyEntity::StartReceiveField
+                                                           ns3::PhyEntity::EndReceiveField
+                                                           std::_Function_handler<void (), std::_Bind<void (ns3::PhyEntity::*(ns3::PhyEntity*, ns3::WifiPpduField, ns3::Ptr<ns3::Event>))(ns3::WifiPpduField, ns3::Ptr<ns3::Event>)> >::_M_invoke
+                                                           ns3::DefaultSimulatorImpl::ProcessOneEvent
+                                                           ns3::DefaultSimulatorImpl::Run
+                                                           ns3::NetSim::RunSim
+                                                           main
+                                                           __libc_start_call_main
+                                                           __libc_start_main_impl (inlined)
+                                                           _start
+
+     3.34%  ns3.44-master-o  libns3.44-wifi-optimized.so             [.] ns3::WifiSpectrumValueHelper::GetBandPowerW
+            |
+            ---ns3::WifiSpectrumValueHelper::GetBandPowerW
+               ns3::SpectrumWifiPhy::StartRx
+               ns3::WifiSpectrumPhyInterface::StartRx
+               ns3::MultiModelSpectrumChannel::StartRx
+               std::_Function_handler<void (), std::_Bind<void (ns3::MultiModelSpectrumChannel::*(ns3::MultiModelSpectrumChannel*, ns3::Ptr<ns3::SpectrumValue>, double, ns3::Ptr<ns3::SpectrumSignalParameters>, ns3::Ptr<ns3::SpectrumPhy>, std::map<unsigned int, ns3::Ptr<ns3::SpectrumValue>, std::less<unsigned int>, std::allocator<std::pair<unsigned int const, ns3::Ptr<ns3::SpectrumValue> > > >))(ns3::Ptr<ns3::SpectrumValue>, double, ns3::Ptr<ns3::SpectrumSignalParameters>, ns3::Ptr<ns3::SpectrumPhy>, std::map<unsigned int, ns3::Ptr<ns3::SpectrumValue>, std::less<unsigned int>, std::allocator<std::pair<unsigned int const, ns3::Ptr<ns3::SpectrumValue> > > > const&)> >::_M_invoke
+               ns3::DefaultSimulatorImpl::ProcessOneEvent
+               ns3::DefaultSimulatorImpl::Run
+               ns3::NetSim::RunSim
+               main
+               __libc_start_call_main
+               __libc_start_main_impl (inlined)
+               _start
+
+     2.28%  ns3.44-master-o  libstdc++.so.6.0.30                     [.] std::_Rb_tree_increment
+            |
+            ---std::_Rb_tree_increment
+               |          
+               |--1.12%--ns3::InterferenceHelper::AppendEvent
+               |          ns3::InterferenceHelper::Add
+               |          ns3::PhyEntity::CreateInterferenceEvent
+               |          ns3::PhyEntity::DoGetEvent
+               |          |          
+               |           --0.68%--ns3::PhyEntity::StartReceivePreamble
+               |                     ns3::WifiPhy::StartReceivePreamble
+               |                     ns3::SpectrumWifiPhy::StartRx
+               |                     ns3::WifiSpectrumPhyInterface::StartRx
+               |                     ns3::MultiModelSpectrumChannel::StartRx
+               |                     std::_Function_handler<void (), std::_Bind<void (ns3::MultiModelSpectrumChannel::*(ns3::MultiModelSpectrumChannel*, ns3::Ptr<ns3::SpectrumValue>, double, ns3::Ptr<ns3::SpectrumSignalParameters>, ns3::Ptr<ns3::SpectrumPhy>, std::map<unsigned int, ns3::Ptr<ns3::SpectrumValue>, std::less<unsigned int>, std::allocator<std::pair<unsigned int const, ns3::Ptr<ns3::SpectrumValue> > > >))(ns3::Ptr<ns3::SpectrumValue>, double, ns3::Ptr<ns3::SpectrumSignalParameters>, ns3::Ptr<ns3::SpectrumPhy>, std::map<unsigned int, ns3::Ptr<ns3::SpectrumValue>, std::less<unsigned int>, std::allocator<std::pair<unsigned int const, ns3::Ptr<ns3::SpectrumValue> > > > const&)> >::_M_invoke
+               |                     ns3::DefaultSimulatorImpl::ProcessOneEvent
+               |                     ns3::DefaultSimulatorImpl::Run
+               |                     ns3::NetSim::RunSim
+               |                     main
+               |                     __libc_start_call_main
+               |                     __libc_start_main_impl (inlined)
+               |                     _start
+               |          
+                --1.02%--ns3::SpectrumWifiPhy::StartRx
+                          ns3::WifiSpectrumPhyInterface::StartRx
+                          ns3::MultiModelSpectrumChannel::StartRx
+                          std::_Function_handler<void (), std::_Bind<void (ns3::MultiModelSpectrumChannel::*(ns3::MultiModelSpectrumChannel*, ns3::Ptr<ns3::SpectrumValue>, double, ns3::Ptr<ns3::SpectrumSignalParameters>, ns3::Ptr<ns3::SpectrumPhy>, std::map<unsigned int, ns3::Ptr<ns3::SpectrumValue>, std::less<unsigned int>, std::allocator<std::pair<unsigned int const, ns3::Ptr<ns3::SpectrumValue> > > >))(ns3::Ptr<ns3::SpectrumValue>, double, ns3::Ptr<ns3::SpectrumSignalParameters>, ns3::Ptr<ns3::SpectrumPhy>, std::map<unsigned int, ns3::Ptr<ns3::SpectrumValue>, std::less<unsigned int>, std::allocator<std::pair<unsigned int const, ns3::Ptr<ns3::SpectrumValue> > > > const&)> >::_M_invoke
+                          ns3::DefaultSimulatorImpl::ProcessOneEvent
+                          ns3::DefaultSimulatorImpl::Run
+                          ns3::NetSim::RunSim
+                          main
+                          __libc_start_call_main
+                          __libc_start_main_impl (inlined)
+                          _start
+
+     2.08%  ns3.44-master-o  libc.so.6                               [.] _int_free
+            |          
+             --2.04%--_int_free
+                       __GI___libc_free (inlined)
+                       |          
+                        --1.02%--std::_Rb_tree<ns3::WifiSpectrumBandInfo, std::pair<ns3::WifiSpectrumBandInfo const, double>, std::_Select1st<std::pair<ns3::WifiSpectrumBandInfo const, double> >, std::less<ns3::WifiSpectrumBandInfo>, std::allocator<std::pair<ns3::WifiSpectrumBandInfo const, double> > >::_M_erase
+                                  ns3::Ptr<ns3::Event>::~Ptr
+                                  |          
+                                   --0.99%--std::_Function_handler<void (), std::_Bind<void (ns3::PhyEntity::*(ns3::PhyEntity*, ns3::WifiPpduField, ns3::Ptr<ns3::Event>))(ns3::WifiPpduField, ns3::Ptr<ns3::Event>)> >::_M_manager
+                                             ns3::MakeEvent<void (ns3::PhyEntity::*)(ns3::WifiPpduField, ns3::Ptr<ns3::Event>), ns3::PhyEntity*, ns3::WifiPpduField, ns3::Ptr<ns3::Event> >(void (ns3::PhyEntity::*)(ns3::WifiPpduField, ns3::Ptr<ns3::Event>), ns3::PhyEntity*, ns3::WifiPpduField, ns3::Ptr<ns3::Event>)::EventMemberImpl::~EventMemberImpl
+                                             ns3::PhyEntity::EndPreambleDetectionPeriod
+                                             std::_Function_handler<void (), std::_Bind<void (ns3::PhyEntity::*(ns3::PhyEntity*, ns3::Ptr<ns3::Event>))(ns3::Ptr<ns3::Event>)> >::_M_invoke
+                                             ns3::DefaultSimulatorImpl::ProcessOneEvent
+                                             ns3::DefaultSimulatorImpl::Run
+                                             ns3::NetSim::RunSim
+                                             main
+                                             __libc_start_call_main
+                                             __libc_start_main_impl (inlined)
+                                             _start
+
+     1.77%  ns3.44-master-o  libc.so.6                               [.] __memmove_avx_unaligned_erms
+            |
+            ---__memcpy_avx_unaligned_erms (inlined)
+               |          
+                --1.16%--ns3::ThreeGppSpectrumPropagationLossModel::GenSpectrumChannelMatrix
+                          ns3::ThreeGppSpectrumPropagationLossModel::CalcBeamformingGain
+                          ns3::ThreeGppSpectrumPropagationLossModel::DoCalcRxPowerSpectralDensity
+                          ns3::PhasedArraySpectrumPropagationLossModel::CalcRxPowerSpectralDensity
+                          ns3::MultiModelSpectrumChannel::StartRx
+                          std::_Function_handler<void (), std::_Bind<void (ns3::MultiModelSpectrumChannel::*(ns3::MultiModelSpectrumChannel*, ns3::Ptr<ns3::SpectrumValue>, double, ns3::Ptr<ns3::SpectrumSignalParameters>, ns3::Ptr<ns3::SpectrumPhy>, std::map<unsigned int, ns3::Ptr<ns3::SpectrumValue>, std::less<unsigned int>, std::allocator<std::pair<unsigned int const, ns3::Ptr<ns3::SpectrumValue> > > >))(ns3::Ptr<ns3::SpectrumValue>, double, ns3::Ptr<ns3::SpectrumSignalParameters>, ns3::Ptr<ns3::SpectrumPhy>, std::map<unsigned int, ns3::Ptr<ns3::SpectrumValue>, std::less<unsigned int>, std::allocator<std::pair<unsigned int const, ns3::Ptr<ns3::SpectrumValue> > > > const&)> >::_M_invoke
+                          ns3::DefaultSimulatorImpl::ProcessOneEvent
+                          ns3::DefaultSimulatorImpl::Run
+                          ns3::NetSim::RunSim
+                          main
+                          __libc_start_call_main
+                          __libc_start_main_impl (inlined)
+                          _start
+
+     1.33%  ns3.44-master-o  libc.so.6                               [.] malloc
+            |          
+             --0.58%--tcache_get (inlined)
+                       __GI___libc_malloc (inlined)
+                       operator new
+
+     1.33%  ns3.44-master-o  libns3.44-wifi-optimized.so             [.] std::_Rb_tree<ns3::WifiSpectrumBandInfo, std::pair<ns3::WifiSpectrumBandInfo const, double>, std::_Select1st<std::pair<ns3::WifiSpectrumBandInfo const, double> >, std::less<ns3::WifiSpectrumBandInfo>, std::allocator<std::pair<ns3::WifiSpectrumBandInfo const, double> > >::find
+            |
+            ---std::_Rb_tree<ns3::WifiSpectrumBandInfo, std::pair<ns3::WifiSpectrumBandInfo const, double>, std::_Select1st<std::pair<ns3::WifiSpectrumBandInfo const, double> >, std::less<ns3::WifiSpectrumBandInfo>, std::allocator<std::pair<ns3::WifiSpectrumBandInfo const, double> > >::find
+               |          
+                --0.95%--ns3::InterferenceHelper::CalculateNoiseInterferenceW
+
+     1.23%  ns3.44-master-o  libns3.44-spectrum-optimized.so         [.] ns3::ThreeGppSpectrumPropagationLossModel::GenSpectrumChannelMatrix
+            |
+            ---ns3::ThreeGppSpectrumPropagationLossModel::GenSpectrumChannelMatrix
+               ns3::ThreeGppSpectrumPropagationLossModel::CalcBeamformingGain
+               ns3::ThreeGppSpectrumPropagationLossModel::DoCalcRxPowerSpectralDensity
+               ns3::PhasedArraySpectrumPropagationLossModel::CalcRxPowerSpectralDensity
+               ns3::MultiModelSpectrumChannel::StartRx
+               std::_Function_handler<void (), std::_Bind<void (ns3::MultiModelSpectrumChannel::*(ns3::MultiModelSpectrumChannel*, ns3::Ptr<ns3::SpectrumValue>, double, ns3::Ptr<ns3::SpectrumSignalParameters>, ns3::Ptr<ns3::SpectrumPhy>, std::map<unsigned int, ns3::Ptr<ns3::SpectrumValue>, std::less<unsigned int>, std::allocator<std::pair<unsigned int const, ns3::Ptr<ns3::SpectrumValue> > > >))(ns3::Ptr<ns3::SpectrumValue>, double, ns3::Ptr<ns3::SpectrumSignalParameters>, ns3::Ptr<ns3::SpectrumPhy>, std::map<unsigned int, ns3::Ptr<ns3::SpectrumValue>, std::less<unsigned int>, std::allocator<std::pair<unsigned int const, ns3::Ptr<ns3::SpectrumValue> > > > const&)> >::_M_invoke
+               ns3::DefaultSimulatorImpl::ProcessOneEvent
+               ns3::DefaultSimulatorImpl::Run
+               ns3::NetSim::RunSim
+               main
+               __libc_start_call_main
+               __libc_start_main_impl (inlined)
+               _start
+
+     1.09%  ns3.44-master-o  libns3.44-core-optimized.so             [.] Eigen::internal::generic_product_impl<Eigen::Map<Eigen::Matrix<std::complex<double>, -1, -1, 0, -1, -1> const, 0, Eigen::Stride<0, 0> >, Eigen::Map<Eigen::Matrix<std::complex<double>, -1, -1, 0, -1, -1> const, 0, Eigen::Stride<0, 0> >, Eigen::DenseShape, Eigen::DenseShape, 8>::evalTo<Eigen::Matrix<std::complex<double>, -1, -1, 0, -1, -1> >
+            |
+            ---Eigen::internal::generic_product_impl<Eigen::Map<Eigen::Matrix<std::complex<double>, -1, -1, 0, -1, -1> const, 0, Eigen::Stride<0, 0> >, Eigen::Map<Eigen::Matrix<std::complex<double>, -1, -1, 0, -1, -1> const, 0, Eigen::Stride<0, 0> >, Eigen::DenseShape, Eigen::DenseShape, 8>::evalTo<Eigen::Matrix<std::complex<double>, -1, -1, 0, -1, -1> >
+               ns3::MatrixArray<std::complex<double> >::operator*
+               ns3::ThreeGppSpectrumPropagationLossModel::CalcBeamformingGain
+               ns3::ThreeGppSpectrumPropagationLossModel::DoCalcRxPowerSpectralDensity
+               ns3::PhasedArraySpectrumPropagationLossModel::CalcRxPowerSpectralDensity
+               ns3::MultiModelSpectrumChannel::StartRx
+               std::_Function_handler<void (), std::_Bind<void (ns3::MultiModelSpectrumChannel::*(ns3::MultiModelSpectrumChannel*, ns3::Ptr<ns3::SpectrumValue>, double, ns3::Ptr<ns3::SpectrumSignalParameters>, ns3::Ptr<ns3::SpectrumPhy>, std::map<unsigned int, ns3::Ptr<ns3::SpectrumValue>, std::less<unsigned int>, std::allocator<std::pair<unsigned int const, ns3::Ptr<ns3::SpectrumValue> > > >))(ns3::Ptr<ns3::SpectrumValue>, double, ns3::Ptr<ns3::SpectrumSignalParameters>, ns3::Ptr<ns3::SpectrumPhy>, std::map<unsigned int, ns3::Ptr<ns3::SpectrumValue>, std::less<unsigned int>, std::allocator<std::pair<unsigned int const, ns3::Ptr<ns3::SpectrumValue> > > > const&)> >::_M_invoke
+               ns3::DefaultSimulatorImpl::ProcessOneEvent
+               ns3::DefaultSimulatorImpl::Run
+               ns3::NetSim::RunSim
+               main
+               __libc_start_call_main
+               __libc_start_main_impl (inlined)
+               _start
+
+     0.88%  ns3.44-master-o  libns3.44-wifi-optimized.so             [.] ns3::InterferenceHelper::NiChange::~NiChange
+            |
+            ---ns3::InterferenceHelper::NiChange::~NiChange
+               |          
+                --0.58%--ns3::InterferenceHelper::AppendEvent
+                          ns3::InterferenceHelper::Add
+                          ns3::PhyEntity::CreateInterferenceEvent
+                          ns3::PhyEntity::DoGetEvent
+
+     0.88%  ns3.44-master-o  libstdc++.so.6.0.30                     [.] std::_Rb_tree_insert_and_rebalance
+            |
+            ---std::_Rb_tree_insert_and_rebalance
+
+     0.85%  ns3.44-master-o  libstdc++.so.6.0.30                     [.] std::_Rb_tree_increment
+            |
+            ---std::_Rb_tree_increment
+
+     0.71%  ns3.44-master-o  libns3.44-wifi-optimized.so             [.] ns3::Ptr<ns3::Event>::~Ptr
+            |
+            ---ns3::Ptr<ns3::Event>::~Ptr
+
+     0.65%  ns3.44-master-o  libstdc++.so.6.0.30                     [.] std::_Rb_tree_decrement
+            |
+            ---std::_Rb_tree_decrement
+
+     0.54%  ns3.44-master-o  libns3.44-spectrum-optimized.so         [.] ns3::SpectrumValue::operator*=
+            |
+            ---ns3::SpectrumValue::operator*=
+               ns3::MultiModelSpectrumChannel::StartRx
+               std::_Function_handler<void (), std::_Bind<void (ns3::MultiModelSpectrumChannel::*(ns3::MultiModelSpectrumChannel*, ns3::Ptr<ns3::SpectrumValue>, double, ns3::Ptr<ns3::SpectrumSignalParameters>, ns3::Ptr<ns3::SpectrumPhy>, std::map<unsigned int, ns3::Ptr<ns3::SpectrumValue>, std::less<unsigned int>, std::allocator<std::pair<unsigned int const, ns3::Ptr<ns3::SpectrumValue> > > >))(ns3::Ptr<ns3::SpectrumValue>, double, ns3::Ptr<ns3::SpectrumSignalParameters>, ns3::Ptr<ns3::SpectrumPhy>, std::map<unsigned int, ns3::Ptr<ns3::SpectrumValue>, std::less<unsigned int>, std::allocator<std::pair<unsigned int const, ns3::Ptr<ns3::SpectrumValue> > > > const&)> >::_M_invoke
+               ns3::DefaultSimulatorImpl::ProcessOneEvent
+               ns3::DefaultSimulatorImpl::Run
+               ns3::NetSim::RunSim
+               main
+               __libc_start_call_main
+               __libc_start_main_impl (inlined)
+               _start
+
+     0.54%  ns3.44-master-o  libns3.44-wifi-optimized.so             [.] std::_Rb_tree<ns3::WifiSpectrumBandInfo, std::pair<ns3::WifiSpectrumBandInfo const, double>, std::_Select1st<std::pair<ns3::WifiSpectrumBandInfo const, double> >, std::less<ns3::WifiSpectrumBandInfo>, std::allocator<std::pair<ns3::WifiSpectrumBandInfo const, double> > >::_M_insert_unique<std::pair<ns3::WifiSpectrumBandInfo const, double> >
+            |
+            ---std::_Rb_tree<ns3::WifiSpectrumBandInfo, std::pair<ns3::WifiSpectrumBandInfo const, double>, std::_Select1st<std::pair<ns3::WifiSpectrumBandInfo const, double> >, std::less<ns3::WifiSpectrumBandInfo>, std::allocator<std::pair<ns3::WifiSpectrumBandInfo const, double> > >::_M_insert_unique<std::pair<ns3::WifiSpectrumBandInfo const, double> >
+               ns3::SpectrumWifiPhy::StartRx
+               ns3::WifiSpectrumPhyInterface::StartRx
+               ns3::MultiModelSpectrumChannel::StartRx
+               std::_Function_handler<void (), std::_Bind<void (ns3::MultiModelSpectrumChannel::*(ns3::MultiModelSpectrumChannel*, ns3::Ptr<ns3::SpectrumValue>, double, ns3::Ptr<ns3::SpectrumSignalParameters>, ns3::Ptr<ns3::SpectrumPhy>, std::map<unsigned int, ns3::Ptr<ns3::SpectrumValue>, std::less<unsigned int>, std::allocator<std::pair<unsigned int const, ns3::Ptr<ns3::SpectrumValue> > > >))(ns3::Ptr<ns3::SpectrumValue>, double, ns3::Ptr<ns3::SpectrumSignalParameters>, ns3::Ptr<ns3::SpectrumPhy>, std::map<unsigned int, ns3::Ptr<ns3::SpectrumValue>, std::less<unsigned int>, std::allocator<std::pair<unsigned int const, ns3::Ptr<ns3::SpectrumValue> > > > const&)> >::_M_invoke
+               ns3::DefaultSimulatorImpl::ProcessOneEvent
+               ns3::DefaultSimulatorImpl::Run
+               ns3::NetSim::RunSim
+               main
+               __libc_start_call_main
+               __libc_start_main_impl (inlined)
+               _start
+
+
+
+#
+# (Cannot load tips.txt file, please install perf!)
+#

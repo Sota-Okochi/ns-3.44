@@ -512,9 +512,12 @@ SpectrumWifiPhy::StartRx(Ptr<SpectrumSignalParameters> rxParams,
         return WifiSpectrumValueHelper::GetBandPowerW(receivedSignalPsd, indices);
     };
     auto insertPower = [&](const auto& band, auto power) {
-        if (!sample) { rxPowers.insert({band, power}); return; }
+        // Construct the key in the map node directly. insert({band, power}) also
+        // copies the temporary pair's const key (including its two vectors).
+        // Keep first-insertion-wins semantics, including equivalent band keys.
+        if (!sample) { rxPowers.try_emplace(band, power); return; }
         ResearchWallProfiler::Scope timer("WifiRx.sampled.map_insert", true);
-        rxPowers.insert({band, power});
+        rxPowers.try_emplace(band, power);
     };
     {
         ResearchWallProfiler::Scope timer("WifiRx.sampled.regular_bands", true, sample);

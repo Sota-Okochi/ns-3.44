@@ -1,0 +1,102 @@
+diff --git a/doc/performance_timing.md b/doc/performance_timing.md
+index e45423c..9439af8 100644
+--- a/doc/performance_timing.md
++++ b/doc/performance_timing.md
+@@ -1,5 +1,78 @@
+ # ns-3 実時間計測（3.44）
+ 
++## Wi-Fi map挿入の最小最適化とA/B検証（2026-10-06）
++
++`SpectrumWifiPhy::StartRx` の2つの挿入経路（通常/計測対象）を
++`rxPowers.insert({band, power})` から `rxPowers.try_emplace(band, power)` に変更。
++一時的な `pair<const WifiSpectrumBandInfo, Watt_u>` のconstキーからのコピーを
++避け、ノード内に直接キーを構築する。キーは2つのvectorを持つ。
++mapの型・比較順序・重複時に先の値を保持する仕様は維持する。
++全帯域の電力計算、干渉、端末数、通信量、イベント、乱数、QoE式は省略しない。
++全メモリ確保がなくなる変更ではなく、速度改善率は未確認。
++
++変更前（git `575ed3c7704838867a0896edc0021a111606f64b`）の実行物を
++`results/perf/wifi_insert_before/` に保存済み：master、全共有ライブラリ、
++setting.json、変更前ソース、SHA256 manifest。通常ビルドではここを更新しない。
++このローカルスナップショットはGit管理の配布物ではない。
++
++### 本実験：同じ設定・seedで変更前→変更後を自動実行
++
++他のmasterが終了してから、リポジトリルートで以下を実行する。
++テスト中は再ビルド・設定編集・別のmaster実行をしない。
++
++```bash
++python3 scripts/verify_wifi_insert.py --seed 1001
++```
++
++- 80端末・5サイクル等の現在の条件を減らさず、2回を**順次**実行する。
++- `random --rngSeed=1001 --perfTiming=1 --perfDetailed=0` を両方に指定。
++- 保存したmasterを直接起動するため、`./ns3 run` は介さない。
++  `LD_LIBRARY_PATH`で各版のライブラリを選び、実際の解決先をldd.txtに記録。
++- baseline manifestと設定を検査。別masterが見える場合は停止（killしない）。
++- 出力：`results/perf/wifi_insert_ab_YYYYMMDD_HHMMSS/{before,after}/`。
++  console.log、runtime.json（コマンド・ハッシュ）、ldd.txt、perf/、master.csv、
++  reward.csv、elapsed_seconds.txtを保存。元のOUTPUTログも保持。
++- 全サイクル＋run_endの時刻・イベント数、masterの全列
++  （実時間のassignment_compute_msだけ除く）、measured_rewardの全列を完全比較。
++- 空/未完了ログ、ヘッダ/行数不一致、設定/seed不一致はエラー。
++- 成功時のみPASS.jsonを作成。結果の一致はCSV出力精度での一致を意味し、
++  内部状態のビット単位一致や一般の全seedに対する証明ではない。
++- 旧詳細計測実験との時間比較ではなく、このA/Bの通常計測同士で比較する。
++
++再比較（シミュレーションは実行しない）：
++
++```bash
++python3 scripts/verify_wifi_insert.py --compare-only results/perf/wifi_insert_ab_実際の日時
++```
++
++### 実施済みの検証と未実施事項
++
++実行コマンド：
++
++```bash
++cmake --build cmake-cache -j 4 --target master
++python3 tests/test_wifi_perf_integration.py
++python3 tests/test_verify_wifi_insert.py
++g++ -std=c++20 -O2 -Ibuild/include tests/wifi_insert_equivalence.cc \
++  -Lbuild/lib -Wl,-rpath,"$PWD/build/lib" \
++  -lns3.44-wifi-optimized -lns3.44-core-optimized -o /tmp/wifi-insert-equivalence
++/tmp/wifi-insert-equivalence
++LD_LIBRARY_PATH="$PWD/results/perf/wifi_insert_before/lib" results/perf/wifi_insert_before/smoke
++LD_LIBRARY_PATH="$PWD/build/lib" results/perf/wifi_insert_before/smoke
++git diff --check
++```
++
++ビルドは初回ccacheのsandbox書き込み制限で失敗、権限許可後に成功。
++実際のWifiSpectrumBandInfoを使った一意/重複/比較上同等/複数セグメントのキー試験成功。
++比較スクリプトの5テスト成功。小規模Wi-Fi結合試験も成功。
++保存済み変更前と変更後のライブラリを使ったスモーク試験では、両方
++`bytes=200 events=378`。詳細出力も別一時フォルダへ出し、devices.csv全行と
++boundaries.csvの実時間以外の全項目一致を確認。
++比較器のend-to-end動作は過去ログの一時コピーで確認したが、これは今回の
++最適化後の本実験結果ではない。
++
++**80端末の最適化前後A/B実験は未実行。通信/QoEの本条件での一致と速度改善は未確認。**
++
+ ## 目的・不変条件
+ 
+ 80端末の `random` でも約3時間かかる原因を調べるための観測機構。
+diff --git a/src/wifi/model/spectrum-wifi-phy.cc b/src/wifi/model/spectrum-wifi-phy.cc
+index 52a4b4e..b71b8c5 100644
+--- a/src/wifi/model/spectrum-wifi-phy.cc
++++ b/src/wifi/model/spectrum-wifi-phy.cc
+@@ -512,9 +512,12 @@ SpectrumWifiPhy::StartRx(Ptr<SpectrumSignalParameters> rxParams,
+         return WifiSpectrumValueHelper::GetBandPowerW(receivedSignalPsd, indices);
+     };
+     auto insertPower = [&](const auto& band, auto power) {
+-        if (!sample) { rxPowers.insert({band, power}); return; }
++        // Construct the key in the map node directly. insert({band, power}) also
++        // copies the temporary pair's const key (including its two vectors).
++        // Keep first-insertion-wins semantics, including equivalent band keys.
++        if (!sample) { rxPowers.try_emplace(band, power); return; }
+         ResearchWallProfiler::Scope timer("WifiRx.sampled.map_insert", true);
+-        rxPowers.insert({band, power});
++        rxPowers.try_emplace(band, power);
+     };
+     {
+         ResearchWallProfiler::Scope timer("WifiRx.sampled.regular_bands", true, sample);

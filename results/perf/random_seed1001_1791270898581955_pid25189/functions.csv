@@ -1,0 +1,17 @@
+snapshot,cycle_id,function,call_count,total_wall_ms,mean_wall_ms,max_wall_ms
+after_init,0,NetSim::Init,1,9.418751,9.418751,9.418751
+after_init,0,NetSim::constructor,1,0.257787,0.257787,0.257787
+run_start,0,FlowMonitorHelper::Install,1,4.417361,4.417361,4.417361
+run_start,0,NetSim::BuildTerminalIpMap,1,0.001174,0.001174,0.001174
+run_start,0,NetSim::Configure,1,0.021605,0.021605,0.021605
+run_start,0,NetSim::ConfigureCycleParameters,1,0.002979,0.002979,0.002979
+run_start,0,NetSim::ConfigureDataLinkLayer,1,43.103513,43.103513,43.103513
+run_start,0,NetSim::ConfigureNetworkLayer,1,9.686586,9.686586,9.686586
+run_start,0,NetSim::ConfigureNrForAp0,1,7.876394,7.876394,7.876394
+run_start,0,NetSim::ConfigureNrIpAfterNetwork,1,1.191396,1.191396,1.191396
+run_start,0,NetSim::ConfigureWifiForAP1,1,23.109540,23.109540,23.109540
+run_start,0,NetSim::ConfigureWifiForAP2,1,11.242806,11.242806,11.242806
+run_start,0,NetSim::CreateNetworkTopology,1,0.108325,0.108325,0.108325
+run_start,0,NetSim::Init,1,9.418751,9.418751,9.418751
+run_start,0,NetSim::SetAppLayer,1,17.644316,17.644316,17.644316
+run_start,0,NetSim::constructor,1,0.257787,0.257787,0.257787

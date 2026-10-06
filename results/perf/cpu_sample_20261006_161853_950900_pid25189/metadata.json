@@ -1,0 +1,30 @@
+{
+  "pid": 25189,
+  "target_exe": "/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/build/master/ns3.44-master-optimized",
+  "target_argv": [
+    "/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/build/master/ns3.44-master-optimized",
+    "--method=random",
+    "--rngSeed=1001",
+    "--perfTiming=1"
+  ],
+  "seconds": 60.0,
+  "frequency": 49,
+  "command": [
+    "perf",
+    "record",
+    "-e",
+    "cpu-clock",
+    "-F",
+    "49",
+    "--call-graph",
+    "dwarf,16384",
+    "-o",
+    "results/perf/cpu_sample_20261006_161853_950900_pid25189/perf.data",
+    "-p",
+    "25189",
+    "--",
+    "sleep",
+    "60.0"
+  ],
+  "note": "CPU-time sample of a window, not whole-run wall-clock timing"
+}
