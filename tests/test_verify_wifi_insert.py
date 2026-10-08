@@ -3,6 +3,7 @@ import importlib.util
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location("verify", ROOT / "scripts/verify_wifi_insert.py")
@@ -39,6 +40,16 @@ class CompareTest(unittest.TestCase):
         for a in ("qoe\n", "qoe,tp\n1\n"):
             with self.assertRaises(ValueError):
                 self.check_pair(a, a)
+
+    def test_two_seed_batch_dispatch_without_simulation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            out = Path(directory) / "batch"
+            calls = []
+            with patch("sys.argv", ["verify_wifi_insert.py", "--seeds", "1001", "1002",
+                                    "--output", str(out)]), patch.object(
+                    verify, "run_pair", side_effect=lambda args: calls.append((args.seed, args.output))):
+                verify.main()
+            self.assertEqual(calls, [(1001, out / "seed1001"), (1002, out / "seed1002")])
 
 
 if __name__ == "__main__":

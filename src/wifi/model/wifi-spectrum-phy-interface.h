@@ -144,6 +144,9 @@ class WifiSpectrumPhyInterface : public SpectrumPhy
      */
     const HeRuBands& GetHeRuBands() const;
 
+    /** Cached immutable reception layout; invalidated whenever bands change. */
+    std::shared_ptr<const RxPowerBandLayout> GetRxPowerLayout(bool includeHe) const;
+
   private:
     void DoDispose() override;
 
@@ -157,6 +160,7 @@ class WifiSpectrumPhyInterface : public SpectrumPhy
 
     WifiSpectrumBands
         m_bands; /**< Store all the distinct spectrum bands associated with every channels widths */
+    mutable std::shared_ptr<const RxPowerBandLayout> m_rxPowerLayouts[2];
     HeRuBands m_heRuBands; /**< Store all the distinct spectrum bands associated with every RU */
 };
 

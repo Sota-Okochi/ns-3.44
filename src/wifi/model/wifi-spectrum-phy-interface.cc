@@ -49,6 +49,8 @@ WifiSpectrumPhyInterface::DoDispose()
     m_spectrumWifiPhy = nullptr;
     m_netDevice = nullptr;
     m_channel = nullptr;
+    m_rxPowerLayouts[0].reset();
+    m_rxPowerLayouts[1].reset();
     m_bands.clear();
     m_heRuBands.clear();
 }
@@ -156,6 +158,8 @@ WifiSpectrumPhyInterface::GetChannelWidth() const
 void
 WifiSpectrumPhyInterface::SetBands(WifiSpectrumBands&& bands)
 {
+    m_rxPowerLayouts[0].reset();
+    m_rxPowerLayouts[1].reset();
     m_bands = std::move(bands);
 }
 
@@ -168,6 +172,8 @@ WifiSpectrumPhyInterface::GetBands() const
 void
 WifiSpectrumPhyInterface::SetHeRuBands(HeRuBands&& heRuBands)
 {
+    m_rxPowerLayouts[0].reset();
+    m_rxPowerLayouts[1].reset();
     m_heRuBands = std::move(heRuBands);
 }
 
@@ -191,4 +197,22 @@ WifiSpectrumPhyInterface::StartTx(Ptr<SpectrumSignalParameters> params)
     m_channel->StartTx(params);
 }
 
+std::shared_ptr<const RxPowerBandLayout>
+WifiSpectrumPhyInterface::GetRxPowerLayout(bool includeHe) const
+{
+    auto& layout = m_rxPowerLayouts[includeHe ? 1 : 0];
+    if (!layout)
+    {
+        WifiSpectrumBands input = m_bands;
+        if (includeHe)
+        {
+            for (const auto& [band, ru] : m_heRuBands)
+            {
+                input.push_back(band);
+            }
+        }
+        layout = RxPowerBandLayout::Build(input);
+    }
+    return layout;
+}
 } // namespace ns3

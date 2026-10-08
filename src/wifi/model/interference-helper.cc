@@ -100,7 +100,7 @@ Event::UpdateRxPowerW(const RxPowerWattPerChannelBand& rxPower)
     // Update power band per band
     for (auto& currentRxPowerW : m_rxPowerW)
     {
-        auto band = currentRxPowerW.first;
+        const auto& band = currentRxPowerW.first;
         auto it = rxPower.find(band);
         if (it != rxPower.end())
         {

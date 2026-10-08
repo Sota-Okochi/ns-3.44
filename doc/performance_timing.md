@@ -1,5 +1,7 @@
 # ns-3 実時間計測（3.44）
 
+最新の構造最適化・2seed A/B手順は [wifi_shared_bands.md](wifi_shared_bands.md) を参照。
+
 ## Wi-Fi map挿入の最小最適化とA/B検証（2026-10-06）
 
 `SpectrumWifiPhy::StartRx` の2つの挿入経路（通常/計測対象）を

@@ -1,0 +1,298 @@
+diff --git a/doc/performance_timing.md b/doc/performance_timing.md
+index 9439af8..97565d0 100644
+--- a/doc/performance_timing.md
++++ b/doc/performance_timing.md
+@@ -1,5 +1,7 @@
+ # ns-3 実時間計測（3.44）
+ 
++最新の構造最適化・2seed A/B手順は [wifi_shared_bands.md](wifi_shared_bands.md) を参照。
++
+ ## Wi-Fi map挿入の最小最適化とA/B検証（2026-10-06）
+ 
+ `SpectrumWifiPhy::StartRx` の2つの挿入経路（通常/計測対象）を
+diff --git a/scripts/verify_wifi_insert.py b/scripts/verify_wifi_insert.py
+index c84416c..e8583eb 100644
+--- a/scripts/verify_wifi_insert.py
++++ b/scripts/verify_wifi_insert.py
+@@ -113,18 +113,26 @@ def run_pair(args):
+     settings = json.loads(settings_bytes)
+     (out / "setting.json").write_bytes(settings_bytes)
+     (out / "source.diff").write_bytes(subprocess.check_output(["git", "diff"], cwd=ROOT))
++    # Include the new header even before it is tracked by git.
++    for relative in ("src/wifi/model/rx-power-band-map.h", "scripts/verify_wifi_insert.py"):
++        source = ROOT / relative
++        if source.exists():
++            destination = out / "source" / relative
++            destination.parent.mkdir(parents=True, exist_ok=True)
++            shutil.copy2(source, destination)
+     output_dir = ROOT / "OUTPUT" / str(settings["terminals"]) / "random"
++    # Freeze the after runtime before either long simulation starts.
++    after_runtime = out / "after_runtime"
++    after_runtime.mkdir()
++    shutil.copytree(ROOT / "build/lib", after_runtime / "lib", symlinks=False)
++    shutil.copy2(ROOT / "build/master/ns3.44-master-optimized", after_runtime / "master")
+     for name in ("before", "after"):
+         if (ROOT / "data/setting.json").read_bytes() != settings_bytes:
+             raise ValueError("setting.json changed during verification")
+         case = out / name
+         case.mkdir()
+         # Save both runtime variants so rebuilds cannot silently change this test.
+-        runtime = baseline if name == "before" else case / "runtime"
+-        if name == "after":
+-            runtime.mkdir()
+-            shutil.copytree(ROOT / "build/lib", runtime / "lib", symlinks=False)
+-            shutil.copy2(ROOT / "build/master/ns3.44-master-optimized", runtime / "master")
++        runtime = baseline if name == "before" else after_runtime
+         env = os.environ.copy()
+         env["LD_LIBRARY_PATH"] = str(runtime / "lib")
+         if env.get("LD_PRELOAD"):
+@@ -157,13 +165,26 @@ def run_pair(args):
+ def main():
+     parser = argparse.ArgumentParser(description=__doc__)
+     parser.add_argument("--baseline", type=Path, default=ROOT / "results/perf/wifi_insert_before")
+-    parser.add_argument("--seed", type=int, default=1001)
++    seeds = parser.add_mutually_exclusive_group()
++    seeds.add_argument("--seed", type=int, default=1001)
++    seeds.add_argument("--seeds", type=int, nargs="+", help="Run each before/after pair sequentially")
+     parser.add_argument("--output", type=Path)
+     parser.add_argument("--compare-only", type=Path, help="Recheck an existing A/B directory without simulation")
+     args = parser.parse_args()
+     try:
+         if args.compare_only:
+             compare(args.compare_only)
++        elif args.seeds:
++            if len(set(args.seeds)) != len(args.seeds):
++                raise ValueError("Duplicate seeds")
++            batch = args.output.resolve() if args.output else ROOT / "results/perf" / time.strftime("wifi_shared_ab_%Y%m%d_%H%M%S")
++            batch.mkdir(parents=True, exist_ok=False)
++            print(f"Batch results: {batch}", flush=True)
++            for seed in args.seeds:
++                pair = argparse.Namespace(**vars(args))
++                pair.seed = seed
++                pair.output = batch / f"seed{seed}"
++                run_pair(pair)
+         else:
+             run_pair(args)
+     except (ValueError, OSError, subprocess.CalledProcessError) as exc:
+diff --git a/src/wifi/CMakeLists.txt b/src/wifi/CMakeLists.txt
+index f0458dc..49fd14d 100644
+--- a/src/wifi/CMakeLists.txt
++++ b/src/wifi/CMakeLists.txt
+@@ -325,6 +325,7 @@ set(header_files
+     model/wifi-net-device.h
+     model/wifi-opt-field.h
+     model/wifi-phy-band.h
++    model/rx-power-band-map.h
+     model/wifi-phy-common.h
+     model/wifi-phy-listener.h
+     model/wifi-phy-operating-channel.h
+diff --git a/src/wifi/model/interference-helper.cc b/src/wifi/model/interference-helper.cc
+index 5f4dfe3..1a734a2 100644
+--- a/src/wifi/model/interference-helper.cc
++++ b/src/wifi/model/interference-helper.cc
+@@ -100,7 +100,7 @@ Event::UpdateRxPowerW(const RxPowerWattPerChannelBand& rxPower)
+     // Update power band per band
+     for (auto& currentRxPowerW : m_rxPowerW)
+     {
+-        auto band = currentRxPowerW.first;
++        const auto& band = currentRxPowerW.first;
+         auto it = rxPower.find(band);
+         if (it != rxPower.end())
+         {
+diff --git a/src/wifi/model/phy-entity.h b/src/wifi/model/phy-entity.h
+index 6c4f725..dfdb32e 100644
+--- a/src/wifi/model/phy-entity.h
++++ b/src/wifi/model/phy-entity.h
+@@ -13,6 +13,7 @@
+ #define PHY_ENTITY_H
+ 
+ #include "wifi-phy-band.h"
++#include "rx-power-band-map.h"
+ #include "wifi-ppdu.h"
+ #include "wifi-tx-vector.h"
+ #include "wifi-types.h"
+@@ -33,17 +34,12 @@
+  * Declaration of:
+  * - ns3::PhyEntity class
+  * - ns3::SignalNoiseDbm, ns3::MpduInfo, and ns3::RxSignalInfo structs
+- * - ns3::RxPowerWattPerChannelBand typedef
++ * - ns3::RxPowerWattPerChannelBand container
+  */
+ 
+ namespace ns3
+ {
+ 
+-/**
+- * A map of the received power for each band
+- */
+-using RxPowerWattPerChannelBand = std::map<WifiSpectrumBandInfo, Watt_u>;
+-
+ class WifiMpdu;
+ class WifiPhy;
+ class InterferenceHelper;
+diff --git a/src/wifi/model/spectrum-wifi-phy.cc b/src/wifi/model/spectrum-wifi-phy.cc
+index b71b8c5..584cef9 100644
+--- a/src/wifi/model/spectrum-wifi-phy.cc
++++ b/src/wifi/model/spectrum-wifi-phy.cc
+@@ -502,7 +502,11 @@ SpectrumWifiPhy::StartRx(Ptr<SpectrumSignalParameters> rxParams,
+     const auto& bands =
+         interface ? interface->GetBands() : m_currentSpectrumPhyInterface->GetBands();
+     Watt_u totalRxPower{0.0};
+-    RxPowerWattPerChannelBand rxPowers;
++    const auto rxInterface = interface ? interface
++        : Ptr<const WifiSpectrumPhyInterface>(m_currentSpectrumPhyInterface);
++    RxPowerWattPerChannelBand rxPowers(
++        rxInterface->GetRxPowerLayout(GetStandard() >= WIFI_STANDARD_80211ax));
++    std::size_t inputBandIndex = 0;
+ 
+     const auto rxGainRatio = DbToRatio(GetRxGain());
+ 
+@@ -512,12 +516,12 @@ SpectrumWifiPhy::StartRx(Ptr<SpectrumSignalParameters> rxParams,
+         return WifiSpectrumValueHelper::GetBandPowerW(receivedSignalPsd, indices);
+     };
+     auto insertPower = [&](const auto& band, auto power) {
+-        // Construct the key in the map node directly. insert({band, power}) also
+-        // copies the temporary pair's const key (including its two vectors).
+-        // Keep first-insertion-wins semantics, including equivalent band keys.
+-        if (!sample) { rxPowers.try_emplace(band, power); return; }
++        // Slot order matches the unchanged regular/RU traversal below. Duplicate
++        // keys retain the first power, just as std::map::insert did.
++        (void)band;
++        if (!sample) { rxPowers.SetInputPower(inputBandIndex++, power); return; }
+         ResearchWallProfiler::Scope timer("WifiRx.sampled.map_insert", true);
+-        rxPowers.try_emplace(band, power);
++        rxPowers.SetInputPower(inputBandIndex++, power);
+     };
+     {
+         ResearchWallProfiler::Scope timer("WifiRx.sampled.regular_bands", true, sample);
+diff --git a/src/wifi/model/wifi-spectrum-phy-interface.cc b/src/wifi/model/wifi-spectrum-phy-interface.cc
+index e199ad4..44b8eba 100644
+--- a/src/wifi/model/wifi-spectrum-phy-interface.cc
++++ b/src/wifi/model/wifi-spectrum-phy-interface.cc
+@@ -49,6 +49,8 @@ WifiSpectrumPhyInterface::DoDispose()
+     m_spectrumWifiPhy = nullptr;
+     m_netDevice = nullptr;
+     m_channel = nullptr;
++    m_rxPowerLayouts[0].reset();
++    m_rxPowerLayouts[1].reset();
+     m_bands.clear();
+     m_heRuBands.clear();
+ }
+@@ -156,6 +158,8 @@ WifiSpectrumPhyInterface::GetChannelWidth() const
+ void
+ WifiSpectrumPhyInterface::SetBands(WifiSpectrumBands&& bands)
+ {
++    m_rxPowerLayouts[0].reset();
++    m_rxPowerLayouts[1].reset();
+     m_bands = std::move(bands);
+ }
+ 
+@@ -168,6 +172,8 @@ WifiSpectrumPhyInterface::GetBands() const
+ void
+ WifiSpectrumPhyInterface::SetHeRuBands(HeRuBands&& heRuBands)
+ {
++    m_rxPowerLayouts[0].reset();
++    m_rxPowerLayouts[1].reset();
+     m_heRuBands = std::move(heRuBands);
+ }
+ 
+@@ -191,4 +197,22 @@ WifiSpectrumPhyInterface::StartTx(Ptr<SpectrumSignalParameters> params)
+     m_channel->StartTx(params);
+ }
+ 
++std::shared_ptr<const RxPowerBandLayout>
++WifiSpectrumPhyInterface::GetRxPowerLayout(bool includeHe) const
++{
++    auto& layout = m_rxPowerLayouts[includeHe ? 1 : 0];
++    if (!layout)
++    {
++        WifiSpectrumBands input = m_bands;
++        if (includeHe)
++        {
++            for (const auto& [band, ru] : m_heRuBands)
++            {
++                input.push_back(band);
++            }
++        }
++        layout = RxPowerBandLayout::Build(input);
++    }
++    return layout;
++}
+ } // namespace ns3
+diff --git a/src/wifi/model/wifi-spectrum-phy-interface.h b/src/wifi/model/wifi-spectrum-phy-interface.h
+index 0dde8eb..33ffad4 100644
+--- a/src/wifi/model/wifi-spectrum-phy-interface.h
++++ b/src/wifi/model/wifi-spectrum-phy-interface.h
+@@ -144,6 +144,9 @@ class WifiSpectrumPhyInterface : public SpectrumPhy
+      */
+     const HeRuBands& GetHeRuBands() const;
+ 
++    /** Cached immutable reception layout; invalidated whenever bands change. */
++    std::shared_ptr<const RxPowerBandLayout> GetRxPowerLayout(bool includeHe) const;
++
+   private:
+     void DoDispose() override;
+ 
+@@ -157,6 +160,7 @@ class WifiSpectrumPhyInterface : public SpectrumPhy
+ 
+     WifiSpectrumBands
+         m_bands; /**< Store all the distinct spectrum bands associated with every channels widths */
++    mutable std::shared_ptr<const RxPowerBandLayout> m_rxPowerLayouts[2];
+     HeRuBands m_heRuBands; /**< Store all the distinct spectrum bands associated with every RU */
+ };
+ 
+diff --git a/tests/research_wifi_perf_smoke.cc b/tests/research_wifi_perf_smoke.cc
+index 057e299..e5dcfdc 100644
+--- a/tests/research_wifi_perf_smoke.cc
++++ b/tests/research_wifi_perf_smoke.cc
+@@ -13,7 +13,7 @@ int main(int argc, char** argv)
+ {
+     auto& profiler = ResearchWallProfiler::Get();
+     if (argc > 1) profiler.Start(argv[1], true, 1);
+-    RngSeedManager::SetSeed(1001);
++    RngSeedManager::SetSeed(argc > 2 ? std::stoul(argv[2]) : 1001);
+     NodeContainer nodes;
+     nodes.Create(2);
+     MobilityHelper mobility;
+diff --git a/tests/test_verify_wifi_insert.py b/tests/test_verify_wifi_insert.py
+index 3aa4e7b..a9dde86 100644
+--- a/tests/test_verify_wifi_insert.py
++++ b/tests/test_verify_wifi_insert.py
+@@ -3,6 +3,7 @@ import importlib.util
+ from pathlib import Path
+ import tempfile
+ import unittest
++from unittest.mock import patch
+ 
+ ROOT = Path(__file__).resolve().parents[1]
+ spec = importlib.util.spec_from_file_location("verify", ROOT / "scripts/verify_wifi_insert.py")
+@@ -40,6 +41,16 @@ class CompareTest(unittest.TestCase):
+             with self.assertRaises(ValueError):
+                 self.check_pair(a, a)
+ 
++    def test_two_seed_batch_dispatch_without_simulation(self):
++        with tempfile.TemporaryDirectory() as directory:
++            out = Path(directory) / "batch"
++            calls = []
++            with patch("sys.argv", ["verify_wifi_insert.py", "--seeds", "1001", "1002",
++                                    "--output", str(out)]), patch.object(
++                    verify, "run_pair", side_effect=lambda args: calls.append((args.seed, args.output))):
++                verify.main()
++            self.assertEqual(calls, [(1001, out / "seed1001"), (1002, out / "seed1002")])
++
+ 
+ if __name__ == "__main__":
+     unittest.main()
+diff --git a/tests/wifi_insert_equivalence.cc b/tests/wifi_insert_equivalence.cc
+index 984aded..2d4e1a8 100644
+--- a/tests/wifi_insert_equivalence.cc
++++ b/tests/wifi_insert_equivalence.cc
+@@ -7,7 +7,7 @@
+ int main()
+ {
+     using namespace ns3;
+-    RxPowerWattPerChannelBand before;
++    std::map<WifiSpectrumBandInfo, Watt_u> before;
+     RxPowerWattPerChannelBand after;
+     WifiSpectrumBandInfo band;
+     band.indices.emplace_back(1, 2);

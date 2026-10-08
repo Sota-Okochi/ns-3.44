@@ -502,7 +502,11 @@ SpectrumWifiPhy::StartRx(Ptr<SpectrumSignalParameters> rxParams,
     const auto& bands =
         interface ? interface->GetBands() : m_currentSpectrumPhyInterface->GetBands();
     Watt_u totalRxPower{0.0};
-    RxPowerWattPerChannelBand rxPowers;
+    const auto rxInterface = interface ? interface
+        : Ptr<const WifiSpectrumPhyInterface>(m_currentSpectrumPhyInterface);
+    RxPowerWattPerChannelBand rxPowers(
+        rxInterface->GetRxPowerLayout(GetStandard() >= WIFI_STANDARD_80211ax));
+    std::size_t inputBandIndex = 0;
 
     const auto rxGainRatio = DbToRatio(GetRxGain());
 
@@ -512,12 +516,12 @@ SpectrumWifiPhy::StartRx(Ptr<SpectrumSignalParameters> rxParams,
         return WifiSpectrumValueHelper::GetBandPowerW(receivedSignalPsd, indices);
     };
     auto insertPower = [&](const auto& band, auto power) {
-        // Construct the key in the map node directly. insert({band, power}) also
-        // copies the temporary pair's const key (including its two vectors).
-        // Keep first-insertion-wins semantics, including equivalent band keys.
-        if (!sample) { rxPowers.try_emplace(band, power); return; }
+        // Slot order matches the unchanged regular/RU traversal below. Duplicate
+        // keys retain the first power, just as std::map::insert did.
+        (void)band;
+        if (!sample) { rxPowers.SetInputPower(inputBandIndex++, power); return; }
         ResearchWallProfiler::Scope timer("WifiRx.sampled.map_insert", true);
-        rxPowers.try_emplace(band, power);
+        rxPowers.SetInputPower(inputBandIndex++, power);
     };
     {
         ResearchWallProfiler::Scope timer("WifiRx.sampled.regular_bands", true, sample);

@@ -7,7 +7,7 @@
 int main()
 {
     using namespace ns3;
-    RxPowerWattPerChannelBand before;
+    std::map<WifiSpectrumBandInfo, Watt_u> before;
     RxPowerWattPerChannelBand after;
     WifiSpectrumBandInfo band;
     band.indices.emplace_back(1, 2);

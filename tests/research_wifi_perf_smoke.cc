@@ -13,7 +13,7 @@ int main(int argc, char** argv)
 {
     auto& profiler = ResearchWallProfiler::Get();
     if (argc > 1) profiler.Start(argv[1], true, 1);
-    RngSeedManager::SetSeed(1001);
+    RngSeedManager::SetSeed(argc > 2 ? std::stoul(argv[2]) : 1001);
     NodeContainer nodes;
     nodes.Create(2);
     MobilityHelper mobility;

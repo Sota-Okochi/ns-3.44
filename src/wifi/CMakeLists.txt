@@ -325,6 +325,7 @@ set(header_files
     model/wifi-net-device.h
     model/wifi-opt-field.h
     model/wifi-phy-band.h
+    model/rx-power-band-map.h
     model/wifi-phy-common.h
     model/wifi-phy-listener.h
     model/wifi-phy-operating-channel.h
