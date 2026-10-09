@@ -90,6 +90,16 @@ public:
     void Init(int, char **);
 
 private:
+    void StartQueueDiagnostics();
+    void SampleQueueDiagnostics();
+    bool m_queueDiagnostics{false};
+    double m_queueSampleSec{0.1};
+    std::ofstream m_queueCsv;
+    std::string m_queueRunId;
+    std::string m_queueSettingPath;
+    std::string m_queueArgs;
+    EventId m_queueSampleEvent;
+    Time m_queueLastSample{Seconds(-1)};
     void Configure();
     void CreateNetworkTopology();
     void ConfigureDataLinkLayer();

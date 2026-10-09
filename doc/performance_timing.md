@@ -1,6 +1,11 @@
 # ns-3 実時間計測（3.44）
 
-最新の構造最適化・2seed A/B手順は [wifi_shared_bands.md](wifi_shared_bands.md) を参照。
+最新の候補・比較手順は [wifi_local_hint.md](wifi_local_hint.md) を参照。
+
+検索位置再利用は性能悪化のため撤回済み。現在の状態は [wifi_cursor_rollback.md](wifi_cursor_rollback.md) を参照。
+
+最新の干渉管理統合・2seed A/B手順は [wifi_interference_record.md](wifi_interference_record.md) を参照。
+前段階の帯域情報共有化は [wifi_shared_bands.md](wifi_shared_bands.md) を参照。
 
 ## Wi-Fi map挿入の最小最適化とA/B検証（2026-10-06）
 

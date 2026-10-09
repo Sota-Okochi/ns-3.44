@@ -33,6 +33,13 @@ class NrRlcUm : public NrRlc
     static TypeId GetTypeId();
     void DoDispose() override;
 
+    /// Read-only diagnostics. Fragments remaining in the buffer count as entries.
+    uint32_t GetTxBufferBytes() const;
+    uint32_t GetTxBufferEntries() const;
+    Time GetTxBufferHolDelay() const;
+    uint64_t GetTxOverflowPackets() const;
+    uint64_t GetTxOverflowBytes() const;
+
     /**
      * RLC SAP
      *
@@ -87,6 +94,8 @@ class NrRlcUm : public NrRlc
   private:
     uint32_t m_maxTxBufferSize; ///< maximum transmit buffer status
     uint32_t m_txBufferSize;    ///< transmit buffer size
+    uint64_t m_txOverflowPackets{0}; ///< Actual admission failures, not discard trace notifications
+    uint64_t m_txOverflowBytes{0}; ///< Bytes rejected by the buffer capacity check
 
     /**
      * @brief Store an incoming (from layer above us) PDU, waiting to transmit it

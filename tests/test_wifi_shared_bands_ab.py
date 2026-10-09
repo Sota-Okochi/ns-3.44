@@ -7,7 +7,8 @@ import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-BEFORE = ROOT / "results/perf/wifi_shared_bands_before"
+BEFORE = Path(os.environ.get("NS3_WIFI_AB_BASELINE",
+                             ROOT / "results/perf/wifi_shared_bands_before")).resolve()
 
 
 class SharedBandsIntegration(unittest.TestCase):

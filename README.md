@@ -301,3 +301,9 @@ ns-3.44/
 - Compiler: GCC 12.3.0
 - CMake: 3.22.1
 - ns-3: 3.44
+
+## AP0キュー診断
+
+PGW–CER（デバイスキューとQueueDisc）およびNR RLCの滞留量・破棄数は、
+`--queueDiagnostics=1 --queueSampleSec=0.1` で記録できます（標準では無効）。
+実行・解析手順と測定範囲は [doc/queue_diagnostics.md](doc/queue_diagnostics.md) を参照してください。

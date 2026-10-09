@@ -1,0 +1,750 @@
+ Percent |	Source code & Disassembly of libns3.44-wifi-optimized.so for cpu-clock:u (587 samples, percent: local period)
+-----------------------------------------------------------------------------------------------------------------------------
+         :
+         :
+         :
+         : 3      Disassembly of section .text:
+         :
+         : 5      0000000000564580 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)>:
+         : 6      ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool) [clone .localalias]:
+    0.00 :   564580: endbr64
+    0.00 :   564584: push   %r15
+    0.00 :   564586: push   %r14
+    0.00 :   564588: push   %r13
+    0.00 :   56458a: push   %r12
+    0.00 :   56458c: push   %rbp
+    0.00 :   56458d: push   %rbx
+    0.00 :   56458e: sub    $0xb8,%rsp
+    0.00 :   564595: mov    %cl,0x67(%rsp)
+    0.00 :   564599: lea    0x70(%rdi),%rcx
+    0.00 :   56459d: mov    %rdi,0x38(%rsp)
+    0.00 :   5645a2: mov    %rsi,0x20(%rsp)
+    0.00 :   5645a7: mov    %rdx,0x8(%rsp)
+    0.00 :   5645ac: mov    %fs:0x28,%rax
+    0.00 :   5645b5: mov    %rax,0xa8(%rsp)
+    0.00 :   5645bd: mov    (%rsi),%rax
+    0.00 :   5645c0: mov    %rcx,0x48(%rsp)
+    0.00 :   5645c5: lea    0x40(%rdi),%rcx
+    0.00 :   5645c9: mov    %rcx,0x28(%rsp)
+    0.00 :   5645ce: mov    0x38(%rax),%rbx
+    0.17 :   5645d2: mov    0x30(%rax),%rax
+    0.00 :   5645d6: mov    %rbx,0x50(%rsp)
+    0.00 :   5645db: mov    %rax,0x18(%rsp)
+    0.00 :   5645e0: cmp    %rax,%rbx
+    0.00 :   5645e3: je     564ec2 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0x942>
+    0.00 :   5645e9: nopl   0x0(%rax)
+    0.00 :   5645f0: mov    0x18(%rsp),%rax
+    0.00 :   5645f5: mov    (%rax),%rsi
+    0.00 :   5645f8: mov    0x38(%rsp),%rax
+    0.00 :   5645fd: mov    0x78(%rax),%rbp
+    0.00 :   564601: test   %rbp,%rbp
+    0.00 :   564604: je     5646a8 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0x128>
+    0.00 :   56460a: mov    0x18(%rsi),%rcx
+    1.19 :   56460e: mov    0x48(%rsp),%rdx
+    0.00 :   564613: vmovsd (%rcx),%xmm0
+    4.77 :   564617: nopw   0x0(%rax,%rax,1)
+    0.34 :   564620: mov    0x38(%rbp),%rax
+    2.39 :   564624: vcomisd (%rax),%xmm0
+    7.50 :   564628: jp     56462e <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0xae>
+    2.39 :   56462a: je     564640 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0xc0>
+    0.00 :   56462c: ja     564678 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0xf8>
+    0.34 :   56462e: mov    0x10(%rbp),%rax
+    1.19 :   564632: test   %rax,%rax
+    0.00 :   564635: je     564684 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0x104>
+    0.00 :   564637: mov    %rbp,%rdx
+    0.00 :   56463a: mov    %rax,%rbp
+    0.00 :   56463d: jmp    564620 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0xa0>
+    0.00 :   56463f: nop
+    0.17 :   564640: vmovsd 0x8(%rcx),%xmm1
+    0.51 :   564645: vcomisd 0x8(%rax),%xmm1
+    0.17 :   56464a: jp     56462e <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0xae>
+    0.51 :   56464c: jne    56462c <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0xac>
+    0.00 :   56464e: mov    0x20(%rsi),%rdi
+    0.17 :   564652: mov    0x40(%rbp),%rax
+    0.00 :   564656: vmovsd -0x10(%rdi),%xmm1
+    0.17 :   56465b: vcomisd -0x10(%rax),%xmm1
+    0.17 :   564660: jp     56462e <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0xae>
+    0.00 :   564662: jne    56462c <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0xac>
+    0.00 :   564664: vmovsd -0x8(%rdi),%xmm1
+    0.00 :   564669: vcomisd -0x8(%rax),%xmm1
+    0.00 :   56466e: jp     56462e <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0xae>
+    0.00 :   564670: je     56462e <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0xae>
+    0.00 :   564672: jbe    56462e <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0xae>
+    0.00 :   564674: nopl   0x0(%rax)
+    1.19 :   564678: mov    0x18(%rbp),%rax
+    0.51 :   56467c: test   %rax,%rax
+    0.00 :   56467f: jne    56463a <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0xba>
+    0.00 :   564681: mov    %rdx,%rbp
+    0.00 :   564684: mov    0x48(%rsp),%rax
+    0.00 :   564689: cmp    %rax,%rbp
+    0.00 :   56468c: je     5646a8 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0x128>
+    0.00 :   56468e: mov    0x38(%rbp),%rax
+    0.00 :   564692: vcomisd (%rax),%xmm0
+    0.34 :   564696: jp     5647f0 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0x270>
+    0.34 :   56469c: je     5647b0 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0x230>
+    0.00 :   5646a2: ja     5647f0 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0x270>
+    0.00 :   5646a8: mov    0x3db659(%rip),%rbx        # 93fd08 <std::cerr@GLIBCXX_3.4>
+    0.00 :   5646af: mov    $0xf,%edx
+    0.00 :   5646b4: lea    0x26f99b(%rip),%rsi        # 7d4056 <_fini+0xd7e>
+    0.00 :   5646bb: mov    %rbx,%rdi
+    0.00 :   5646be: call   2e5230 <std::basic_ostream<char, std::char_traits<char> >& std::__ostream_insert<char, std::char_traits<char> >(std::basic_ostream<char, std::char_traits<char> >&, char const*, long)@plt>
+    0.00 :   5646c3: mov    $0x19,%edx
+    0.00 :   5646c8: lea    0x294928(%rip),%rsi        # 7f8ff7 <typeinfo name for ns3::HtPpdu+0x2f>
+    0.00 :   5646cf: mov    %rbx,%rdi
+    0.00 :   5646d2: call   2e5230 <std::basic_ostream<char, std::char_traits<char> >& std::__ostream_insert<char, std::char_traits<char> >(std::basic_ostream<char, std::char_traits<char> >&, char const*, long)@plt>
+    0.00 :   5646d7: lea    0x27a600(%rip),%rsi        # 7decde <typeinfo name for ns3::AmsduSubframeHeader+0x17de>
+    0.00 :   5646de: mov    %rbx,%rdi
+    0.00 :   5646e1: call   559910 <std::basic_ostream<char, std::char_traits<char> >& std::operator<< <std::char_traits<char> >(std::basic_ostream<char, std::char_traits<char> >&, char const*) [clone .isra.0]>
+    0.00 :   5646e6: call   2de5e0 <ns3::LogGetTimePrinter()@plt>
+    0.00 :   5646eb: test   %rax,%rax
+    0.00 :   5646ee: je     564710 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0x190>
+    0.00 :   5646f0: mov    0x3d6041(%rip),%rbp        # 93a738 <std::clog@GLIBCXX_3.4>
+    0.00 :   5646f7: mov    %rbp,%rdi
+    0.00 :   5646fa: call   *%rax
+    0.00 :   5646fc: lea    0x29d7fc(%rip),%rsi        # 801eff <typeinfo name for ns3::DoMakeAccessorHelperOne<ns3::BooleanValue, ns3::MinstrelHtWifiManager, bool>(bool ns3::MinstrelHtWifiManager::*)::MemberVariable+0x11f>
+    0.00 :   564703: mov    %rbp,%rdi
+    0.00 :   564706: call   559910 <std::basic_ostream<char, std::char_traits<char> >& std::operator<< <std::char_traits<char> >(std::basic_ostream<char, std::char_traits<char> >&, char const*) [clone .isra.0]>
+    0.00 :   56470b: nopl   0x0(%rax,%rax,1)
+    0.00 :   564710: call   2e4aa0 <ns3::LogGetNodePrinter()@plt>
+    0.00 :   564715: test   %rax,%rax
+    0.00 :   564718: je     564735 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0x1b5>
+    0.00 :   56471a: mov    0x3d6017(%rip),%rbp        # 93a738 <std::clog@GLIBCXX_3.4>
+    0.00 :   564721: mov    %rbp,%rdi
+    0.00 :   564724: call   *%rax
+    0.00 :   564726: lea    0x29d7d2(%rip),%rsi        # 801eff <typeinfo name for ns3::DoMakeAccessorHelperOne<ns3::BooleanValue, ns3::MinstrelHtWifiManager, bool>(bool ns3::MinstrelHtWifiManager::*)::MemberVariable+0x11f>
+    0.00 :   56472d: mov    %rbp,%rdi
+    0.00 :   564730: call   559910 <std::basic_ostream<char, std::char_traits<char> >& std::operator<< <std::char_traits<char> >(std::basic_ostream<char, std::char_traits<char> >&, char const*) [clone .isra.0]>
+    0.00 :   564735: mov    $0x5,%edx
+    0.00 :   56473a: lea    0x26f946(%rip),%rsi        # 7d4087 <_fini+0xdaf>
+    0.00 :   564741: mov    %rbx,%rdi
+    0.00 :   564744: call   2e5230 <std::basic_ostream<char, std::char_traits<char> >& std::__ostream_insert<char, std::char_traits<char> >(std::basic_ostream<char, std::char_traits<char> >&, char const*, long)@plt>
+    0.00 :   564749: mov    $0x5b,%edx
+    0.00 :   56474e: lea    0x2948c3(%rip),%rsi        # 7f9018 <typeinfo name for ns3::HtPpdu+0x50>
+    0.00 :   564755: mov    %rbx,%rdi
+    0.00 :   564758: call   2e5230 <std::basic_ostream<char, std::char_traits<char> >& std::__ostream_insert<char, std::char_traits<char> >(std::basic_ostream<char, std::char_traits<char> >&, char const*, long)@plt>
+    0.00 :   56475d: mov    $0x7,%edx
+    0.00 :   564762: lea    0x26f924(%rip),%rsi        # 7d408d <_fini+0xdb5>
+    0.00 :   564769: mov    %rbx,%rdi
+    0.00 :   56476c: call   2e5230 <std::basic_ostream<char, std::char_traits<char> >& std::__ostream_insert<char, std::char_traits<char> >(std::basic_ostream<char, std::char_traits<char> >&, char const*, long)@plt>
+    0.00 :   564771: mov    $0x15f,%esi
+    0.00 :   564776: mov    %rbx,%rdi
+    0.00 :   564779: call   2dc7a0 <std::ostream::operator<<(int)@plt>
+    0.00 :   56477e: mov    %rax,%rdi
+    0.00 :   564781: call   559960 <std::basic_ostream<char, std::char_traits<char> >& std::endl<char, std::char_traits<char> >(std::basic_ostream<char, std::char_traits<char> >&) [clone .isra.0]>
+    0.00 :   564786: call   2e49e0 <ns3::FatalImpl::FlushStreams()@plt>
+    0.00 :   56478b: mov    $0x15,%edx
+    0.00 :   564790: lea    0x26f8fe(%rip),%rsi        # 7d4095 <_fini+0xdbd>
+    0.00 :   564797: mov    %rbx,%rdi
+    0.00 :   56479a: call   2e5230 <std::basic_ostream<char, std::char_traits<char> >& std::__ostream_insert<char, std::char_traits<char> >(std::basic_ostream<char, std::char_traits<char> >&, char const*, long)@plt>
+    0.00 :   56479f: mov    %rax,%rdi
+    0.00 :   5647a2: call   559960 <std::basic_ostream<char, std::char_traits<char> >& std::endl<char, std::char_traits<char> >(std::basic_ostream<char, std::char_traits<char> >&) [clone .isra.0]>
+    0.00 :   5647a7: call   2e6d30 <std::terminate()@plt>
+    0.00 :   5647ac: nopl   0x0(%rax)
+    0.17 :   5647b0: vmovsd 0x8(%rcx),%xmm0
+    0.00 :   5647b5: vcomisd 0x8(%rax),%xmm0
+    0.00 :   5647ba: jp     5647f0 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0x270>
+    0.17 :   5647bc: jne    5646a2 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0x122>
+    0.00 :   5647c2: mov    0x40(%rbp),%rax
+    0.00 :   5647c6: mov    0x20(%rsi),%rdx
+    0.00 :   5647ca: vmovsd -0x10(%rdx),%xmm0
+    0.00 :   5647cf: vcomisd -0x10(%rax),%xmm0
+    0.00 :   5647d4: jp     5647f0 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0x270>
+    0.34 :   5647d6: jne    5646a2 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0x122>
+    0.17 :   5647dc: vmovsd -0x8(%rdx),%xmm0
+    0.00 :   5647e1: vcomisd -0x8(%rax),%xmm0
+    0.00 :   5647e6: jp     5647f0 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0x270>
+    0.00 :   5647e8: jne    5646a2 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0x122>
+    0.00 :   5647ee: xchg   %ax,%ax
+    0.00 :   5647f0: mov    0x20(%rsp),%rax
+    0.00 :   5647f5: mov    0x3dc3cc(%rip),%r12        # 940bc8 <ns3::Time::g_markingTimes@Base>
+    0.00 :   5647fc: mov    (%rax),%rax
+    0.00 :   5647ff: cmpq   $0x0,(%r12)
+    0.00 :   564804: mov    0x10(%rax),%rsi
+    0.00 :   564808: mov    %rsi,0x88(%rsp)
+    0.00 :   564810: je     564f58 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0x9d8>
+    0.00 :   564816: lea    0x88(%rsp),%r14
+    0.00 :   56481e: mov    %r14,%rdi
+    0.00 :   564821: call   2e0660 <ns3::Time::Mark(ns3::Time*)@plt>
+    0.00 :   564826: mov    0x88(%rsp),%rsi
+    0.00 :   56482e: cmpq   $0x0,(%r12)
+    0.00 :   564833: mov    %rsi,0x90(%rsp)
+    0.00 :   56483b: je     564f60 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0x9e0>
+    0.00 :   564841: lea    0x90(%rsp),%r13
+    0.00 :   564849: mov    %r13,%rdi
+    0.00 :   56484c: call   2e0660 <ns3::Time::Mark(ns3::Time*)@plt>
+    0.00 :   564851: mov    0x60(%rbp),%r13
+    0.00 :   564855: lea    0x58(%rbp),%rax
+    0.00 :   564859: mov    (%r12),%rcx
+    0.00 :   56485d: mov    %rax,0x10(%rsp)
+    0.00 :   564862: mov    %r13,%rax
+    0.00 :   564865: test   %r13,%r13
+    0.00 :   564868: je     56509b <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0xb1b>
+    0.00 :   56486e: mov    0x90(%rsp),%rsi
+    0.00 :   564876: mov    0x10(%rsp),%rbx
+    0.00 :   56487b: jmp    564888 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0x308>
+    0.00 :   56487d: nopl   (%rax)
+    3.75 :   564880: mov    %rdi,%rax
+    0.00 :   564883: test   %rax,%rax
+    0.00 :   564886: je     5648a1 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0x321>
+    0.00 :   564888: mov    0x10(%rax),%rdx
+   65.59 :   56488c: mov    0x18(%rax),%rdi
+    0.00 :   564890: cmp    0x20(%rax),%rsi
+    0.00 :   564894: jge    564880 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0x300>
+    0.00 :   564896: mov    %rax,%rbx
+    0.00 :   564899: mov    %rdx,%rax
+    0.00 :   56489c: test   %rax,%rax
+    0.00 :   56489f: jne    564888 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0x308>
+    0.00 :   5648a1: test   %rcx,%rcx
+    0.00 :   5648a4: je     565000 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0xa80>
+    0.00 :   5648aa: lea    0x90(%rsp),%r13
+    0.00 :   5648b2: mov    %r13,%rdi
+    0.00 :   5648b5: call   2e7a30 <ns3::Time::Clear(ns3::Time*)@plt>
+    0.00 :   5648ba: mov    %rbx,%rdi
+    0.00 :   5648bd: mov    (%r12),%r14
+    0.00 :   5648c1: call   2de0d0 <std::_Rb_tree_decrement(std::_Rb_tree_node_base*)@plt>
+    0.00 :   5648c6: mov    %rax,%rbx
+    0.00 :   5648c9: test   %r14,%r14
+    0.00 :   5648cc: je     5650dc <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0xb5c>
+    0.00 :   5648d2: lea    0x88(%rsp),%r14
+    0.00 :   5648da: mov    %r14,%rdi
+    0.00 :   5648dd: call   2e7a30 <ns3::Time::Clear(ns3::Time*)@plt>
+    0.00 :   5648e2: mov    0x20(%rsp),%rax
+    0.00 :   5648e7: vmovsd 0x28(%rbx),%xmm5
+    0.00 :   5648ec: cmpq   $0x0,(%r12)
+    0.00 :   5648f1: mov    (%rax),%rax
+    0.00 :   5648f4: vmovsd %xmm5,0x30(%rsp)
+    0.00 :   5648fa: mov    0x18(%rax),%rsi
+    0.00 :   5648fe: mov    %rsi,0x88(%rsp)
+    0.00 :   564906: je     565060 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0xae0>
+    0.00 :   56490c: mov    %r14,%rdi
+    0.00 :   56490f: call   2e0660 <ns3::Time::Mark(ns3::Time*)@plt>
+    0.00 :   564914: mov    0x88(%rsp),%rsi
+    0.00 :   56491c: cmpq   $0x0,(%r12)
+    0.00 :   564921: mov    %rsi,0x90(%rsp)
+    0.00 :   564929: je     565050 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0xad0>
+    0.00 :   56492f: mov    %r13,%rdi
+    0.00 :   564932: call   2e0660 <ns3::Time::Mark(ns3::Time*)@plt>
+    0.00 :   564937: mov    0x60(%rbp),%rax
+    0.00 :   56493b: mov    (%r12),%rcx
+    0.00 :   56493f: test   %rax,%rax
+    0.00 :   564942: je     5650a5 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0xb25>
+    0.00 :   564948: mov    0x90(%rsp),%rsi
+    0.00 :   564950: mov    0x10(%rsp),%r14
+    0.17 :   564955: jmp    564968 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0x3e8>
+    0.00 :   564957: nopw   0x0(%rax,%rax,1)
+    0.00 :   564960: mov    %rdi,%rax
+    0.00 :   564963: test   %rax,%rax
+    0.00 :   564966: je     564981 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0x401>
+    0.00 :   564968: mov    0x10(%rax),%rdx
+    0.17 :   56496c: mov    0x18(%rax),%rdi
+    0.00 :   564970: cmp    %rsi,0x20(%rax)
+    0.00 :   564974: jle    564960 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0x3e0>
+    0.00 :   564976: mov    %rax,%r14
+    0.00 :   564979: mov    %rdx,%rax
+    0.00 :   56497c: test   %rax,%rax
+    0.00 :   56497f: jne    564968 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0x3e8>
+    0.00 :   564981: test   %rcx,%rcx
+    0.00 :   564984: je     564fe0 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0xa60>
+    0.00 :   56498a: lea    0x90(%rsp),%r13
+    0.00 :   564992: mov    %r13,%rdi
+    0.00 :   564995: call   2e7a30 <ns3::Time::Clear(ns3::Time*)@plt>
+    0.00 :   56499a: mov    %r14,%rdi
+    0.00 :   56499d: mov    (%r12),%r13
+    0.00 :   5649a1: call   2de0d0 <std::_Rb_tree_decrement(std::_Rb_tree_node_base*)@plt>
+    0.00 :   5649a6: vmovsd 0x28(%rax),%xmm6
+    0.00 :   5649ab: vmovsd %xmm6,0x40(%rsp)
+    0.00 :   5649b1: test   %r13,%r13
+    0.00 :   5649b4: je     5649c3 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0x443>
+    0.00 :   5649b6: lea    0x88(%rsp),%rdi
+    0.00 :   5649be: call   2e7a30 <ns3::Time::Clear(ns3::Time*)@plt>
+    0.00 :   5649c3: mov    0x38(%rsp),%rax
+    0.00 :   5649c8: mov    0x48(%rax),%r14
+    0.00 :   5649cc: test   %r14,%r14
+    0.00 :   5649cf: je     564a38 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0x4b8>
+    0.00 :   5649d1: mov    0x28(%rsp),%r13
+    0.00 :   5649d6: cs nopw 0x0(%rax,%rax,1)
+    0.00 :   5649e0: mov    0x8(%rsp),%rsi
+    0.00 :   5649e5: lea    0x20(%r14),%rdi
+    0.00 :   5649e9: call   2e1880 <ns3::operator<(ns3::FrequencyRange const&, ns3::FrequencyRange const&)@plt>
+    0.00 :   5649ee: mov    0x10(%r14),%rcx
+    0.00 :   5649f2: mov    0x18(%r14),%rdx
+    0.00 :   5649f6: test   %al,%al
+    0.00 :   5649f8: je     564a08 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0x488>
+    0.00 :   5649fa: test   %rdx,%rdx
+    0.00 :   5649fd: je     564a18 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0x498>
+    0.00 :   5649ff: mov    %rdx,%r14
+    0.00 :   564a02: jmp    5649e0 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0x460>
+    0.00 :   564a04: nopl   0x0(%rax)
+    0.00 :   564a08: test   %rcx,%rcx
+    0.00 :   564a0b: je     564a1b <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0x49b>
+    0.00 :   564a0d: mov    %r14,%r13
+    0.00 :   564a10: mov    %rcx,%r14
+    0.00 :   564a13: jmp    5649e0 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0x460>
+    0.00 :   564a15: nopl   (%rax)
+    0.00 :   564a18: mov    %r13,%r14
+    0.00 :   564a1b: cmp    %r14,0x28(%rsp)
+    0.00 :   564a20: je     564a38 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0x4b8>
+    0.00 :   564a22: mov    0x8(%rsp),%rdi
+    0.00 :   564a27: lea    0x20(%r14),%rsi
+    0.00 :   564a2b: call   2e1880 <ns3::operator<(ns3::FrequencyRange const&, ns3::FrequencyRange const&)@plt>
+    0.00 :   564a30: test   %al,%al
+    0.00 :   564a32: je     564ef0 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0x970>
+    0.00 :   564a38: vmovsd 0x30(%rsp),%xmm4
+    0.00 :   564a3e: mov    %rbx,%rdi
+    0.00 :   564a41: vmovsd %xmm4,0x80(%rbp)
+    0.00 :   564a49: call   2e4fc0 <std::_Rb_tree_increment(std::_Rb_tree_node_base*)@plt>
+    0.00 :   564a4e: mov    0x68(%rbp),%rbx
+    0.00 :   564a52: mov    %rax,%r13
+    0.00 :   564a55: mov    %rbx,%rdi
+    0.00 :   564a58: call   2e4fc0 <std::_Rb_tree_increment(std::_Rb_tree_node_base*)@plt>
+    0.17 :   564a5d: mov    %rax,%r14
+    0.00 :   564a60: cmp    %rbx,%rax
+    0.00 :   564a63: jne    564a73 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0x4f3>
+    0.00 :   564a65: mov    0x10(%rsp),%rax
+    0.00 :   564a6a: cmp    %rax,%r13
+    0.00 :   564a6d: je     5651db <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0xc5b>
+    0.00 :   564a73: cmp    %r13,%r14
+    0.00 :   564a76: je     564d48 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0x7c8>
+    0.00 :   564a7c: mov    %r14,%rbx
+    0.00 :   564a7f: mov    %r13,%r14
+    0.00 :   564a82: jmp    564ac6 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0x546>
+    0.00 :   564a84: nopl   0x0(%rax)
+    0.00 :   564a88: movq   $0x0,0x30(%rbx)
+    0.00 :   564a90: mov    %r13,%rdi
+    0.00 :   564a93: call   2df7a0 <ns3::Ptr<ns3::Event>::~Ptr()@plt>
+    0.00 :   564a98: cmpq   $0x0,(%r12)
+    0.00 :   564a9d: je     564aa8 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0x528>
+    0.00 :   564a9f: lea    0x20(%rbx),%rdi
+    0.00 :   564aa3: call   2e7a30 <ns3::Time::Clear(ns3::Time*)@plt>
+    0.00 :   564aa8: mov    $0x38,%esi
+    0.00 :   564aad: mov    %rbx,%rdi
+    0.00 :   564ab0: call   2d9ff0 <operator delete(void*, unsigned long)@plt>
+    0.00 :   564ab5: subq   $0x1,0x78(%rbp)
+    0.34 :   564aba: cmp    %r15,%r14
+    0.00 :   564abd: je     564d48 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0x7c8>
+    0.00 :   564ac3: mov    %r15,%rbx
+    0.00 :   564ac6: mov    %rbx,%rdi
+    0.00 :   564ac9: call   2e3f10 <std::_Rb_tree_increment(std::_Rb_tree_node_base const*)@plt>
+    0.00 :   564ace: mov    0x10(%rsp),%rsi
+    0.00 :   564ad3: mov    %rbx,%rdi
+    0.00 :   564ad6: mov    %rax,%r15
+    0.00 :   564ad9: call   2e3520 <std::_Rb_tree_rebalance_for_erase(std::_Rb_tree_node_base*, std::_Rb_tree_node_base&)@plt>
+    0.00 :   564ade: mov    0x30(%rax),%rcx
+    1.70 :   564ae2: mov    %rax,%rbx
+    0.00 :   564ae5: lea    0x30(%rax),%r13
+    0.00 :   564ae9: test   %rcx,%rcx
+    0.00 :   564aec: je     564a90 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0x510>
+    0.00 :   564aee: subl   $0x1,(%rcx)
+    0.34 :   564af1: jne    564a88 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0x508>
+    0.00 :   564af3: mov    0x30(%rcx),%rdi
+    0.00 :   564af7: test   %rdi,%rdi
+    0.00 :   564afa: je     564b12 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0x592>
+    0.00 :   564afc: mov    0x40(%rcx),%rsi
+    0.00 :   564b00: mov    %rcx,0x58(%rsp)
+    0.00 :   564b05: sub    %rdi,%rsi
+    0.00 :   564b08: call   2d9ff0 <operator delete(void*, unsigned long)@plt>
+    0.00 :   564b0d: mov    0x58(%rsp),%rcx
+    0.00 :   564b12: mov    0x28(%rcx),%rdi
+    0.00 :   564b16: test   %rdi,%rdi
+    0.00 :   564b19: je     564b58 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0x5d8>
+    0.00 :   564b1b: mov    0x8(%rdi),%rax
+    0.00 :   564b1f: lea    0x8(%rdi),%rdx
+    0.00 :   564b23: movabs $0x100000001,%rsi
+    0.00 :   564b2d: cmp    %rsi,%rax
+    0.00 :   564b30: je     5650af <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0xb2f>
+    0.00 :   564b36: mov    0x3da3ab(%rip),%rax        # 93eee8 <__libc_single_threaded@GLIBC_2.32>
+    0.00 :   564b3d: cmpb   $0x0,(%rax)
+    0.00 :   564b40: je     565075 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0xaf5>
+    0.00 :   564b46: mov    0x8(%rdi),%eax
+    0.00 :   564b49: lea    -0x1(%rax),%edx
+    0.00 :   564b4c: mov    %edx,0x8(%rdi)
+    0.00 :   564b4f: cmp    $0x1,%eax
+    0.00 :   564b52: je     565087 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0xb07>
+    0.00 :   564b58: cmpq   $0x0,(%r12)
+    0.00 :   564b5d: je     564b87 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0x607>
+    0.00 :   564b5f: lea    0x18(%rcx),%rdi
+    0.00 :   564b63: mov    %rcx,0x58(%rsp)
+    0.00 :   564b68: call   2e7a30 <ns3::Time::Clear(ns3::Time*)@plt>
+    0.00 :   564b6d: cmpq   $0x0,(%r12)
+    0.00 :   564b72: mov    0x58(%rsp),%rcx
+    0.00 :   564b77: je     564b87 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0x607>
+    0.00 :   564b79: lea    0x10(%rcx),%rdi
+    0.00 :   564b7d: call   2e7a30 <ns3::Time::Clear(ns3::Time*)@plt>
+    0.00 :   564b82: mov    0x58(%rsp),%rcx
+    0.00 :   564b87: mov    0x8(%rcx),%r9
+    0.00 :   564b8b: test   %r9,%r9
+    0.00 :   564b8e: je     564ce5 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0x765>
+    0.00 :   564b94: subl   $0x1,0x8(%r9)
+    0.00 :   564b99: jne    564ce5 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0x765>
+    0.00 :   564b9f: mov    (%r9),%rax
+    0.00 :   564ba2: mov    0x8(%rax),%rax
+    0.00 :   564ba6: cmp    0x3dbf9b(%rip),%rax        # 940b48 <ns3::WifiPpdu::~WifiPpdu()@@Base+0x599a88>
+    0.00 :   564bad: jne    5651c7 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0xc47>
+    0.00 :   564bb3: mov    0x3d689e(%rip),%rax        # 93b458 <vtable for ns3::WifiPpdu@@Base+0x2bd8>
+    0.00 :   564bba: add    $0x10,%rax
+    0.00 :   564bbe: cmpb   $0x0,0x120(%r9)
+    0.00 :   564bc6: mov    %rax,(%r9)
+    0.00 :   564bc9: jne    5650e5 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0xb65>
+    0.00 :   564bcf: mov    0x50(%r9),%rdi
+    0.00 :   564bd3: test   %rdi,%rdi
+    0.00 :   564bd6: je     564bf8 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0x678>
+    0.00 :   564bd8: mov    0x60(%r9),%rsi
+    0.00 :   564bdc: mov    %rcx,0x68(%rsp)
+    0.00 :   564be1: mov    %r9,0x58(%rsp)
+    0.00 :   564be6: sub    %rdi,%rsi
+    0.00 :   564be9: call   2d9ff0 <operator delete(void*, unsigned long)@plt>
+    0.00 :   564bee: mov    0x68(%rsp),%rcx
+    0.00 :   564bf3: mov    0x58(%rsp),%r9
+    0.00 :   564bf8: mov    0x28(%r9),%rax
+    0.00 :   564bfc: test   %rax,%rax
+    0.00 :   564bff: je     564c61 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0x6e1>
+    0.00 :   564c01: mov    %rcx,0x68(%rsp)
+    0.00 :   564c06: mov    %r9,0x70(%rsp)
+    0.00 :   564c0b: mov    %rbp,0x78(%rsp)
+    0.00 :   564c10: mov    %rbx,0x58(%rsp)
+    0.00 :   564c15: mov    %rax,%rbx
+    0.00 :   564c18: nopl   0x0(%rax,%rax,1)
+    0.00 :   564c20: mov    %rbx,%rbp
+    0.00 :   564c23: mov    (%rbx),%rbx
+    0.00 :   564c26: mov    0x10(%rbp),%rdi
+    0.00 :   564c2a: test   %rdi,%rdi
+    0.00 :   564c2d: je     564c3b <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0x6bb>
+    0.00 :   564c2f: subl   $0x1,0x8(%rdi)
+    0.00 :   564c33: jne    564c3b <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0x6bb>
+    0.00 :   564c35: mov    (%rdi),%rdx
+    0.00 :   564c38: call   *0x8(%rdx)
+    0.00 :   564c3b: mov    $0x18,%esi
+    0.00 :   564c40: mov    %rbp,%rdi
+    0.00 :   564c43: call   2d9ff0 <operator delete(void*, unsigned long)@plt>
+    0.00 :   564c48: test   %rbx,%rbx
+    0.00 :   564c4b: jne    564c20 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0x6a0>
+    0.00 :   564c4d: mov    0x58(%rsp),%rbx
+    0.00 :   564c52: mov    0x68(%rsp),%rcx
+    0.00 :   564c57: mov    0x70(%rsp),%r9
+    0.00 :   564c5c: mov    0x78(%rsp),%rbp
+    0.00 :   564c61: mov    0x20(%r9),%rax
+    0.00 :   564c65: mov    0x18(%r9),%rdi
+    0.00 :   564c69: xor    %esi,%esi
+    0.00 :   564c6b: mov    %rcx,0x68(%rsp)
+    0.00 :   564c70: mov    %r9,0x58(%rsp)
+    0.00 :   564c75: lea    0x0(,%rax,8),%rdx
+    0.00 :   564c7d: call   2dc710 <memset@plt>
+    0.00 :   564c82: mov    0x58(%rsp),%r9
+    0.00 :   564c87: mov    0x68(%rsp),%rcx
+    0.00 :   564c8c: mov    0x18(%r9),%rdi
+    0.00 :   564c90: lea    0x48(%r9),%rdx
+    0.00 :   564c94: mov    0x20(%r9),%rax
+    0.00 :   564c98: movq   $0x0,0x30(%r9)
+    0.00 :   564ca0: movq   $0x0,0x28(%r9)
+    0.00 :   564ca8: cmp    %rdx,%rdi
+    0.00 :   564cab: je     564cce <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0x74e>
+    0.00 :   564cad: lea    0x0(,%rax,8),%rsi
+    0.00 :   564cb5: mov    %r9,0x68(%rsp)
+    0.00 :   564cba: mov    %rcx,0x58(%rsp)
+    0.00 :   564cbf: call   2d9ff0 <operator delete(void*, unsigned long)@plt>
+    0.00 :   564cc4: mov    0x68(%rsp),%r9
+    0.00 :   564cc9: mov    0x58(%rsp),%rcx
+    0.00 :   564cce: mov    $0x140,%esi
+    0.00 :   564cd3: mov    %r9,%rdi
+    0.00 :   564cd6: mov    %rcx,0x58(%rsp)
+    0.00 :   564cdb: call   2d9ff0 <operator delete(void*, unsigned long)@plt>
+    0.00 :   564ce0: mov    0x58(%rsp),%rcx
+    0.00 :   564ce5: mov    $0x48,%esi
+    0.00 :   564cea: mov    %rcx,%rdi
+    0.00 :   564ced: call   2d9ff0 <operator delete(void*, unsigned long)@plt>
+    0.00 :   564cf2: jmp    564a88 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0x508>
+    0.00 :   564cf7: nopw   0x0(%rax,%rax,1)
+    0.00 :   564d00: mov    %r13,%r14
+    0.00 :   564d03: cmp    %r14,0x28(%rsp)
+    0.00 :   564d08: je     565069 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0xae9>
+    0.00 :   564d0e: mov    0x8(%rsp),%rdi
+    0.00 :   564d13: lea    0x20(%r14),%rsi
+    0.00 :   564d17: call   2e1880 <ns3::operator<(ns3::FrequencyRange const&, ns3::FrequencyRange const&)@plt>
+    0.00 :   564d1c: test   %al,%al
+    0.00 :   564d1e: jne    565069 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0xae9>
+    0.00 :   564d24: cmpb   $0x0,0x30(%r14)
+    0.00 :   564d29: je     564a38 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0x4b8>
+    0.00 :   564d2f: cmpb   $0x0,0x67(%rsp)
+    0.00 :   564d34: je     564d48 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0x7c8>
+    0.00 :   564d36: vmovsd 0x30(%rsp),%xmm4
+    0.00 :   564d3c: vmovsd %xmm4,0x80(%rbp)
+    0.00 :   564d44: nopl   0x0(%rax)
+    0.00 :   564d48: mov    0x20(%rsp),%rax
+    0.00 :   564d4d: movq   $0x0,0x88(%rsp)
+    0.00 :   564d59: mov    (%rax),%rax
+    0.00 :   564d5c: test   %rax,%rax
+    0.00 :   564d5f: je     565030 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0xab0>
+    0.00 :   564d65: mov    (%rax),%edx
+    0.17 :   564d67: vmovsd 0x30(%rsp),%xmm2
+    0.00 :   564d6d: mov    %rax,0x88(%rsp)
+    0.00 :   564d75: mov    %rax,0x98(%rsp)
+    0.00 :   564d7d: vmovsd %xmm2,0x90(%rsp)
+    0.00 :   564d86: add    $0x2,%edx
+    0.51 :   564d89: mov    %edx,(%rax)
+    0.17 :   564d8b: mov    0x10(%rax),%rax
+    0.00 :   564d8f: cmpq   $0x0,(%r12)
+    0.00 :   564d94: lea    0x80(%rsp),%r15
+    0.00 :   564d9c: mov    %rax,0x80(%rsp)
+    0.00 :   564da4: je     564dae <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0x82e>
+    0.00 :   564da6: mov    %r15,%rdi
+    0.00 :   564da9: call   2e0660 <ns3::Time::Mark(ns3::Time*)@plt>
+    0.00 :   564dae: lea    0x90(%rsp),%r13
+    0.00 :   564db6: mov    %rbp,%rdx
+    0.00 :   564db9: mov    %r15,%rdi
+    0.00 :   564dbc: mov    %r13,%rsi
+    0.00 :   564dbf: call   562fc0 <ns3::InterferenceHelper::AddNiChangeEvent(ns3::Time, ns3::InterferenceHelper::NiChange, std::_Rb_tree_iterator<std::pair<ns3::WifiSpectrumBandInfo const, ns3::InterferenceHelper::BandInterferenceState> >) [clone .constprop.0]>
+    0.00 :   564dc4: cmpq   $0x0,(%r12)
+    0.00 :   564dc9: mov    %rax,%rbx
+    0.00 :   564dcc: je     564dd6 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0x856>
+    0.00 :   564dce: mov    %r15,%rdi
+    0.00 :   564dd1: call   2e7a30 <ns3::Time::Clear(ns3::Time*)@plt>
+    0.00 :   564dd6: mov    %r13,%rdi
+    0.00 :   564dd9: lea    0x88(%rsp),%r14
+    0.00 :   564de1: call   55c810 <ns3::InterferenceHelper::NiChange::~NiChange()>
+    0.00 :   564de6: mov    %r14,%rdi
+    0.00 :   564de9: call   2df7a0 <ns3::Ptr<ns3::Event>::~Ptr()@plt>
+    0.00 :   564dee: mov    0x20(%rsp),%rax
+    0.00 :   564df3: movq   $0x0,0x88(%rsp)
+    0.00 :   564dff: mov    (%rax),%rax
+    0.00 :   564e02: test   %rax,%rax
+    0.00 :   564e05: je     565010 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0xa90>
+    0.00 :   564e0b: mov    (%rax),%edx
+    0.00 :   564e0d: vmovsd 0x40(%rsp),%xmm3
+    0.00 :   564e13: mov    %rax,0x88(%rsp)
+    0.00 :   564e1b: mov    %rax,0x98(%rsp)
+    0.00 :   564e23: vmovsd %xmm3,0x90(%rsp)
+    0.00 :   564e2c: add    $0x2,%edx
+    0.00 :   564e2f: mov    %edx,(%rax)
+    0.17 :   564e31: mov    0x18(%rax),%rax
+    0.00 :   564e35: cmpq   $0x0,(%r12)
+    0.00 :   564e3a: mov    %rax,0x80(%rsp)
+    0.00 :   564e42: je     564e4c <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0x8cc>
+    0.00 :   564e44: mov    %r15,%rdi
+    0.00 :   564e47: call   2e0660 <ns3::Time::Mark(ns3::Time*)@plt>
+    0.00 :   564e4c: mov    %rbp,%rdx
+    0.00 :   564e4f: mov    %r13,%rsi
+    0.00 :   564e52: mov    %r15,%rdi
+    0.00 :   564e55: call   562fc0 <ns3::InterferenceHelper::AddNiChangeEvent(ns3::Time, ns3::InterferenceHelper::NiChange, std::_Rb_tree_iterator<std::pair<ns3::WifiSpectrumBandInfo const, ns3::InterferenceHelper::BandInterferenceState> >) [clone .constprop.0]>
+    0.00 :   564e5a: cmpq   $0x0,(%r12)
+    0.00 :   564e5f: mov    %rax,%rbp
+    0.00 :   564e62: je     564e6c <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0x8ec>
+    0.00 :   564e64: mov    %r15,%rdi
+    0.00 :   564e67: call   2e7a30 <ns3::Time::Clear(ns3::Time*)@plt>
+    0.00 :   564e6c: mov    %r13,%rdi
+    0.00 :   564e6f: call   55c810 <ns3::InterferenceHelper::NiChange::~NiChange()>
+    0.00 :   564e74: mov    %r14,%rdi
+    0.00 :   564e77: call   2df7a0 <ns3::Ptr<ns3::Event>::~Ptr()@plt>
+    0.00 :   564e7c: mov    %rbx,%rdi
+    0.00 :   564e7f: mov    0x18(%rsp),%rbx
+    0.00 :   564e84: cmp    %rbp,%rdi
+    0.00 :   564e87: je     564eac <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0x92c>
+    0.00 :   564e89: nopl   0x0(%rax)
+    0.17 :   564e90: vmovsd 0x28(%rdi),%xmm0
+    0.00 :   564e95: vaddsd 0x8(%rbx),%xmm0,%xmm0
+    0.00 :   564e9a: vmovsd %xmm0,0x28(%rdi)
+    0.17 :   564e9f: call   2e4fc0 <std::_Rb_tree_increment(std::_Rb_tree_node_base*)@plt>
+    0.34 :   564ea4: mov    %rax,%rdi
+    0.00 :   564ea7: cmp    %rbp,%rax
+    0.00 :   564eaa: jne    564e90 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0x910>
+    0.00 :   564eac: addq   $0x10,0x18(%rsp)
+    0.00 :   564eb2: mov    0x18(%rsp),%rax
+    0.00 :   564eb7: cmp    %rax,0x50(%rsp)
+    0.00 :   564ebc: jne    5645f0 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0x70>
+    0.00 :   564ec2: mov    0xa8(%rsp),%rax
+    0.00 :   564eca: sub    %fs:0x28,%rax
+    0.00 :   564ed3: jne    565206 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0xc86>
+    0.00 :   564ed9: add    $0xb8,%rsp
+    0.00 :   564ee0: pop    %rbx
+    0.00 :   564ee1: pop    %rbp
+    0.00 :   564ee2: pop    %r12
+    0.00 :   564ee4: pop    %r13
+    0.00 :   564ee6: pop    %r14
+    0.00 :   564ee8: pop    %r15
+    0.00 :   564eea: ret
+    0.00 :   564eeb: nopl   0x0(%rax,%rax,1)
+    0.00 :   564ef0: mov    0x38(%rsp),%rax
+    0.00 :   564ef5: mov    0x48(%rax),%r14
+    0.00 :   564ef9: test   %r14,%r14
+    0.00 :   564efc: je     565069 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0xae9>
+    0.00 :   564f02: mov    0x28(%rsp),%r13
+    0.00 :   564f07: nopw   0x0(%rax,%rax,1)
+    0.00 :   564f10: mov    0x8(%rsp),%rsi
+    0.00 :   564f15: lea    0x20(%r14),%rdi
+    0.00 :   564f19: call   2e1880 <ns3::operator<(ns3::FrequencyRange const&, ns3::FrequencyRange const&)@plt>
+    0.00 :   564f1e: mov    0x10(%r14),%rcx
+    0.00 :   564f22: mov    0x18(%r14),%rdx
+    0.00 :   564f26: test   %al,%al
+    0.00 :   564f28: je     564f40 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0x9c0>
+    0.00 :   564f2a: test   %rdx,%rdx
+    0.00 :   564f2d: je     564d00 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0x780>
+    0.00 :   564f33: mov    %rdx,%r14
+    0.00 :   564f36: jmp    564f10 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0x990>
+    0.00 :   564f38: nopl   0x0(%rax,%rax,1)
+    0.00 :   564f40: test   %rcx,%rcx
+    0.00 :   564f43: je     564d03 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0x783>
+    0.00 :   564f49: mov    %r14,%r13
+    0.00 :   564f4c: mov    %rcx,%r14
+    0.00 :   564f4f: jmp    564f10 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0x990>
+    0.00 :   564f51: nopl   0x0(%rax)
+    0.00 :   564f58: mov    %rsi,0x90(%rsp)
+    0.00 :   564f60: mov    0x60(%rbp),%r13
+    0.00 :   564f64: lea    0x58(%rbp),%rax
+    0.34 :   564f68: xor    %ecx,%ecx
+    0.00 :   564f6a: mov    %rax,0x10(%rsp)
+    0.00 :   564f6f: mov    %r13,%rax
+    0.00 :   564f72: test   %r13,%r13
+    0.00 :   564f75: jne    564876 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0x2f6>
+    0.00 :   564f7b: mov    0x10(%rsp),%rdi
+    0.00 :   564f80: call   2de0d0 <std::_Rb_tree_decrement(std::_Rb_tree_node_base*)@plt>
+    0.00 :   564f85: mov    %rax,%rbx
+    0.00 :   564f88: nopl   0x0(%rax,%rax,1)
+    0.00 :   564f90: mov    0x20(%rsp),%rax
+    0.00 :   564f95: vmovsd 0x28(%rbx),%xmm7
+    0.00 :   564f9a: mov    (%rax),%rax
+    0.00 :   564f9d: vmovsd %xmm7,0x30(%rsp)
+    0.00 :   564fa3: mov    0x18(%rax),%rsi
+    0.00 :   564fa7: mov    %rsi,0x88(%rsp)
+    0.00 :   564faf: mov    %rsi,0x90(%rsp)
+    0.00 :   564fb7: mov    %r13,%rax
+    0.00 :   564fba: xor    %ecx,%ecx
+    0.00 :   564fbc: test   %r13,%r13
+    0.00 :   564fbf: jne    564950 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0x3d0>
+    0.00 :   564fc5: mov    0x10(%rsp),%rdi
+    0.00 :   564fca: call   2de0d0 <std::_Rb_tree_decrement(std::_Rb_tree_node_base*)@plt>
+    0.00 :   564fcf: vmovsd 0x28(%rax),%xmm2
+    0.00 :   564fd4: vmovsd %xmm2,0x40(%rsp)
+    0.00 :   564fda: jmp    5649c3 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0x443>
+    0.00 :   564fdf: nop
+    0.00 :   564fe0: mov    %r14,%rdi
+    0.00 :   564fe3: call   2de0d0 <std::_Rb_tree_decrement(std::_Rb_tree_node_base*)@plt>
+    0.00 :   564fe8: vmovsd 0x28(%rax),%xmm7
+    0.17 :   564fed: vmovsd %xmm7,0x40(%rsp)
+    0.00 :   564ff3: jmp    5649c3 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0x443>
+    0.00 :   564ff8: nopl   0x0(%rax,%rax,1)
+    0.00 :   565000: mov    %rbx,%rdi
+    0.00 :   565003: call   2de0d0 <std::_Rb_tree_decrement(std::_Rb_tree_node_base*)@plt>
+    0.00 :   565008: mov    %rax,%rbx
+    0.17 :   56500b: jmp    564f90 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0xa10>
+    0.00 :   56500d: nopl   (%rax)
+    0.00 :   565010: vmovsd 0x40(%rsp),%xmm6
+    0.00 :   565016: movq   $0x0,0x98(%rsp)
+    0.00 :   565022: vmovsd %xmm6,0x90(%rsp)
+    0.00 :   56502b: jmp    564e31 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0x8b1>
+    0.00 :   565030: vmovsd 0x30(%rsp),%xmm5
+    0.00 :   565036: movq   $0x0,0x98(%rsp)
+    0.00 :   565042: vmovsd %xmm5,0x90(%rsp)
+    0.00 :   56504b: jmp    564d8b <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0x80b>
+    0.00 :   565050: mov    0x60(%rbp),%r13
+    0.00 :   565054: jmp    564fb7 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0xa37>
+    0.00 :   565059: nopl   0x0(%rax)
+    0.00 :   565060: mov    0x60(%rbp),%r13
+    0.00 :   565064: jmp    564faf <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0xa2f>
+    0.00 :   565069: lea    0x2721d9(%rip),%rdi        # 7d7249 <std::piecewise_construct+0x4e0>
+    0.00 :   565070: call   2dfdd0 <std::__throw_out_of_range(char const*)@plt>
+    0.00 :   565075: mov    $0xffffffff,%eax
+    0.00 :   56507a: lock xadd %eax,(%rdx)
+    0.00 :   56507e: cmp    $0x1,%eax
+    0.00 :   565081: jne    564b58 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0x5d8>
+    0.00 :   565087: mov    %rcx,0x58(%rsp)
+    0.00 :   56508c: call   2db150 <std::_Sp_counted_base<(__gnu_cxx::_Lock_policy)2>::_M_release_last_use_cold()@plt>
+    0.00 :   565091: mov    0x58(%rsp),%rcx
+    0.00 :   565096: jmp    564b58 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0x5d8>
+    0.00 :   56509b: mov    0x10(%rsp),%rbx
+    0.00 :   5650a0: jmp    5648a1 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0x321>
+    0.00 :   5650a5: mov    0x10(%rsp),%r14
+    0.00 :   5650aa: jmp    564981 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0x401>
+    0.00 :   5650af: mov    (%rdi),%rax
+    0.00 :   5650b2: mov    %rcx,0x68(%rsp)
+    0.00 :   5650b7: movq   $0x0,0x8(%rdi)
+    0.00 :   5650bf: mov    %rdi,0x58(%rsp)
+    0.00 :   5650c4: call   *0x10(%rax)
+    0.00 :   5650c7: mov    0x58(%rsp),%rdi
+    0.00 :   5650cc: mov    (%rdi),%rax
+    0.00 :   5650cf: call   *0x18(%rax)
+    0.00 :   5650d2: mov    0x68(%rsp),%rcx
+    0.00 :   5650d7: jmp    564b58 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0x5d8>
+    0.00 :   5650dc: mov    0x60(%rbp),%r13
+    0.00 :   5650e0: jmp    564f90 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0xa10>
+    0.00 :   5650e5: mov    0x100(%r9),%rdi
+    0.00 :   5650ec: movb   $0x0,0x120(%r9)
+    0.00 :   5650f4: test   %rdi,%rdi
+    0.00 :   5650f7: je     56511c <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0xb9c>
+    0.00 :   5650f9: mov    0x110(%r9),%rsi
+    0.00 :   565100: mov    %rcx,0x68(%rsp)
+    0.00 :   565105: mov    %r9,0x58(%rsp)
+    0.00 :   56510a: sub    %rdi,%rsi
+    0.00 :   56510d: call   2d9ff0 <operator delete(void*, unsigned long)@plt>
+    0.00 :   565112: mov    0x68(%rsp),%rcx
+    0.00 :   565117: mov    0x58(%rsp),%r9
+    0.00 :   56511c: mov    0xd0(%r9),%rdi
+    0.00 :   565123: test   %rdi,%rdi
+    0.00 :   565126: je     56514b <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0xbcb>
+    0.00 :   565128: mov    0xf0(%r9),%rsi
+    0.00 :   56512f: mov    %rcx,0x68(%rsp)
+    0.00 :   565134: mov    %r9,0x58(%rsp)
+    0.00 :   565139: sub    %rdi,%rsi
+    0.00 :   56513c: call   2d9ff0 <operator delete(void*, unsigned long)@plt>
+    0.00 :   565141: mov    0x68(%rsp),%rcx
+    0.00 :   565146: mov    0x58(%rsp),%r9
+    0.00 :   56514b: mov    0xb0(%r9),%rax
+    0.00 :   565152: test   %rax,%rax
+    0.00 :   565155: je     565197 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0xc17>
+    0.00 :   565157: mov    %rcx,0x68(%rsp)
+    0.00 :   56515c: mov    %r9,0x70(%rsp)
+    0.00 :   565161: mov    %rbx,0x58(%rsp)
+    0.00 :   565166: mov    %rax,%rbx
+    0.00 :   565169: mov    0x18(%rbx),%rdi
+    0.00 :   56516d: call   559c40 <std::_Rb_tree<unsigned short, std::pair<unsigned short const, ns3::HeMuUserInfo>, std::_Select1st<std::pair<unsigned short const, ns3::HeMuUserInfo> >, std::less<unsigned short>, std::allocator<std::pair<unsigned short const, ns3::HeMuUserInfo> > >::_M_erase(std::_Rb_tree_node<std::pair<unsigned short const, ns3::HeMuUserInfo> >*) [clone .isra.0]>
+    0.00 :   565172: mov    %rbx,%rdi
+    0.00 :   565175: mov    0x10(%rbx),%rbx
+    0.00 :   565179: mov    $0x48,%esi
+    0.00 :   56517e: call   2d9ff0 <operator delete(void*, unsigned long)@plt>
+    0.00 :   565183: test   %rbx,%rbx
+    0.00 :   565186: jne    565169 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0xbe9>
+    0.00 :   565188: mov    0x58(%rsp),%rbx
+    0.00 :   56518d: mov    0x68(%rsp),%rcx
+    0.00 :   565192: mov    0x70(%rsp),%r9
+    0.00 :   565197: cmpq   $0x0,(%r12)
+    0.00 :   56519c: je     564bcf <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0x64f>
+    0.00 :   5651a2: lea    0x88(%r9),%rdi
+    0.00 :   5651a9: mov    %rcx,0x68(%rsp)
+    0.00 :   5651ae: mov    %r9,0x58(%rsp)
+    0.00 :   5651b3: call   2e7a30 <ns3::Time::Clear(ns3::Time*)@plt>
+    0.00 :   5651b8: mov    0x68(%rsp),%rcx
+    0.00 :   5651bd: mov    0x58(%rsp),%r9
+    0.00 :   5651c2: jmp    564bcf <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0x64f>
+    0.00 :   5651c7: mov    %rcx,0x58(%rsp)
+    0.00 :   5651cc: mov    %r9,%rdi
+    0.00 :   5651cf: call   *%rax
+    0.00 :   5651d1: mov    0x58(%rsp),%rcx
+    0.00 :   5651d6: jmp    564ce5 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0x765>
+    0.00 :   5651db: mov    0x60(%rbp),%rdi
+    0.00 :   5651df: call   55c940 <std::_Rb_tree<ns3::Time, std::pair<ns3::Time const, ns3::InterferenceHelper::NiChange>, std::_Select1st<std::pair<ns3::Time const, ns3::InterferenceHelper::NiChange> >, std::less<ns3::Time>, std::allocator<std::pair<ns3::Time const, ns3::InterferenceHelper::NiChange> > >::_M_erase(std::_Rb_tree_node<std::pair<ns3::Time const, ns3::InterferenceHelper::NiChange> >*) [clone .isra.0]>
+    0.00 :   5651e4: mov    0x10(%rsp),%rax
+    0.00 :   5651e9: movq   $0x0,0x60(%rbp)
+    0.00 :   5651f1: movq   $0x0,0x78(%rbp)
+    0.00 :   5651f9: mov    %rax,0x68(%rbp)
+    0.00 :   5651fd: mov    %rax,0x70(%rbp)
+    0.00 :   565201: jmp    564d48 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool)+0x7c8>
+    0.00 :   565206: call   2dc360 <__stack_chk_fail@plt>
+    0.00 :   56520b: endbr64
+    0.00 :   56520f: mov    %rax,%rbx
+    0.00 :   565212: jmp    30b414 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool) [clone .cold]>
+    0.00 :   565217: endbr64
+    0.00 :   56521b: mov    %rax,%rbx
+    0.00 :   56521e: jmp    30b426 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool) [clone .cold]+0x12>
+    0.00 :   565223: endbr64
+    0.00 :   565227: mov    %rax,%rbx
+    0.00 :   56522a: lea    0x90(%rsp),%r13
+    0.00 :   565232: vzeroupper
+    0.00 :   565235: jmp    30b459 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool) [clone .cold]+0x45>
+    0.00 :   56523a: endbr64
+    0.00 :   56523e: mov    %rax,%rbx
+    0.00 :   565241: jmp    30b470 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool) [clone .cold]+0x5c>
+    0.00 :   565246: endbr64
+    0.00 :   56524a: mov    %rax,%rbx
+    0.00 :   56524d: vzeroupper
+    0.00 :   565250: jmp    30b482 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool) [clone .cold]+0x6e>
+    0.00 :   565255: endbr64
+    0.00 :   565259: mov    %rax,%rbx
+    0.00 :   56525c: jmp    30b447 <ns3::InterferenceHelper::AppendEvent(ns3::Ptr<ns3::Event>, ns3::FrequencyRange const&, bool) [clone .cold]+0x33>

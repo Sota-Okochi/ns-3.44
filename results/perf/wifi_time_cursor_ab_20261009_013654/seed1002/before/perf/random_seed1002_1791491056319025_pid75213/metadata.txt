@@ -1,0 +1,16 @@
+run_id=random_seed1002_1791491056319025_pid75213
+seed=1002
+method=random
+perf_detailed=0
+profiler_schema=2
+perf_wifi_sample_every=1024
+build_profile=optimized
+ns3_version=3.44
+timing=inclusive_steady_clock
+threading=single_simulation_thread
+argv[0]=/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/perf/wifi_time_cursor_before/master
+argv[1]=--method=random
+argv[2]=--rngSeed=1002
+argv[3]=--perfTiming=1
+argv[4]=--perfDetailed=0
+argv[5]=--perfOutputDir=/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/perf/wifi_time_cursor_ab_20261009_013654/seed1002/before/perf

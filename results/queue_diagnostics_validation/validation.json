@@ -1,0 +1,20 @@
+{
+  "status": "passed",
+  "seed": 19001,
+  "terminals": 3,
+  "cycles": 1,
+  "master_logs": [
+    "OUTPUT/3/random/master_log_19001_20261009_211826.csv",
+    "OUTPUT/3/random/master_log_19001_20261009_211837.csv"
+  ],
+  "master_equal_except_assignment_compute_ms": true,
+  "queue_log": "OUTPUT/3/random/queue_diagnostics/random_seed19001_1791548306465962_pid87/queues.csv",
+  "sample_rows": 2224,
+  "layers": {
+    "p2p_device": 372,
+    "p2p_qdisc": 372,
+    "nr_rlc_um": 1480
+  },
+  "duplicate_samples": false,
+  "experiment_100_ues": "not_run"
+}

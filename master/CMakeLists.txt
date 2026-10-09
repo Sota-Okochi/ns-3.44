@@ -5,6 +5,7 @@ set(master_sources
     applications.cc
     handover.cc
     RttForwarderApp.cc
+    queue-diagnostics.cc
 )
 
 build_exec(

@@ -2,6 +2,7 @@
 #include "ns3/system-path.h"
 #include <algorithm>
 #include <filesystem>
+#include <cmath>
 #include <unistd.h>
 
 NS_LOG_COMPONENT_DEFINE("researchMain");
@@ -307,6 +308,10 @@ void NetSim::Init(int argc, char *argv[]){
     uint64_t perfWifiSampleEvery = 1024;
     std::string perfOutputDir = "results/perf";
     CommandLine cmd;
+    m_queueSettingPath = std::string(INPUT_DIR) + "setting.json";
+    cmd.AddValue("settingPath", "Experiment JSON (default: data/setting.json)", m_queueSettingPath);
+    cmd.AddValue("queueDiagnostics", "Write PGW-CER and NR UM buffer samples (default off)", m_queueDiagnostics);
+    cmd.AddValue("queueSampleSec", "Queue diagnostic sampling interval in simulation seconds", m_queueSampleSec);
     cmd.AddValue("perfTiming", "Enable wall-clock timing without changing simulation events", perfTiming);
     cmd.AddValue("perfDetailed", "Also time NR/Wi-Fi/FlowMonitor internals (implies perfTiming)", perfDetailed);
     cmd.AddValue("perfWifiSampleEvery", "Sample Wi-Fi subphases once per N receptions (positive)", perfWifiSampleEvery);
@@ -356,6 +361,12 @@ void NetSim::Init(int argc, char *argv[]){
                  m_centralizedDqnStateSchema);
     cmd.AddValue("mob", "1 is constant, 2 is randomwalk", m_mob);
     cmd.Parse(argc, argv);
+    NS_ABORT_MSG_IF(!std::isfinite(m_queueSampleSec) || m_queueSampleSec <= 0 ||
+                        Seconds(m_queueSampleSec).IsZero(), "queueSampleSec must be positive and representable");
+    for (int i = 0; i < argc; ++i)
+    {
+        m_queueArgs += "argv[" + std::to_string(i) + "]=" + argv[i] + "\n";
+    }
 
     if (m_assignmentMethod != "no_switch" &&
         m_assignmentMethod != "random" && m_assignmentMethod != "all5g" &&
@@ -373,7 +384,7 @@ void NetSim::Init(int argc, char *argv[]){
     }
 
     BaselineSetting setting;
-    const std::string settingPath = std::string(INPUT_DIR) + "setting.json";
+    const std::string settingPath = m_queueSettingPath;
     if (!LoadBaselineSetting(settingPath, setting))
     {
         return;
@@ -697,6 +708,10 @@ void NetSim::RunSim(){
     BuildTerminalIpMap();
 
     SetAppLayer(); // 各種アプリケーションの設定
+    if (m_queueDiagnostics)
+    {
+        StartQueueDiagnostics();
+    }
 
     if (m_simulationDuration.IsPositive())
     {
@@ -723,6 +738,13 @@ void NetSim::RunSim(){
     {
         ResearchWallProfiler::Scope timer("Simulator::Run");
         Simulator::Run();
+    }
+    if (m_queueDiagnostics)
+    {
+        m_queueSampleEvent.Cancel();
+        SampleQueueDiagnostics(); // Preserve counters at the exact stop time.
+        m_queueSampleEvent.Cancel();
+        m_queueCsv.close();
     }
     if (profiler.Enabled())
     {

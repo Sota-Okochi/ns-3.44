@@ -22,6 +22,7 @@
 #include "ns3/simulator.h"
 
 #include <algorithm>
+#include <iterator>
 #include <numeric>
 
 namespace ns3
@@ -190,10 +191,9 @@ InterferenceHelper::DoDispose()
     NS_LOG_FUNCTION(this);
     for (auto it : m_niChanges)
     {
-        it.second.clear();
+        it.second.changes.clear();
     }
     m_niChanges.clear();
-    m_firstPowers.clear();
     m_errorRateModel = nullptr;
 }
 
@@ -242,24 +242,19 @@ InterferenceHelper::AddBand(const WifiSpectrumBandInfo& band)
 {
     NS_LOG_FUNCTION(this << band);
     NS_ASSERT(!m_niChanges.contains(band));
-    NS_ASSERT(!m_firstPowers.contains(band));
-    NiChanges niChanges;
-    auto result = m_niChanges.insert({band, niChanges});
+    auto result = m_niChanges.try_emplace(band);
     NS_ASSERT(result.second);
     // Always have a zero power noise event in the list
     AddNiChangeEvent(Time(0), NiChange(Watt_u{0}, nullptr), result.first);
-    m_firstPowers.insert({band, Watt_u{0}});
 }
 
 void
 InterferenceHelper::RemoveBand(const WifiSpectrumBandInfo& band)
 {
     NS_LOG_FUNCTION(this << band);
-    NS_ASSERT(m_firstPowers.count(band) != 0);
-    m_firstPowers.erase(band);
     auto it = m_niChanges.find(band);
     NS_ASSERT(it != std::end(m_niChanges));
-    it->second.clear();
+    it->second.changes.clear();
     m_niChanges.erase(it);
 }
 
@@ -333,7 +328,7 @@ InterferenceHelper::GetEnergyDuration(Watt_u energy, const WifiSpectrumBandInfo&
     NS_ABORT_IF(niIt == m_niChanges.end());
     auto i = GetPreviousPosition(now, niIt);
     Time end = i->first;
-    for (; i != niIt->second.end(); ++i)
+    for (; i != niIt->second.changes.end(); ++i)
     {
         const auto noiseInterference = i->second.GetPower();
         end = i->first;
@@ -355,27 +350,33 @@ InterferenceHelper::AppendEvent(Ptr<Event> event,
     {
         auto niIt = m_niChanges.find(band);
         NS_ABORT_IF(niIt == m_niChanges.end());
-        Watt_u previousPowerStart{0.0};
-        Watt_u previousPowerEnd{0.0};
-        auto previousPowerPosition = GetPreviousPosition(event->GetStartTime(), niIt);
-        previousPowerStart = previousPowerPosition->second.GetPower();
-        previousPowerEnd = GetPreviousPosition(event->GetEndTime(), niIt)->second.GetPower();
+        const auto startTime = event->GetStartTime();
+        const auto endTime = event->GetEndTime();
+        NS_ASSERT(endTime >= startTime);
+        auto& changes = niIt->second.changes;
+        const auto startNext = GetNextPosition(startTime, niIt);
+        const auto endNext = GetNextPosition(endTime, niIt);
+        const auto previousPowerStart = std::prev(startNext)->second.GetPower();
+        const auto previousPowerEnd = std::prev(endNext)->second.GetPower();
         if (const auto rxing = (m_rxing.contains(freqRange) && m_rxing.at(freqRange)); !rxing)
         {
-            m_firstPowers.find(band)->second = previousPowerStart;
+            niIt->second.firstPower = previousPowerStart;
             // Always leave the first zero power noise event in the list
-            niIt->second.erase(++(niIt->second.begin()), ++previousPowerPosition);
+            changes.erase(std::next(changes.begin()), startNext);
         }
         else if (isStartHePortionRxing)
         {
             // When the first HE portion is received, we need to set m_firstPowerPerBand
             // so that it takes into account interferences that arrived between the start of the
             // HE TB PPDU transmission and the start of HE TB payload.
-            m_firstPowers.find(band)->second = previousPowerStart;
+            niIt->second.firstPower = previousPowerStart;
         }
-        auto first =
-            AddNiChangeEvent(event->GetStartTime(), NiChange(previousPowerStart, event), niIt);
-        auto last = AddNiChangeEvent(event->GetEndTime(), NiChange(previousPowerEnd, event), niIt);
+        // Reuse only this call's upper_bound iterators. Prefix erasure above
+        // excludes startNext and endNext (endTime >= startTime). Inserting the
+        // start node leaves endNext valid and still upper_bound(endTime), even
+        // for zero duration. Equal-time nodes retain the original insertion order.
+        auto first = changes.insert(startNext, {startTime, NiChange(previousPowerStart, event)});
+        auto last = changes.insert(endNext, {endTime, NiChange(previousPowerEnd, event)});
         for (auto i = first; i != last; ++i)
         {
             i->second.AddPower(power);
@@ -440,17 +441,15 @@ InterferenceHelper::CalculateNoiseInterferenceW(Ptr<Event> event,
                                                 const WifiSpectrumBandInfo& band) const
 {
     NS_LOG_FUNCTION(this << band);
-    auto firstPower_it = m_firstPowers.find(band);
-    NS_ABORT_IF(firstPower_it == m_firstPowers.end());
-    auto noiseInterference = firstPower_it->second;
     auto niIt = m_niChanges.find(band);
     NS_ABORT_IF(niIt == m_niChanges.end());
+    auto noiseInterference = niIt->second.firstPower;
     const auto now = Simulator::Now();
-    auto it = niIt->second.find(event->GetStartTime());
+    auto it = niIt->second.changes.find(event->GetStartTime());
     const auto muMimoPower = (event->GetPpdu()->GetType() == WIFI_PPDU_TYPE_UL_MU)
                                  ? CalculateMuMimoPowerW(event, band)
                                  : Watt_u{0.0};
-    for (; it != niIt->second.end() && it->first < now; ++it)
+    for (; it != niIt->second.changes.end() && it->first < now; ++it)
     {
         if (IsSameMuMimoTransmission(event, it->second.GetEvent()) &&
             (event != it->second.GetEvent()))
@@ -466,15 +465,15 @@ InterferenceHelper::CalculateNoiseInterferenceW(Ptr<Event> event,
             noiseInterference = Watt_u{0.0};
         }
     }
-    it = niIt->second.find(event->GetStartTime());
-    NS_ABORT_IF(it == niIt->second.end());
-    for (; it != niIt->second.end() && it->second.GetEvent() != event; ++it)
+    it = niIt->second.changes.find(event->GetStartTime());
+    NS_ABORT_IF(it == niIt->second.changes.end());
+    for (; it != niIt->second.changes.end() && it->second.GetEvent() != event; ++it)
     {
         ;
     }
     NiChanges ni;
     ni.emplace(event->GetStartTime(), NiChange(Watt_u{0}, event));
-    while (++it != niIt->second.end() && it->second.GetEvent() != event)
+    while (++it != niIt->second.changes.end() && it->second.GetEvent() != event)
     {
         ni.insert(*it);
     }
@@ -491,10 +490,10 @@ InterferenceHelper::CalculateMuMimoPowerW(Ptr<const Event> event,
 {
     auto niIt = m_niChanges.find(band);
     NS_ASSERT(niIt != m_niChanges.end());
-    auto it = niIt->second.begin();
+    auto it = niIt->second.changes.begin();
     ++it;
     Watt_u muMimoPower{0.0};
-    for (; it != niIt->second.end() && it->first < Simulator::Now(); ++it)
+    for (; it != niIt->second.changes.end() && it->first < Simulator::Now(); ++it)
     {
         if (IsSameMuMimoTransmission(event, it->second.GetEvent()))
         {
@@ -594,8 +593,9 @@ InterferenceHelper::CalculatePayloadPer(Ptr<const Event> event,
     }
     const auto windowStart = phyPayloadStart + window.first;
     const auto windowEnd = phyPayloadStart + window.second;
-    NS_ABORT_IF(!m_firstPowers.contains(band));
-    auto noiseInterference = m_firstPowers.at(band);
+    const auto bandState = m_niChanges.find(band);
+    NS_ABORT_IF(bandState == m_niChanges.end());
+    auto noiseInterference = bandState->second.firstPower;
     auto power = event->GetRxPower(band);
     while (++j != niIt.cend())
     {
@@ -667,8 +667,9 @@ InterferenceHelper::CalculatePhyHeaderSectionPsr(
     }
 
     auto previous = j->first;
-    NS_ABORT_IF(!m_firstPowers.contains(band));
-    auto noiseInterference = m_firstPowers.at(band);
+    const auto bandState = m_niChanges.find(band);
+    NS_ABORT_IF(bandState == m_niChanges.end());
+    auto noiseInterference = bandState->second.firstPower;
     const auto power = event->GetRxPower(band);
     while (++j != niIt.end())
     {
@@ -798,13 +799,13 @@ InterferenceHelper::CalculatePhyHeaderSnrPer(Ptr<Event> event,
 }
 
 InterferenceHelper::NiChanges::iterator
-InterferenceHelper::GetNextPosition(Time moment, NiChangesPerBand::iterator niIt)
+InterferenceHelper::GetNextPosition(Time moment, BandStates::iterator niIt)
 {
-    return niIt->second.upper_bound(moment);
+    return niIt->second.changes.upper_bound(moment);
 }
 
 InterferenceHelper::NiChanges::iterator
-InterferenceHelper::GetPreviousPosition(Time moment, NiChangesPerBand::iterator niIt)
+InterferenceHelper::GetPreviousPosition(Time moment, BandStates::iterator niIt)
 {
     auto it = GetNextPosition(moment, niIt);
     // This is safe since there is always an NiChange at time 0,
@@ -814,9 +815,9 @@ InterferenceHelper::GetPreviousPosition(Time moment, NiChangesPerBand::iterator 
 }
 
 InterferenceHelper::NiChanges::iterator
-InterferenceHelper::AddNiChangeEvent(Time moment, NiChange change, NiChangesPerBand::iterator niIt)
+InterferenceHelper::AddNiChangeEvent(Time moment, NiChange change, BandStates::iterator niIt)
 {
-    return niIt->second.insert(GetNextPosition(moment, niIt), {moment, change});
+    return niIt->second.changes.insert(GetNextPosition(moment, niIt), {moment, change});
 }
 
 void
@@ -831,17 +832,17 @@ InterferenceHelper::NotifyRxEnd(Time endTime, const FrequencyRange& freqRange)
 {
     NS_LOG_FUNCTION(this << endTime << freqRange);
     m_rxing.at(freqRange) = false;
-    // Update m_firstPowers for frame capture
+    // Update each band's reference power for frame capture
     for (auto niIt = m_niChanges.begin(); niIt != m_niChanges.end(); ++niIt)
     {
         if (!IsBandInFrequencyRange(niIt->first, freqRange))
         {
             continue;
         }
-        NS_ASSERT(niIt->second.size() > 1);
+        NS_ASSERT(niIt->second.changes.size() > 1);
         auto it = GetPreviousPosition(endTime, niIt);
         it--;
-        m_firstPowers.find(niIt->first)->second = it->second.GetPower();
+        niIt->second.firstPower = it->second.GetPower();
     }
 }
 

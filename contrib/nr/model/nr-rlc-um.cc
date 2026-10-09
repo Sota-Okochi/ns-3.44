@@ -140,12 +140,44 @@ NrRlcUm::DoTransmitPdcpPdu(Ptr<Packet> p)
         NS_LOG_LOGIC("MaxTxBufferSize = " << m_maxTxBufferSize);
         NS_LOG_LOGIC("txBufferSize    = " << m_txBufferSize);
         NS_LOG_LOGIC("packet size     = " << p->GetSize());
+        ++m_txOverflowPackets;
+        m_txOverflowBytes += p->GetSize();
         m_txDropTrace(p);
     }
 
     /** Transmit Buffer Status Report */
     DoTransmitBufferStatusReport();
     m_bsrTimer.Cancel();
+}
+
+uint32_t
+NrRlcUm::GetTxBufferBytes() const
+{
+    return m_txBufferSize;
+}
+
+uint32_t
+NrRlcUm::GetTxBufferEntries() const
+{
+    return m_txBuffer.size();
+}
+
+Time
+NrRlcUm::GetTxBufferHolDelay() const
+{
+    return m_txBuffer.empty() ? Seconds(0) : Simulator::Now() - m_txBuffer.front().m_waitingSince;
+}
+
+uint64_t
+NrRlcUm::GetTxOverflowPackets() const
+{
+    return m_txOverflowPackets;
+}
+
+uint64_t
+NrRlcUm::GetTxOverflowBytes() const
+{
+    return m_txOverflowBytes;
 }
 
 /**
