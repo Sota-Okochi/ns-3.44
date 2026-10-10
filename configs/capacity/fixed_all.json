@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "setting_path": "data/scenarios/ap0_capacity_80_seed1001.json",
+  "capacity_variation": {
+    "mode": "fixed",
+    "events": [
+      {
+        "cycle_id": 2,
+        "ap_id": 0,
+        "rate_bps": 40000000,
+        "direction": "both"
+      },
+      {
+        "cycle_id": 2,
+        "ap_id": 1,
+        "rate_bps": 60000000,
+        "direction": "both"
+      },
+      {
+        "cycle_id": 2,
+        "ap_id": 2,
+        "rate_bps": 10000000,
+        "direction": "both"
+      },
+      {
+        "cycle_id": 4,
+        "ap_id": 0,
+        "rate_bps": 80000000,
+        "direction": "both"
+      },
+      {
+        "cycle_id": 4,
+        "ap_id": 1,
+        "rate_bps": 40000000,
+        "direction": "both"
+      },
+      {
+        "cycle_id": 4,
+        "ap_id": 2,
+        "rate_bps": 40000000,
+        "direction": "both"
+      }
+    ]
+  }
+}

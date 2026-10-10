@@ -323,3 +323,7 @@ PGW–CER（デバイスキューとQueueDisc）およびNR RLCの滞留量・�
 AP2（Wi-Fi AP2のバックホール）容量変動は[AP2容量変動の手順](doc/ap2_capacity_variation.md)を参照してください。
 
 AP0容量変動とlogisticの検証: [手順](doc/ap0_capacity_logistic.md)
+
+共通容量変動シナリオ（固定変動が研究用デフォルト）: [実行手順](doc/capacity_scenario_runner.md)
+
+3リンク同時変動での反応型DQN学習: [実行手順](doc/reactive_dqn_running.md)

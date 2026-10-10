@@ -145,6 +145,7 @@ private:
     void greedy_assignment(); // greedy法による割り当て
     void multi_greedy_assignment(); // 複数端末greedy法による割り当て
     void multi_offload_assignment(); // 混雑AP視点の複数端末offload法
+    void reactive_dqn_assignment();
     void logistic_assignment(); // ロジスティック回帰による割り当て
     void dqn_assignment(); // DQN action CSVによる割り当て
     void multi_dqn_assignment(); // Multi-DQN action CSVによる複数割り当て

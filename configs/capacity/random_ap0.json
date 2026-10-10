@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "setting_path": "data/scenarios/ap0_capacity_80_seed1001.json",
+  "capacity_variation": {
+    "mode": "random",
+    "event_seed": 2001,
+    "ap_id": 0,
+    "low_rates_bps": [20000000, 40000000],
+    "drop_cycle_range": [2, 3],
+    "duration_cycles_range": [1, 2]
+  }
+}

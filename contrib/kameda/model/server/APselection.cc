@@ -478,7 +478,7 @@ void APselection::tmain(){
     }
 
     const auto assignmentComputeStart = std::chrono::steady_clock::now();
-    if (m_totalCycles == 0 || m_cycleIndex < m_totalCycles)
+    if (m_assignmentMethod == "reactive_dqn" || m_totalCycles == 0 || m_cycleIndex < m_totalCycles)
     {
         if (m_assignmentMethod == "random")
         {
@@ -519,6 +519,10 @@ void APselection::tmain(){
         else if (m_assignmentMethod == "online_dqn")
         {
             online_dqn_assignment();
+        }
+        else if (m_assignmentMethod == "reactive_dqn")
+        {
+            reactive_dqn_assignment();
         }
         else if (m_assignmentMethod == "centralized_dqn")
         {

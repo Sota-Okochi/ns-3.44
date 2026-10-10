@@ -1,0 +1,7 @@
+cycle_id,ap_id,rate_bps,direction
+2,0,40000000,both
+2,1,60000000,both
+2,2,10000000,both
+4,0,80000000,both
+4,1,40000000,both
+4,2,40000000,both

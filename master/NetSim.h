@@ -90,6 +90,12 @@ public:
     void Init(int, char **);
 
 private:
+    void StartCapacitySchedule();
+    void ApplyCapacityEvent(uint32_t cycle, uint32_t ap, uint64_t bps);
+    void FinishCapacitySchedule();
+    std::string m_capacityEventsPath;
+    std::string m_capacityScheduleDirectory;
+    std::ofstream m_capacityScheduleEvents;
     void StartAp0CapacityExperiment();
     void SetAp0Capacity(uint32_t cycle, uint64_t rate);
     void SampleAp0Capacity();

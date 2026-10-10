@@ -4,6 +4,7 @@ set(kameda_sources
     model/client/KamedaAppClient.cc
     model/client/APMonitorTerminal.cc
     model/server/APselection.cc
+    model/server/reactive-dqn.cc
     model/server/KamedaAppServer.cc
     helper/kameda-helper.cc
 )

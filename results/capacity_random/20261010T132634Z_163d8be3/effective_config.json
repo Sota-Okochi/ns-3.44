@@ -1,0 +1,139 @@
+{
+  "schema_version": 1,
+  "run_id": "20261010T132634Z_163d8be3",
+  "method": "random",
+  "seed": 1002,
+  "ns3_version": "3.44",
+  "mode": "fixed",
+  "capacity_variation": {
+    "mode": "fixed",
+    "events": [
+      {
+        "cycle_id": 2,
+        "ap_id": 0,
+        "rate_bps": 40000000,
+        "direction": "both"
+      },
+      {
+        "cycle_id": 2,
+        "ap_id": 1,
+        "rate_bps": 60000000,
+        "direction": "both"
+      },
+      {
+        "cycle_id": 2,
+        "ap_id": 2,
+        "rate_bps": 10000000,
+        "direction": "both"
+      },
+      {
+        "cycle_id": 4,
+        "ap_id": 0,
+        "rate_bps": 80000000,
+        "direction": "both"
+      },
+      {
+        "cycle_id": 4,
+        "ap_id": 1,
+        "rate_bps": 40000000,
+        "direction": "both"
+      },
+      {
+        "cycle_id": 4,
+        "ap_id": 2,
+        "rate_bps": 40000000,
+        "direction": "both"
+      }
+    ]
+  },
+  "events": [
+    {
+      "cycle_id": 2,
+      "ap_id": 0,
+      "rate_bps": 40000000,
+      "direction": "both"
+    },
+    {
+      "cycle_id": 2,
+      "ap_id": 1,
+      "rate_bps": 60000000,
+      "direction": "both"
+    },
+    {
+      "cycle_id": 2,
+      "ap_id": 2,
+      "rate_bps": 10000000,
+      "direction": "both"
+    },
+    {
+      "cycle_id": 4,
+      "ap_id": 0,
+      "rate_bps": 80000000,
+      "direction": "both"
+    },
+    {
+      "cycle_id": 4,
+      "ap_id": 1,
+      "rate_bps": 40000000,
+      "direction": "both"
+    },
+    {
+      "cycle_id": 4,
+      "ap_id": 2,
+      "rate_bps": 40000000,
+      "direction": "both"
+    }
+  ],
+  "initial_bps": {
+    "0": 80000000,
+    "1": 40000000,
+    "2": 20000000
+  },
+  "setting": {
+    "baseStations": 3,
+    "terminals": 80,
+    "rngSeed": 1002,
+    "numCycles": 5,
+    "cycleTimeSec": 9.5,
+    "warmupBeforeCycleSec": 3.0,
+    "monitorStartSec": 1.1,
+    "monitorStopSec": 6.0,
+    "browserFirstBurstSec": 1.2,
+    "browserSecondBurstSec": 2.1,
+    "browserBurstIntervalSec": 1.0,
+    "browserNumRequests": 4,
+    "browserRequestSize": 768000,
+    "cycleEndMarginSec": 0.5,
+    "handoverGraceCycles": 0,
+    "browserPostHandoverDelaySec": 0.0
+  },
+  "argv": [
+    "/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/ns3",
+    "run",
+    "master",
+    "--no-build",
+    "--",
+    "--settingPath=/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/capacity_random/20261010T132634Z_163d8be3/setting.json",
+    "--method=random",
+    "--rngSeed=1002",
+    "--mob=1",
+    "--pgwCerRate=80Mbps",
+    "--ap0CapacityVariation=0",
+    "--ap1CapacityVariation=0",
+    "--ap2CapacityVariation=0",
+    "--capacityEventsPath=/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/capacity_random/20261010T132634Z_163d8be3/planned_events.csv",
+    "--outputRoot=/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/capacity_random/20261010T132634Z_163d8be3/simulation"
+  ],
+  "source_scenario": "/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/configs/capacity/fixed_all.json",
+  "replay_source": null,
+  "planned_events_sha256": "694dede513628b0ec49a835cc3b7b5aab753178e30c52da6f599135bdb488db5",
+  "setting_sha256": "c2b810706c77aafe69ebe9ba4b44eb68c696fca60d09e11a27708c3a5e2df86a",
+  "python_version": "3.10.12 (main, Aug 31 2026, 10:18:17) [GCC 11.4.0]",
+  "source_sha256": {
+    "scripts/run_capacity_scenario.py": "b510612a440ba587ce98827ceece8839156daaa409ba339d547616189223343c",
+    "master/capacity-schedule.cc": "e8298c3021033ad9f702c1f2ef6798c82102d744df2a2a4d89ca810962add10e",
+    "master/config.cc": "249fddcf2e0a4bcb3433e1e7ccf02354c71d116465e94bcb88e8017c749e930f",
+    "master/NetSim.h": "107af9d4c75858cfc65245e8e4a0323839eee47f68a139853b5d32d2df5004c6",
+    "master/topology.cc": "27b06c64c42a2a89b346c6222130055a80c0b9f1f6821d11bec2df9875208e68"
+  }
+}

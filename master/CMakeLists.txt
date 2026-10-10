@@ -7,6 +7,7 @@ set(master_sources
     RttForwarderApp.cc
     queue-diagnostics.cc
     ap1-capacity.cc
+    capacity-schedule.cc
     ap0-capacity.cc
     ap2-capacity.cc
 )

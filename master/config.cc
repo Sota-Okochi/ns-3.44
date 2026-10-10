@@ -310,6 +310,7 @@ void NetSim::Init(int argc, char *argv[]){
     uint64_t perfWifiSampleEvery = 1024;
     std::string perfOutputDir = "results/perf";
     CommandLine cmd;
+    cmd.AddValue("capacityEventsPath", "CSV capacity schedule; exclusive with legacy capacity experiments", m_capacityEventsPath);
     cmd.AddValue("ap0CapacityVariation", "Vary PGW-CER backhaul in both directions (default off)", m_ap0CapacityVariation);
     cmd.AddValue("ap0CapacityTrace", "Save AP0 capacity metadata and queue samples, also for constant baseline", m_ap0CapacityTrace);
     cmd.AddValue("ap0LowRate", "AP0 reduced capacity", m_ap0LowRate);
@@ -400,6 +401,7 @@ void NetSim::Init(int argc, char *argv[]){
         m_assignmentMethod != "multi_offload" &&
         m_assignmentMethod != "logistic" && m_assignmentMethod != "dqn" &&
         m_assignmentMethod != "multi_dqn" &&
+        m_assignmentMethod != "reactive_dqn" &&
         m_assignmentMethod != "online_dqn" &&
         m_assignmentMethod != "centralized_dqn" &&
         m_assignmentMethod != "ml")
@@ -670,6 +672,7 @@ void NetSim::RunSim(){
     CreateNetworkTopology(); // ノードの生成
     ConfigureDataLinkLayer();
     ConfigureNetworkLayer();
+    StartCapacitySchedule();
     StartAp1CapacityExperiment();
     StartAp0CapacityExperiment();
     StartAp2CapacityExperiment();
@@ -784,6 +787,7 @@ void NetSim::RunSim(){
         ResearchWallProfiler::Scope timer("Simulator::Run");
         Simulator::Run();
     }
+    FinishCapacitySchedule();
     FinishAp0CapacityExperiment();
     FinishAp2CapacityExperiment();
     m_ap1SampleEvent.Cancel();
