@@ -1,0 +1,7 @@
+sim_time,cycle_id,direction,old_bps,new_bps
+0,0,pgw_to_cer,80000000,80000000
+0,0,cer_to_pgw,80000000,80000000
+13.5,2,pgw_to_cer,80000000,20000000
+13.5,2,cer_to_pgw,80000000,20000000
+32.5,4,pgw_to_cer,20000000,80000000
+32.5,4,cer_to_pgw,20000000,80000000

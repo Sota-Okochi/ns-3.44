@@ -1,0 +1,19 @@
+{
+  "seed": 1001,
+  "unsatisfied_threshold": 0.5,
+  "note": "Logged RTT is a shared BS monitor proxy, not individual application RTT. Zero TP for RTT apps is not no traffic.",
+  "sources": {
+    "results/ap1_capacity/constant/80/no_switch/master_log_1001_20261010_124902.csv": "5af478bac008b3bebd4684fd450533469be67d7243b1f644ab8a2662a3f4ec17",
+    "results/ap1_capacity/constant/80/no_switch/ap1_capacity/seed1001_1791604142706780_pid308313/events.csv": "69a5fe5c08c0e99df008201835c012401a6e83d683ba51d589e45ced9fa32fd3",
+    "results/ap1_capacity/constant/80/no_switch/ap1_capacity/seed1001_1791604142706780_pid308313/initial_terminals.csv": "83702407d8326f32d4daf1aaaef51bac0fb7f44bfc91b63fbf3bef8bd4417faf",
+    "results/ap1_capacity/constant/80/no_switch/ap1_capacity/seed1001_1791604142706780_pid308313/metadata.txt": "cda427f2b75883e91790a9f1f66f956f1ba0aae99422aecc69d862da42d8a57e",
+    "results/ap1_capacity/constant/80/no_switch/ap1_capacity/seed1001_1791604142706780_pid308313/queue_samples.csv": "6a5436144f465ace259a1ff2920e670cceb90ee116f44e5196ec14c751975a0c",
+    "results/ap1_capacity/constant/80/no_switch/ap1_capacity/seed1001_1791604142706780_pid308313/setting.json": "320a0b8c8fd9f3697def9e9214e5be024e7baeae94237acebc86e231b1b21368",
+    "results/ap1_capacity/variable/80/no_switch/master_log_1001_20261010_124834.csv": "84c9d025f15fd764622a9d9585d28ab9d30345e887229c772e238d25d011a5f1",
+    "results/ap1_capacity/variable/80/no_switch/ap1_capacity/seed1001_1791604114620287_pid308101/events.csv": "da2ee83da87060d1639f90f6785872ce1a3179747d1b56faa1710037f2f74bc8",
+    "results/ap1_capacity/variable/80/no_switch/ap1_capacity/seed1001_1791604114620287_pid308101/initial_terminals.csv": "83702407d8326f32d4daf1aaaef51bac0fb7f44bfc91b63fbf3bef8bd4417faf",
+    "results/ap1_capacity/variable/80/no_switch/ap1_capacity/seed1001_1791604114620287_pid308101/metadata.txt": "580121357207a2039b3f608fc392c001819d87055603b3cafe3a530f83bdafab",
+    "results/ap1_capacity/variable/80/no_switch/ap1_capacity/seed1001_1791604114620287_pid308101/queue_samples.csv": "f62c687e30e98f62e1f8968204eafa01089b8b2cd2f9a96c90b1d2f68b8e1bbb",
+    "results/ap1_capacity/variable/80/no_switch/ap1_capacity/seed1001_1791604114620287_pid308101/setting.json": "320a0b8c8fd9f3697def9e9214e5be024e7baeae94237acebc86e231b1b21368"
+  }
+}

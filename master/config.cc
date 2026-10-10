@@ -303,11 +303,34 @@ void NetSim::Init(int argc, char *argv[]){
     NS_LOG_FUNCTION(this);
 
     uint32_t cliRngSeed = 0;
+    std::string appTypesPath;
+    std::string outputRoot = OUTPUT_ROOT_DIR;
     bool perfTiming = false;
     bool perfDetailed = false;
     uint64_t perfWifiSampleEvery = 1024;
     std::string perfOutputDir = "results/perf";
     CommandLine cmd;
+    cmd.AddValue("ap0CapacityVariation", "Vary PGW-CER backhaul in both directions (default off)", m_ap0CapacityVariation);
+    cmd.AddValue("ap0CapacityTrace", "Save AP0 capacity metadata and queue samples, also for constant baseline", m_ap0CapacityTrace);
+    cmd.AddValue("ap0LowRate", "AP0 reduced capacity", m_ap0LowRate);
+    cmd.AddValue("ap0DropCycle", "1-based cycle at whose start AP0 capacity drops", m_ap0DropCycle);
+    cmd.AddValue("ap0RecoveryCycle", "1-based cycle at whose start AP0 capacity recovers", m_ap0RecoveryCycle);
+    cmd.AddValue("ap0SampleSec", "AP0 queue sampling interval in seconds", m_ap0SampleSec);
+    cmd.AddValue("ap2CapacityVariation", "Vary Wi-Fi AP2 backhaul in both directions (default off)", m_ap2CapacityVariation);
+    cmd.AddValue("ap2CapacityTrace", "Save AP2 capacity metadata and queue samples, also for constant baseline", m_ap2CapacityTrace);
+    cmd.AddValue("ap2LowRate", "AP2 reduced capacity", m_ap2LowRate);
+    cmd.AddValue("ap2DropCycle", "1-based cycle at whose start AP2 capacity drops", m_ap2DropCycle);
+    cmd.AddValue("ap2RecoveryCycle", "1-based cycle at whose start AP2 capacity recovers", m_ap2RecoveryCycle);
+    cmd.AddValue("ap2SampleSec", "AP2 queue sampling interval in seconds", m_ap2SampleSec);
+    cmd.AddValue("ap1CapacityVariation", "Vary Wi-Fi AP1 backhaul in both directions (default off)", m_ap1CapacityVariation);
+    cmd.AddValue("ap1CapacityTrace", "Save AP1 capacity metadata and queue samples, also for constant baseline", m_ap1CapacityTrace);
+    cmd.AddValue("ap1LowRate", "AP1 reduced capacity", m_ap1LowRate);
+    cmd.AddValue("ap1DropCycle", "1-based cycle at whose start AP1 capacity drops", m_ap1DropCycle);
+    cmd.AddValue("ap1RecoveryCycle", "1-based cycle at whose start AP1 capacity recovers", m_ap1RecoveryCycle);
+    cmd.AddValue("ap1SampleSec", "AP1 queue sampling interval in seconds", m_ap1SampleSec);
+    cmd.AddValue("pgwCerRate", "PGW-CER capacity; other link parameters unchanged", m_pgwCerRate);
+    cmd.AddValue("appTypesPath", "Optional whitespace-separated app IDs (1..4), one per UE", appTypesPath);
+    cmd.AddValue("outputRoot", "Output root for isolated comparison experiments", outputRoot);
     m_queueSettingPath = std::string(INPUT_DIR) + "setting.json";
     cmd.AddValue("settingPath", "Experiment JSON (default: data/setting.json)", m_queueSettingPath);
     cmd.AddValue("queueDiagnostics", "Write PGW-CER and NR UM buffer samples (default off)", m_queueDiagnostics);
@@ -361,6 +384,7 @@ void NetSim::Init(int argc, char *argv[]){
                  m_centralizedDqnStateSchema);
     cmd.AddValue("mob", "1 is constant, 2 is randomwalk", m_mob);
     cmd.Parse(argc, argv);
+    NS_ABORT_MSG_IF(DataRate(m_pgwCerRate).GetBitRate() == 0, "pgwCerRate must be positive");
     NS_ABORT_MSG_IF(!std::isfinite(m_queueSampleSec) || m_queueSampleSec <= 0 ||
                         Seconds(m_queueSampleSec).IsZero(), "queueSampleSec must be positive and representable");
     for (int i = 0; i < argc; ++i)
@@ -385,10 +409,8 @@ void NetSim::Init(int argc, char *argv[]){
 
     BaselineSetting setting;
     const std::string settingPath = m_queueSettingPath;
-    if (!LoadBaselineSetting(settingPath, setting))
-    {
-        return;
-    }
+    NS_ABORT_MSG_IF(!LoadBaselineSetting(settingPath, setting),
+                    "Cannot load experiment settings: " << settingPath);
     m_rngSeed = (cliRngSeed > 0) ? cliRngSeed : setting.rngSeed;
     std::cout << "シード値: " << m_rngSeed
               << " (setting.json/\"rngSeed\"=" << setting.rngSeed;
@@ -429,7 +451,8 @@ void NetSim::Init(int argc, char *argv[]){
             outputMethodDir += "_" + m_centralizedDqnStateSchema;
         }
     }
-    m_outputDir = OUTPUT_ROOT_DIR + std::to_string(termNum) + "/" + outputMethodDir + "/";
+    m_outputDir = (std::filesystem::path(outputRoot) / std::to_string(termNum) /
+                   outputMethodDir).string() + "/";
     SystemPath::MakeDirectories(m_outputDir);
     std::cout << "出力ディレクトリ: " << m_outputDir << std::endl;
     std::cout << "warmupBeforeCycleSec: " << setting.warmupBeforeCycleSec
@@ -481,6 +504,20 @@ void NetSim::Init(int argc, char *argv[]){
     Ptr<UniformRandomVariable> apRand = CreateObject<UniformRandomVariable>();
     Ptr<UniformRandomVariable> appRand = CreateObject<UniformRandomVariable>();
     uint32_t apCount = std::max<uint32_t>(APnum, 1);
+    std::vector<int> fixedApps;
+    if (!appTypesPath.empty())
+    {
+        std::ifstream input(appTypesPath);
+        NS_ABORT_MSG_IF(!input, "Cannot open appTypesPath");
+        int app;
+        while (input >> app)
+        {
+            NS_ABORT_MSG_IF(app < 1 || app > 4, "App ID must be 1..4");
+            fixedApps.push_back(app);
+        }
+        NS_ABORT_MSG_IF(!input.eof() || fixedApps.size() != termNum,
+                        "appTypesPath must contain exactly terminals integer IDs");
+    }
     
     // アプリの出現率の設定
     for (uint32_t i = 0; i < termNum; ++i)
@@ -507,6 +544,11 @@ void NetSim::Init(int argc, char *argv[]){
         data.x = 0.0;
         data.y = 0.0;
         m_termData.push_back(data);
+        if (!fixedApps.empty())
+        {
+            data.use_appli = fixedApps[i];
+            m_termData.back().use_appli = data.use_appli;
+        }
         m_apSelectionInput.useAppli.push_back(data.use_appli);
         m_apSelectionInput.initialAp.push_back(data.apNo);
     }
@@ -628,6 +670,9 @@ void NetSim::RunSim(){
     CreateNetworkTopology(); // ノードの生成
     ConfigureDataLinkLayer();
     ConfigureNetworkLayer();
+    StartAp1CapacityExperiment();
+    StartAp0CapacityExperiment();
+    StartAp2CapacityExperiment();
     // Register actual NetDevice indices, not IPv4 interface indices.
     auto& deviceProfiler = ResearchWallProfiler::Get();
     if (deviceProfiler.Detailed())
@@ -739,12 +784,23 @@ void NetSim::RunSim(){
         ResearchWallProfiler::Scope timer("Simulator::Run");
         Simulator::Run();
     }
+    FinishAp0CapacityExperiment();
+    FinishAp2CapacityExperiment();
+    m_ap1SampleEvent.Cancel();
+    if (m_ap1Samples.is_open())
+    {
+        SampleAp1Capacity();
+        m_ap1SampleEvent.Cancel();
+        m_ap1Samples.close();
+        m_ap1Events.close();
+    }
     if (m_queueDiagnostics)
     {
         m_queueSampleEvent.Cancel();
         SampleQueueDiagnostics(); // Preserve counters at the exact stop time.
         m_queueSampleEvent.Cancel();
         m_queueCsv.close();
+        m_linkLoadCsv.close();
     }
     if (profiler.Enabled())
     {

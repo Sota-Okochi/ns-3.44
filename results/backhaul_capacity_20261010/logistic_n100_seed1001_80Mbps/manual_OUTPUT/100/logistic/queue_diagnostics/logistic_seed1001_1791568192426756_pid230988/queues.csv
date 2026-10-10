@@ -1,0 +1,5 @@
+run_id,seed,method,sim_time,cycle_window_id,layer,direction,source,ue_id,imsi,rnti,current_bs_id,queue_entries,queue_bytes,hol_delay_ms,dropped_packets_total,dropped_bytes_total,capacity,link_bps,channel_delay_ms
+logistic_seed1001_1791568192426756_pid230988,1001,logistic,0.000000,0,p2p_device,ul,/NodeList/116/DeviceList/3,-1,0,0,-1,0,0,,0,0,600p,80000000,20.000000
+logistic_seed1001_1791568192426756_pid230988,1001,logistic,0.000000,0,p2p_qdisc,ul,/NodeList/116/DeviceList/3,-1,0,0,-1,0,0,,0,0,10240p,80000000,20.000000
+logistic_seed1001_1791568192426756_pid230988,1001,logistic,0.000000,0,p2p_device,dl,/NodeList/0/DeviceList/9,-1,0,0,-1,0,0,,0,0,600p,80000000,20.000000
+logistic_seed1001_1791568192426756_pid230988,1001,logistic,0.000000,0,p2p_qdisc,dl,/NodeList/0/DeviceList/9,-1,0,0,-1,0,0,,0,0,10240p,80000000,20.000000

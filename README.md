@@ -307,3 +307,19 @@ ns-3.44/
 PGW–CER（デバイスキューとQueueDisc）およびNR RLCの滞留量・破棄数は、
 `--queueDiagnostics=1 --queueSampleSec=0.1` で記録できます（標準では無効）。
 実行・解析手順と測定範囲は [doc/queue_diagnostics.md](doc/queue_diagnostics.md) を参照してください。
+
+80/100端末の構成比を固定したバックホール比較は
+[doc/backhaul_capacity_experiment.md](doc/backhaul_capacity_experiment.md) を参照してください。
+既定の80Mbpsは維持し、`--pgwCerRate` で比較ケースごとに指定できます。
+
+### Wi-Fi AP1容量変動（固定接続・80端末）
+
+5サイクルでAP1バックホールを40→20→40 Mbpsに変更する実験と比較用コマンドは
+[AP1容量変動の実行手順](doc/ap1_capacity_variation.md)を参照してください。
+既定では変動は無効です。
+
+### Wi-Fi AP2容量変動
+
+AP2（Wi-Fi AP2のバックホール）容量変動は[AP2容量変動の手順](doc/ap2_capacity_variation.md)を参照してください。
+
+AP0容量変動とlogisticの検証: [手順](doc/ap0_capacity_logistic.md)

@@ -1,0 +1,20 @@
+{
+  "sources": {
+    "results/ap0_capacity_logistic/variable/80/logistic/master_log_1001_20261010_175623.csv": "e7df7c3ea27b8aaee3561a15c5d6eb9cb1d227a3a27fc8e8056717acc22b7cbc",
+    "results/ap0_capacity_logistic/variable/80/logistic/ap0_capacity/seed1001_1791622583640829_pid355034/metadata.txt": "829403a8c56751f88d4477adcd0f32b99756cb54bb963deb07dba724b1cb3f4b",
+    "results/ap0_capacity_logistic/variable/80/logistic/ap0_capacity/seed1001_1791622583640829_pid355034/queue_samples.csv": "48e42218f50ad85b853f4b5e3e35717425beb4b33143b022fbe37fc4b28892c0",
+    "results/ap0_capacity_logistic/variable/80/logistic/ap0_capacity/seed1001_1791622583640829_pid355034/initial_terminals.csv": "83702407d8326f32d4daf1aaaef51bac0fb7f44bfc91b63fbf3bef8bd4417faf",
+    "results/ap0_capacity_logistic/variable/80/logistic/ap0_capacity/seed1001_1791622583640829_pid355034/simulation_completed.txt": "c7e78f52b7d4b05251e2fba2caad14f7bc1fb50ce25b7a1885d7cdbd132ec84b",
+    "results/ap0_capacity_logistic/variable/80/logistic/ap0_capacity/seed1001_1791622583640829_pid355034/setting.json": "320a0b8c8fd9f3697def9e9214e5be024e7baeae94237acebc86e231b1b21368",
+    "results/ap0_capacity_logistic/variable/80/logistic/ap0_capacity/seed1001_1791622583640829_pid355034/events.csv": "1b2beb9adc508a50987cd34e0de3a3a9c79dfd22d6436a1f53ee7f91f10ff409",
+    "contrib/kameda/model/server/APselection.cc": "b740f68d10aa146e46c34b733a151641043b04760aac41bc22dc221f82f23d73",
+    "results/ap0_20Mbps_capacity_logistic/variable/80/logistic/master_log_1001_20261010_175720.csv": "3ebf74f8580ffe4099e1104b62d78937b68951a92db42df081585fb73d70ae7a",
+    "results/ap0_20Mbps_capacity_logistic/variable/80/logistic/ap0_capacity/seed1001_1791622640263284_pid355391/metadata.txt": "4a789daacc428c22f6ae267c3377cd16f383a25eb4a1929db1d541fb6cbf2485",
+    "results/ap0_20Mbps_capacity_logistic/variable/80/logistic/ap0_capacity/seed1001_1791622640263284_pid355391/queue_samples.csv": "5085a6188778a4f6c19f532c766223c9ac4af36ca2943b80fc1a5ed50f4b921e",
+    "results/ap0_20Mbps_capacity_logistic/variable/80/logistic/ap0_capacity/seed1001_1791622640263284_pid355391/initial_terminals.csv": "83702407d8326f32d4daf1aaaef51bac0fb7f44bfc91b63fbf3bef8bd4417faf",
+    "results/ap0_20Mbps_capacity_logistic/variable/80/logistic/ap0_capacity/seed1001_1791622640263284_pid355391/simulation_completed.txt": "c7e78f52b7d4b05251e2fba2caad14f7bc1fb50ce25b7a1885d7cdbd132ec84b",
+    "results/ap0_20Mbps_capacity_logistic/variable/80/logistic/ap0_capacity/seed1001_1791622640263284_pid355391/setting.json": "320a0b8c8fd9f3697def9e9214e5be024e7baeae94237acebc86e231b1b21368",
+    "results/ap0_20Mbps_capacity_logistic/variable/80/logistic/ap0_capacity/seed1001_1791622640263284_pid355391/events.csv": "909dec3e4f97021ccada850317184794ad194002edb12481c7b3e61c7f78c579"
+  },
+  "note": "Measured current-cycle QoE precedes selected action; RTT is BS monitor proxy."
+}

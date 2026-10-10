@@ -1,0 +1,294 @@
+{
+  "method": "logistic",
+  "app_profile": "seeded shuffled blocks of 20; exact 20/40/15/25%; nested UE prefixes",
+  "items": [
+    {
+      "case": "/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/backhaul_capacity_20261010/logistic_n80_seed1001_80Mbps",
+      "terminals": 80,
+      "seed": 1001,
+      "rate_mbps": 80,
+      "app_counts": {
+        "2": 32,
+        "3": 12,
+        "4": 20,
+        "1": 16
+      },
+      "command": [
+        "/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/build/master/ns3.44-master-optimized",
+        "--method=logistic",
+        "--rngSeed=1001",
+        "--settingPath=/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/backhaul_capacity_20261010/logistic_n80_seed1001_80Mbps/setting.json",
+        "--appTypesPath=/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/backhaul_capacity_20261010/logistic_n80_seed1001_80Mbps/apps.txt",
+        "--outputRoot=/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/backhaul_capacity_20261010/logistic_n80_seed1001_80Mbps/OUTPUT",
+        "--pgwCerRate=80Mbps",
+        "--queueDiagnostics=1",
+        "--queueSampleSec=0.1"
+      ],
+      "status": "pending"
+    },
+    {
+      "case": "/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/backhaul_capacity_20261010/logistic_n100_seed1001_80Mbps",
+      "terminals": 100,
+      "seed": 1001,
+      "rate_mbps": 80,
+      "app_counts": {
+        "2": 40,
+        "3": 15,
+        "4": 25,
+        "1": 20
+      },
+      "command": [
+        "/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/build/master/ns3.44-master-optimized",
+        "--method=logistic",
+        "--rngSeed=1001",
+        "--settingPath=/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/backhaul_capacity_20261010/logistic_n100_seed1001_80Mbps/setting.json",
+        "--appTypesPath=/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/backhaul_capacity_20261010/logistic_n100_seed1001_80Mbps/apps.txt",
+        "--outputRoot=/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/backhaul_capacity_20261010/logistic_n100_seed1001_80Mbps/OUTPUT",
+        "--pgwCerRate=80Mbps",
+        "--queueDiagnostics=1",
+        "--queueSampleSec=0.1"
+      ],
+      "status": "pending"
+    },
+    {
+      "case": "/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/backhaul_capacity_20261010/logistic_n80_seed1002_80Mbps",
+      "terminals": 80,
+      "seed": 1002,
+      "rate_mbps": 80,
+      "app_counts": {
+        "3": 12,
+        "1": 16,
+        "2": 32,
+        "4": 20
+      },
+      "command": [
+        "/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/build/master/ns3.44-master-optimized",
+        "--method=logistic",
+        "--rngSeed=1002",
+        "--settingPath=/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/backhaul_capacity_20261010/logistic_n80_seed1002_80Mbps/setting.json",
+        "--appTypesPath=/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/backhaul_capacity_20261010/logistic_n80_seed1002_80Mbps/apps.txt",
+        "--outputRoot=/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/backhaul_capacity_20261010/logistic_n80_seed1002_80Mbps/OUTPUT",
+        "--pgwCerRate=80Mbps",
+        "--queueDiagnostics=1",
+        "--queueSampleSec=0.1"
+      ],
+      "status": "pending"
+    },
+    {
+      "case": "/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/backhaul_capacity_20261010/logistic_n100_seed1002_80Mbps",
+      "terminals": 100,
+      "seed": 1002,
+      "rate_mbps": 80,
+      "app_counts": {
+        "3": 15,
+        "1": 20,
+        "2": 40,
+        "4": 25
+      },
+      "command": [
+        "/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/build/master/ns3.44-master-optimized",
+        "--method=logistic",
+        "--rngSeed=1002",
+        "--settingPath=/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/backhaul_capacity_20261010/logistic_n100_seed1002_80Mbps/setting.json",
+        "--appTypesPath=/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/backhaul_capacity_20261010/logistic_n100_seed1002_80Mbps/apps.txt",
+        "--outputRoot=/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/backhaul_capacity_20261010/logistic_n100_seed1002_80Mbps/OUTPUT",
+        "--pgwCerRate=80Mbps",
+        "--queueDiagnostics=1",
+        "--queueSampleSec=0.1"
+      ],
+      "status": "pending"
+    },
+    {
+      "case": "/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/backhaul_capacity_20261010/logistic_n80_seed1001_120Mbps",
+      "terminals": 80,
+      "seed": 1001,
+      "rate_mbps": 120,
+      "app_counts": {
+        "2": 32,
+        "3": 12,
+        "4": 20,
+        "1": 16
+      },
+      "command": [
+        "/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/build/master/ns3.44-master-optimized",
+        "--method=logistic",
+        "--rngSeed=1001",
+        "--settingPath=/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/backhaul_capacity_20261010/logistic_n80_seed1001_120Mbps/setting.json",
+        "--appTypesPath=/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/backhaul_capacity_20261010/logistic_n80_seed1001_120Mbps/apps.txt",
+        "--outputRoot=/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/backhaul_capacity_20261010/logistic_n80_seed1001_120Mbps/OUTPUT",
+        "--pgwCerRate=120Mbps",
+        "--queueDiagnostics=1",
+        "--queueSampleSec=0.1"
+      ],
+      "status": "pending"
+    },
+    {
+      "case": "/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/backhaul_capacity_20261010/logistic_n100_seed1001_120Mbps",
+      "terminals": 100,
+      "seed": 1001,
+      "rate_mbps": 120,
+      "app_counts": {
+        "2": 40,
+        "3": 15,
+        "4": 25,
+        "1": 20
+      },
+      "command": [
+        "/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/build/master/ns3.44-master-optimized",
+        "--method=logistic",
+        "--rngSeed=1001",
+        "--settingPath=/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/backhaul_capacity_20261010/logistic_n100_seed1001_120Mbps/setting.json",
+        "--appTypesPath=/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/backhaul_capacity_20261010/logistic_n100_seed1001_120Mbps/apps.txt",
+        "--outputRoot=/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/backhaul_capacity_20261010/logistic_n100_seed1001_120Mbps/OUTPUT",
+        "--pgwCerRate=120Mbps",
+        "--queueDiagnostics=1",
+        "--queueSampleSec=0.1"
+      ],
+      "status": "pending"
+    },
+    {
+      "case": "/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/backhaul_capacity_20261010/logistic_n80_seed1002_120Mbps",
+      "terminals": 80,
+      "seed": 1002,
+      "rate_mbps": 120,
+      "app_counts": {
+        "3": 12,
+        "1": 16,
+        "2": 32,
+        "4": 20
+      },
+      "command": [
+        "/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/build/master/ns3.44-master-optimized",
+        "--method=logistic",
+        "--rngSeed=1002",
+        "--settingPath=/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/backhaul_capacity_20261010/logistic_n80_seed1002_120Mbps/setting.json",
+        "--appTypesPath=/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/backhaul_capacity_20261010/logistic_n80_seed1002_120Mbps/apps.txt",
+        "--outputRoot=/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/backhaul_capacity_20261010/logistic_n80_seed1002_120Mbps/OUTPUT",
+        "--pgwCerRate=120Mbps",
+        "--queueDiagnostics=1",
+        "--queueSampleSec=0.1"
+      ],
+      "status": "pending"
+    },
+    {
+      "case": "/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/backhaul_capacity_20261010/logistic_n100_seed1002_120Mbps",
+      "terminals": 100,
+      "seed": 1002,
+      "rate_mbps": 120,
+      "app_counts": {
+        "3": 15,
+        "1": 20,
+        "2": 40,
+        "4": 25
+      },
+      "command": [
+        "/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/build/master/ns3.44-master-optimized",
+        "--method=logistic",
+        "--rngSeed=1002",
+        "--settingPath=/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/backhaul_capacity_20261010/logistic_n100_seed1002_120Mbps/setting.json",
+        "--appTypesPath=/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/backhaul_capacity_20261010/logistic_n100_seed1002_120Mbps/apps.txt",
+        "--outputRoot=/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/backhaul_capacity_20261010/logistic_n100_seed1002_120Mbps/OUTPUT",
+        "--pgwCerRate=120Mbps",
+        "--queueDiagnostics=1",
+        "--queueSampleSec=0.1"
+      ],
+      "status": "pending"
+    },
+    {
+      "case": "/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/backhaul_capacity_20261010/logistic_n80_seed1001_160Mbps",
+      "terminals": 80,
+      "seed": 1001,
+      "rate_mbps": 160,
+      "app_counts": {
+        "2": 32,
+        "3": 12,
+        "4": 20,
+        "1": 16
+      },
+      "command": [
+        "/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/build/master/ns3.44-master-optimized",
+        "--method=logistic",
+        "--rngSeed=1001",
+        "--settingPath=/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/backhaul_capacity_20261010/logistic_n80_seed1001_160Mbps/setting.json",
+        "--appTypesPath=/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/backhaul_capacity_20261010/logistic_n80_seed1001_160Mbps/apps.txt",
+        "--outputRoot=/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/backhaul_capacity_20261010/logistic_n80_seed1001_160Mbps/OUTPUT",
+        "--pgwCerRate=160Mbps",
+        "--queueDiagnostics=1",
+        "--queueSampleSec=0.1"
+      ],
+      "status": "pending"
+    },
+    {
+      "case": "/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/backhaul_capacity_20261010/logistic_n100_seed1001_160Mbps",
+      "terminals": 100,
+      "seed": 1001,
+      "rate_mbps": 160,
+      "app_counts": {
+        "2": 40,
+        "3": 15,
+        "4": 25,
+        "1": 20
+      },
+      "command": [
+        "/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/build/master/ns3.44-master-optimized",
+        "--method=logistic",
+        "--rngSeed=1001",
+        "--settingPath=/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/backhaul_capacity_20261010/logistic_n100_seed1001_160Mbps/setting.json",
+        "--appTypesPath=/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/backhaul_capacity_20261010/logistic_n100_seed1001_160Mbps/apps.txt",
+        "--outputRoot=/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/backhaul_capacity_20261010/logistic_n100_seed1001_160Mbps/OUTPUT",
+        "--pgwCerRate=160Mbps",
+        "--queueDiagnostics=1",
+        "--queueSampleSec=0.1"
+      ],
+      "status": "pending"
+    },
+    {
+      "case": "/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/backhaul_capacity_20261010/logistic_n80_seed1002_160Mbps",
+      "terminals": 80,
+      "seed": 1002,
+      "rate_mbps": 160,
+      "app_counts": {
+        "3": 12,
+        "1": 16,
+        "2": 32,
+        "4": 20
+      },
+      "command": [
+        "/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/build/master/ns3.44-master-optimized",
+        "--method=logistic",
+        "--rngSeed=1002",
+        "--settingPath=/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/backhaul_capacity_20261010/logistic_n80_seed1002_160Mbps/setting.json",
+        "--appTypesPath=/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/backhaul_capacity_20261010/logistic_n80_seed1002_160Mbps/apps.txt",
+        "--outputRoot=/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/backhaul_capacity_20261010/logistic_n80_seed1002_160Mbps/OUTPUT",
+        "--pgwCerRate=160Mbps",
+        "--queueDiagnostics=1",
+        "--queueSampleSec=0.1"
+      ],
+      "status": "pending"
+    },
+    {
+      "case": "/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/backhaul_capacity_20261010/logistic_n100_seed1002_160Mbps",
+      "terminals": 100,
+      "seed": 1002,
+      "rate_mbps": 160,
+      "app_counts": {
+        "3": 15,
+        "1": 20,
+        "2": 40,
+        "4": 25
+      },
+      "command": [
+        "/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/build/master/ns3.44-master-optimized",
+        "--method=logistic",
+        "--rngSeed=1002",
+        "--settingPath=/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/backhaul_capacity_20261010/logistic_n100_seed1002_160Mbps/setting.json",
+        "--appTypesPath=/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/backhaul_capacity_20261010/logistic_n100_seed1002_160Mbps/apps.txt",
+        "--outputRoot=/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/backhaul_capacity_20261010/logistic_n100_seed1002_160Mbps/OUTPUT",
+        "--pgwCerRate=160Mbps",
+        "--queueDiagnostics=1",
+        "--queueSampleSec=0.1"
+      ],
+      "status": "pending"
+    }
+  ]
+}

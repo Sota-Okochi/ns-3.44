@@ -1,0 +1,144 @@
+[
+  {
+    "case": "logistic_n100_seed1001_120Mbps",
+    "master": "results/backhaul_capacity_20261010/logistic_n100_seed1001_120Mbps/manual_OUTPUT/100/logistic/master_log_1001_20261010_055844.csv",
+    "diagnostic": "results/backhaul_capacity_20261010/logistic_n100_seed1001_120Mbps/manual_OUTPUT/100/logistic/queue_diagnostics/logistic_seed1001_1791579524685674_pid256632",
+    "excluded": [],
+    "master_rows": 500,
+    "end_sec": 56.5,
+    "qdisc_types": [
+      "ns3::FqCoDelQueueDisc"
+    ]
+  },
+  {
+    "case": "logistic_n100_seed1001_160Mbps",
+    "master": "results/backhaul_capacity_20261010/logistic_n100_seed1001_160Mbps/manual_OUTPUT/100/logistic/master_log_1001_20261010_061213.csv",
+    "diagnostic": "results/backhaul_capacity_20261010/logistic_n100_seed1001_160Mbps/manual_OUTPUT/100/logistic/queue_diagnostics/logistic_seed1001_1791580333313605_pid258975",
+    "excluded": [],
+    "master_rows": 500,
+    "end_sec": 56.5,
+    "qdisc_types": [
+      "ns3::FqCoDelQueueDisc"
+    ]
+  },
+  {
+    "case": "logistic_n100_seed1001_80Mbps",
+    "master": "results/backhaul_capacity_20261010/logistic_n100_seed1001_80Mbps/manual_OUTPUT/100/logistic/master_log_1001_20261010_054111.csv",
+    "diagnostic": "results/backhaul_capacity_20261010/logistic_n100_seed1001_80Mbps/manual_OUTPUT/100/logistic/queue_diagnostics/logistic_seed1001_1791578471993502_pid254061",
+    "excluded": [
+      {
+        "directory": "results/backhaul_capacity_20261010/logistic_n100_seed1001_80Mbps/manual_OUTPUT/100/logistic/queue_diagnostics/logistic_seed1001_1791568192426756_pid230988",
+        "end_sec": 0.0
+      }
+    ],
+    "master_rows": 500,
+    "end_sec": 56.5,
+    "qdisc_types": [
+      "ns3::FqCoDelQueueDisc"
+    ]
+  },
+  {
+    "case": "logistic_n100_seed1002_120Mbps",
+    "master": "results/backhaul_capacity_20261010/logistic_n100_seed1002_120Mbps/manual_OUTPUT/100/logistic/master_log_1002_20261010_055310.csv",
+    "diagnostic": "results/backhaul_capacity_20261010/logistic_n100_seed1002_120Mbps/manual_OUTPUT/100/logistic/queue_diagnostics/logistic_seed1002_1791579190894611_pid255553",
+    "excluded": [],
+    "master_rows": 500,
+    "end_sec": 56.5,
+    "qdisc_types": [
+      "ns3::FqCoDelQueueDisc"
+    ]
+  },
+  {
+    "case": "logistic_n100_seed1002_160Mbps",
+    "master": "results/backhaul_capacity_20261010/logistic_n100_seed1002_160Mbps/manual_OUTPUT/100/logistic/master_log_1002_20261010_060325.csv",
+    "diagnostic": "results/backhaul_capacity_20261010/logistic_n100_seed1002_160Mbps/manual_OUTPUT/100/logistic/queue_diagnostics/logistic_seed1002_1791579805340996_pid257551",
+    "excluded": [],
+    "master_rows": 500,
+    "end_sec": 56.5,
+    "qdisc_types": [
+      "ns3::FqCoDelQueueDisc"
+    ]
+  },
+  {
+    "case": "logistic_n100_seed1002_80Mbps",
+    "master": "results/backhaul_capacity_20261010/logistic_n100_seed1002_80Mbps/manual_OUTPUT/100/logistic/master_log_1002_20261010_053741.csv",
+    "diagnostic": "results/backhaul_capacity_20261010/logistic_n100_seed1002_80Mbps/manual_OUTPUT/100/logistic/queue_diagnostics/logistic_seed1002_1791578261841652_pid253784",
+    "excluded": [],
+    "master_rows": 500,
+    "end_sec": 56.5,
+    "qdisc_types": [
+      "ns3::FqCoDelQueueDisc"
+    ]
+  },
+  {
+    "case": "logistic_n80_seed1001_120Mbps",
+    "master": "results/backhaul_capacity_20261010/logistic_n80_seed1001_120Mbps/manual_OUTPUT/80/logistic/master_log_1001_20261010_025034.csv",
+    "diagnostic": "results/backhaul_capacity_20261010/logistic_n80_seed1001_120Mbps/manual_OUTPUT/80/logistic/queue_diagnostics/logistic_seed1001_1791568234684678_pid231533",
+    "excluded": [],
+    "master_rows": 400,
+    "end_sec": 56.5,
+    "qdisc_types": [
+      "ns3::FqCoDelQueueDisc"
+    ]
+  },
+  {
+    "case": "logistic_n80_seed1001_160Mbps",
+    "master": "results/backhaul_capacity_20261010/logistic_n80_seed1001_160Mbps/manual_OUTPUT/80/logistic/master_log_1001_20261010_025102.csv",
+    "diagnostic": "results/backhaul_capacity_20261010/logistic_n80_seed1001_160Mbps/manual_OUTPUT/80/logistic/queue_diagnostics/logistic_seed1001_1791568262206058_pid232461",
+    "excluded": [],
+    "master_rows": 400,
+    "end_sec": 56.5,
+    "qdisc_types": [
+      "ns3::FqCoDelQueueDisc"
+    ]
+  },
+  {
+    "case": "logistic_n80_seed1001_80Mbps",
+    "master": "results/backhaul_capacity_20261010/logistic_n80_seed1001_80Mbps/manual_OUTPUT/80/logistic/master_log_1001_20261010_025007.csv",
+    "diagnostic": "results/backhaul_capacity_20261010/logistic_n80_seed1001_80Mbps/manual_OUTPUT/80/logistic/queue_diagnostics/logistic_seed1001_1791568207776287_pid231202",
+    "excluded": [
+      {
+        "directory": "results/backhaul_capacity_20261010/logistic_n80_seed1001_80Mbps/manual_OUTPUT/80/logistic/queue_diagnostics/logistic_seed1001_1791568046601626_pid229951",
+        "end_sec": 2.1
+      }
+    ],
+    "master_rows": 400,
+    "end_sec": 56.5,
+    "qdisc_types": [
+      "ns3::FqCoDelQueueDisc"
+    ]
+  },
+  {
+    "case": "logistic_n80_seed1002_120Mbps",
+    "master": "results/backhaul_capacity_20261010/logistic_n80_seed1002_120Mbps/manual_OUTPUT/80/logistic/master_log_1002_20261010_025044.csv",
+    "diagnostic": "results/backhaul_capacity_20261010/logistic_n80_seed1002_120Mbps/manual_OUTPUT/80/logistic/queue_diagnostics/logistic_seed1002_1791568244724879_pid231944",
+    "excluded": [],
+    "master_rows": 400,
+    "end_sec": 56.5,
+    "qdisc_types": [
+      "ns3::FqCoDelQueueDisc"
+    ]
+  },
+  {
+    "case": "logistic_n80_seed1002_160Mbps",
+    "master": "results/backhaul_capacity_20261010/logistic_n80_seed1002_160Mbps/manual_OUTPUT/80/logistic/master_log_1002_20261010_025109.csv",
+    "diagnostic": "results/backhaul_capacity_20261010/logistic_n80_seed1002_160Mbps/manual_OUTPUT/80/logistic/queue_diagnostics/logistic_seed1002_1791568269791452_pid232904",
+    "excluded": [],
+    "master_rows": 400,
+    "end_sec": 56.5,
+    "qdisc_types": [
+      "ns3::FqCoDelQueueDisc"
+    ]
+  },
+  {
+    "case": "logistic_n80_seed1002_80Mbps",
+    "master": "results/backhaul_capacity_20261010/logistic_n80_seed1002_80Mbps/manual_OUTPUT/80/logistic/master_log_1002_20261010_025019.csv",
+    "diagnostic": "results/backhaul_capacity_20261010/logistic_n80_seed1002_80Mbps/manual_OUTPUT/80/logistic/queue_diagnostics/logistic_seed1002_1791568219101060_pid231328",
+    "excluded": [],
+    "master_rows": 400,
+    "end_sec": 56.5,
+    "qdisc_types": [
+      "ns3::FqCoDelQueueDisc"
+    ]
+  }
+]

@@ -1,0 +1,14 @@
+schema=1
+run_id=logistic_seed1001_1791560160825745_pid200299
+seed=1001
+rng_run=1
+method=logistic
+sample_sec=0.1
+cycle_start_offset_sec=4
+cycle_duration_sec=9.5
+ns3_version=3.44
+argv[0]=/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/build/master/ns3.44-master-optimized
+argv[1]=--method=logistic
+argv[2]=--rngSeed=1001
+argv[3]=--queueDiagnostics=1
+argv[4]=--queueSampleSec=0.1

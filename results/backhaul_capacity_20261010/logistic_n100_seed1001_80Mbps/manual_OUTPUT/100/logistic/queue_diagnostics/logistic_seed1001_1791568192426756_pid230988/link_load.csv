@@ -1,0 +1,3 @@
+run_id,seed,sim_time,cycle_window_id,direction,queue_disc_type,link_bps,received_packets_total,received_bytes_total,sent_packets_total,sent_bytes_total,dropped_packets_total,dropped_bytes_total,queue_bytes
+logistic_seed1001_1791568192426756_pid230988,1001,0.000000,0,ul,ns3::FqCoDelQueueDisc,80000000,0,0,0,0,0,0,0
+logistic_seed1001_1791568192426756_pid230988,1001,0.000000,0,dl,ns3::FqCoDelQueueDisc,80000000,0,0,0,0,0,0,0

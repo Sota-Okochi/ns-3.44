@@ -21,13 +21,25 @@ NetSim::StartQueueDiagnostics()
     std::filesystem::create_directories(directory);
     std::filesystem::copy_file(m_queueSettingPath, directory / "setting.json");
     std::ofstream metadata(directory / "metadata.txt");
-    metadata << "schema=1\nrun_id=" << m_queueRunId << "\nseed=" << m_rngSeed
+    metadata << "schema=2\nrun_id=" << m_queueRunId << "\nseed=" << m_rngSeed
              << "\nrng_run=" << RngSeedManager::GetRun() << "\nmethod=" << m_assignmentMethod
              << "\nsample_sec=" << m_queueSampleSec
              << "\ncycle_start_offset_sec=" << m_cycleStartOffset.GetSeconds()
              << "\ncycle_duration_sec=" << m_cycleDuration.GetSeconds()
              << "\nns3_version=3.44\n" << m_queueArgs;
     NS_ABORT_MSG_IF(!metadata, "Cannot write queue diagnostic metadata");
+    std::ofstream terminals(directory / "initial_terminals.csv");
+    terminals << "ue_id,app_type,initial_bs_id\n";
+    for (uint32_t i = 0; i < m_termData.size(); ++i)
+    {
+        terminals << i + 1 << ',' << m_termData[i].use_appli << ',' << m_termData[i].apNo - 1 << '\n';
+    }
+    NS_ABORT_MSG_IF(!terminals, "Cannot save terminal composition");
+    m_linkLoadCsv.open(directory / "link_load.csv");
+    NS_ABORT_MSG_IF(!m_linkLoadCsv, "Cannot open link load CSV");
+    m_linkLoadCsv << "run_id,seed,sim_time,cycle_window_id,direction,queue_disc_type,link_bps,"
+                    "received_packets_total,received_bytes_total,sent_packets_total,sent_bytes_total,"
+                    "dropped_packets_total,dropped_bytes_total,queue_bytes\n";
     m_queueCsv.open(directory / "queues.csv");
     NS_ABORT_MSG_IF(!m_queueCsv, "Cannot open queue diagnostic CSV");
     m_queueCsv << "run_id,seed,method,sim_time,cycle_window_id,layer,direction,source,ue_id,imsi,rnti,"
@@ -83,6 +95,15 @@ NetSim::SampleQueueDiagnostics()
         if (disc)
         {
             const auto& stats = disc->GetStats();
+            // Count arrivals before AQM/admission drops, not just successful enqueues.
+            // QueueDisc bytes are IP-layer bytes, excluding the P2P framing header.
+            m_linkLoadCsv << m_queueRunId << ',' << m_rngSeed << ','
+                          << std::fixed << std::setprecision(6) << now << ',' << cycle << ','
+                          << direction << ',' << disc->GetInstanceTypeId().GetName() << ','
+                          << rate.Get().GetBitRate() << ',' << stats.nTotalReceivedPackets << ','
+                          << stats.nTotalReceivedBytes << ',' << stats.nTotalSentPackets << ','
+                          << stats.nTotalSentBytes << ',' << stats.nTotalDroppedPackets << ','
+                          << stats.nTotalDroppedBytes << ',' << disc->GetNBytes() << '\n';
             prefix("p2p_qdisc", direction, source, -1, 0, 0, -1);
             m_queueCsv << disc->GetNPackets() << ',' << disc->GetNBytes() << ",,"
                        << stats.nTotalDroppedPackets << ',' << stats.nTotalDroppedBytes << ',';
@@ -148,6 +169,8 @@ NetSim::SampleQueueDiagnostics()
         }
     }
     m_queueCsv.flush(); // Keep completed samples readable even in interrupted runs.
+    m_linkLoadCsv.flush();
+    NS_ABORT_MSG_IF(!m_linkLoadCsv, "Link load diagnostic write failed");
     NS_ABORT_MSG_IF(!m_queueCsv, "Queue diagnostic write failed");
     m_queueSampleEvent = Simulator::Schedule(Seconds(m_queueSampleSec),
                                             &NetSim::SampleQueueDiagnostics, this);

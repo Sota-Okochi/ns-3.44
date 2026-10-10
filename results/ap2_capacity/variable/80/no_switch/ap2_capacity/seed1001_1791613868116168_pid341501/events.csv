@@ -1,0 +1,7 @@
+sim_time,cycle_id,direction,old_bps,new_bps
+0,0,ap_to_router,20000000,20000000
+0,0,router_to_ap,20000000,20000000
+13.5,2,ap_to_router,20000000,10000000
+13.5,2,router_to_ap,20000000,10000000
+32.5,4,ap_to_router,10000000,20000000
+32.5,4,router_to_ap,10000000,20000000

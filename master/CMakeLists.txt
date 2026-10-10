@@ -6,6 +6,9 @@ set(master_sources
     handover.cc
     RttForwarderApp.cc
     queue-diagnostics.cc
+    ap1-capacity.cc
+    ap0-capacity.cc
+    ap2-capacity.cc
 )
 
 build_exec(
