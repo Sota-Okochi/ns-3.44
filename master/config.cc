@@ -330,6 +330,8 @@ void NetSim::Init(int argc, char *argv[]){
     cmd.AddValue("ap1RecoveryCycle", "1-based cycle at whose start AP1 capacity recovers", m_ap1RecoveryCycle);
     cmd.AddValue("ap1SampleSec", "AP1 queue sampling interval in seconds", m_ap1SampleSec);
     cmd.AddValue("pgwCerRate", "PGW-CER capacity; other link parameters unchanged", m_pgwCerRate);
+    cmd.AddValue("ap1BackhaulRate", "Wi-Fi AP1 initial backhaul capacity", m_ap1BackhaulRate);
+    cmd.AddValue("ap2BackhaulRate", "Wi-Fi AP2 initial backhaul capacity", m_ap2BackhaulRate);
     cmd.AddValue("appTypesPath", "Optional whitespace-separated app IDs (1..4), one per UE", appTypesPath);
     cmd.AddValue("outputRoot", "Output root for isolated comparison experiments", outputRoot);
     m_queueSettingPath = std::string(INPUT_DIR) + "setting.json";
@@ -386,6 +388,8 @@ void NetSim::Init(int argc, char *argv[]){
     cmd.AddValue("mob", "1 is constant, 2 is randomwalk", m_mob);
     cmd.Parse(argc, argv);
     NS_ABORT_MSG_IF(DataRate(m_pgwCerRate).GetBitRate() == 0, "pgwCerRate must be positive");
+    NS_ABORT_MSG_IF(DataRate(m_ap1BackhaulRate).GetBitRate() == 0, "ap1BackhaulRate must be positive");
+    NS_ABORT_MSG_IF(DataRate(m_ap2BackhaulRate).GetBitRate() == 0, "ap2BackhaulRate must be positive");
     NS_ABORT_MSG_IF(!std::isfinite(m_queueSampleSec) || m_queueSampleSec <= 0 ||
                         Seconds(m_queueSampleSec).IsZero(), "queueSampleSec must be positive and representable");
     for (int i = 0; i < argc; ++i)

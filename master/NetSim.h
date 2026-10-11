@@ -140,6 +140,8 @@ private:
     void SampleQueueDiagnostics();
     bool m_queueDiagnostics{false};
     std::string m_pgwCerRate{"80Mbps"};
+    std::string m_ap1BackhaulRate{"40Mbps"};
+    std::string m_ap2BackhaulRate{"20Mbps"};
     double m_queueSampleSec{0.1};
     std::ofstream m_queueCsv;
     std::ofstream m_linkLoadCsv;

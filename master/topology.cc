@@ -614,7 +614,7 @@ void NetSim::ConfigureP2P(uint32_t count){
     // AP1: medium-capacity, low-latency Wi-Fi.
     if (count == 1)
     {
-        dataRate = "40Mbps";
+        dataRate = m_ap1BackhaulRate;
         delay = "14ms";
         queueSize = "300p";
     }
@@ -622,7 +622,7 @@ void NetSim::ConfigureP2P(uint32_t count){
     // while browser / RTT-sensitive traffic can still be served for a small number of UEs.
     else if (count == 2)
     {
-        dataRate = "20Mbps";
+        dataRate = m_ap2BackhaulRate;
         delay = "7ms";
         queueSize = "150p";
     }

@@ -1,0 +1,25 @@
+{
+  "sources": {
+    "results/capacity_random/20261010T132509Z_1dc0228e/simulation/80/random/master_log_1001_20261010_222510.csv": "ac3678d60be707cebf53ae80ee7a239691c6d48f6cc99226044089a209781b50",
+    "results/capacity_random/20261010T132509Z_1dc0228e/effective_config.json": "4452695ada2b7c8402ca5c4799613a01ce8312eab346e38597b6478f27a646cb",
+    "results/capacity_random/20261010T132509Z_1dc0228e/console.log": "fdbb0facfb2bbadaf707ea9a621482a084283ba813c685d5d4f9a841f030164e",
+    "results/capacity_random/20261010T132509Z_1dc0228e/simulation/80/random/capacity_schedule/seed1001_1791638710187334_pid398637/events.csv": "476836c202fcd7cbfcce8b7b23986ef60eb3b99bb764594df0673c42bfb71357",
+    "results/capacity_random/20261010T132509Z_1dc0228e/simulation/80/random/capacity_schedule/seed1001_1791638710187334_pid398637/initial_terminals.csv": "83702407d8326f32d4daf1aaaef51bac0fb7f44bfc91b63fbf3bef8bd4417faf",
+    "results/capacity_random/20261010T132634Z_163d8be3/simulation/80/random/master_log_1002_20261010_222634.csv": "157cb3f398a63cda42a521cda6e236285fac5052fb453a833e3e8e2dc7481656",
+    "results/capacity_random/20261010T132634Z_163d8be3/effective_config.json": "3010be04d5477f4a8a779ad645137e8e1460edd49b39f123458600f91b3de9cc",
+    "results/capacity_random/20261010T132634Z_163d8be3/console.log": "cd4d6becc5481edfab02d03963674bfb8269bd31a546c81ec695dc1ec791c73a",
+    "results/capacity_random/20261010T132634Z_163d8be3/simulation/80/random/capacity_schedule/seed1002_1791638794569189_pid399046/events.csv": "476836c202fcd7cbfcce8b7b23986ef60eb3b99bb764594df0673c42bfb71357",
+    "results/capacity_random/20261010T132634Z_163d8be3/simulation/80/random/capacity_schedule/seed1002_1791638794569189_pid399046/initial_terminals.csv": "dcc5ddbabfd61c1a305f07972d3fc23fd6c65729c57cb90c317daa85225a5a21",
+    "results/capacity_logistic/20261010T132607Z_2c7f7bce/simulation/80/logistic/master_log_1001_20261010_222607.csv": "1784b080341db4042fc21e9cf47cb65ba86003fd09d6a0e586d9b8e4b148e2fb",
+    "results/capacity_logistic/20261010T132607Z_2c7f7bce/effective_config.json": "bbe49b16783649062d9f0695622ee7187e3e29fa136fcb4b7879e03975f908be",
+    "results/capacity_logistic/20261010T132607Z_2c7f7bce/console.log": "fe429b92cf4d5b22e3f5829b382b6b8f0b650ab8da27b1fc4bef960cf934220a",
+    "results/capacity_logistic/20261010T132607Z_2c7f7bce/simulation/80/logistic/capacity_schedule/seed1001_1791638767308137_pid398858/events.csv": "476836c202fcd7cbfcce8b7b23986ef60eb3b99bb764594df0673c42bfb71357",
+    "results/capacity_logistic/20261010T132607Z_2c7f7bce/simulation/80/logistic/capacity_schedule/seed1001_1791638767308137_pid398858/initial_terminals.csv": "83702407d8326f32d4daf1aaaef51bac0fb7f44bfc91b63fbf3bef8bd4417faf",
+    "results/capacity_logistic/20261010T132653Z_692c431a/simulation/80/logistic/master_log_1002_20261010_222653.csv": "15cad697c2ed8d96be72e9ae4416e981f05ca7a4393c79c3e5fc07164373b070",
+    "results/capacity_logistic/20261010T132653Z_692c431a/effective_config.json": "c60ec1d66f59f45e6534a9865704659188a2d98324865f01f674b62b17af96ad",
+    "results/capacity_logistic/20261010T132653Z_692c431a/console.log": "38094e1c4e209181d49f6db1c045ada1be26a079a2f4748f6d886d6fcdacdf6e",
+    "results/capacity_logistic/20261010T132653Z_692c431a/simulation/80/logistic/capacity_schedule/seed1002_1791638813282282_pid399198/events.csv": "476836c202fcd7cbfcce8b7b23986ef60eb3b99bb764594df0673c42bfb71357",
+    "results/capacity_logistic/20261010T132653Z_692c431a/simulation/80/logistic/capacity_schedule/seed1002_1791638813282282_pid399198/initial_terminals.csv": "dcc5ddbabfd61c1a305f07972d3fc23fd6c65729c57cb90c317daa85225a5a21"
+  },
+  "note": "Legacy QoE; H is measured before the same-cycle selected action; two seeds only."
+}

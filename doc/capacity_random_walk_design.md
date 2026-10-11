@@ -1,7 +1,7 @@
 # バックホール容量のランダムウォーク／固定イベント切り替え設計
 
 作成日: 2026-10-11  
-状態: **設計のみ。新モード・オプション・設定ファイルは未実装、実験は未実行。**
+状態: **2026-10-11 実装。検証記録は末尾の「実装・検証記録」を参照。**
 
 ## 1. 目的と対象範囲
 
@@ -44,12 +44,12 @@ cycle 4 で 80/40/40 Mbps に変更する。この設定と既存のデフォル
 
 | AP ID（0始まり） | 対象リンク | 下限 | 上限 | 刻み幅／最大変化量 | 初期容量 |
 |---|---|---:|---:|---:|---:|
-| 0 | PGW–CER | 40 Mbps | 100 Mbps | 10 Mbps | 80 Mbps |
+| 0 | PGW–CER | 25 Mbps | 85 Mbps | 15 Mbps | 55 Mbps |
 | 1 | AP–router | 20 Mbps | 60 Mbps | 5 Mbps | 40 Mbps |
-| 2 | AP–router | 10 Mbps | 40 Mbps | 5 Mbps | 20 Mbps |
+| 2 | AP–router | 15 Mbps | 40 Mbps | 5 Mbps | 20 Mbps |
 
 範囲・刻み幅は依頼内容に従う。以下の確率・境界処理・初回更新規則は本設計での提案とする。
-初期容量は既存実験との比較のため現在の値を引き継ぐ。
+範囲・刻み・初期容量の正本は `configs/capacity/random_walk_all.json`（表は現時点の値）。
 Mbps は 1,000,000 bps とし、計算・保存は整数 bps で行う。
 
 各リンク i、サイクル t = 1..numCycles について:
@@ -67,7 +67,7 @@ C[i, t] = min(max(candidate, min[i]), max[i])
   例えば AP0 が 40 Mbps のとき、-10/0/+10 の結果は 40/40/50 Mbps。
   境界では実際の据え置き確率が 2/3 になる。
 - **cycle 1 の開始時から抽選結果を適用**する。cycle 0 は初期容量の記録であり、
-  ウォームアップは既存の初期容量を維持する。cycle 1 を初期値のまま固定しない。
+  ウォームアップには JSON の初期容量を使う。cycle 1 を初期値のまま固定しない。
 - 毎サイクル開始時に更新し、次の開始時刻まで保持する。最終サイクル後の強制復旧はしない。
 - 両方向を同じ容量にする。方向別の独立抽選は行わない。
 - AP0 の相対変化幅は容量によって変わり、各 AP の相対変化率は同一ではない。
@@ -93,7 +93,7 @@ t(cycle_id) = cycle_start_offset + cycle_duration * (cycle_id - 1)
 
 ## 4. 設定ファイル案
 
-追加予定: `configs/capacity/random_walk_all.json`（本設計書の追加時点では作成しない）。
+設定ファイル: `configs/capacity/random_walk_all.json`。
 既存スキーマ v1 の新モードとして拡張し、旧設定は変更しない。
 旧プログラムで新モードが使えるという意味ではない。
 
@@ -117,8 +117,9 @@ t(cycle_id) = cycle_start_offset + cycle_duration * (cycle_id - 1)
 
 初期版は `boundary=clip`、更新間隔1のみ対応。他の値は黙って無視せず拒否する。
 等確率の {-1,0,+1} はアルゴリズム仕様とし、実効設定にも保存する。
-初期容量は現行ラッパーの初期容量と一致することを検証する。
-任意の初期容量の指定・トポロジ初期化変更は今回の対象外とし、不一致はエラーにする。
+初期容量は JSON の `initial_bps` を正本とし、範囲・刻みの検証後に C++ へ渡す。
+PGW–CER と Wi-Fi AP1/AP2 の両方向をこの容量で初期化し、manifest に保存する。
+fixed/random/constant と直接 master 実行の既定初期容量は変更しない。
 容量範囲・刻み幅は JSON から取得し、コードに AP 別の数値を追加で直書きしない。
 
 検証項目:
@@ -154,7 +155,7 @@ C++ master に乱数生成モードは追加せず、既存 `--capacityEventsPat
 実装時は argparse の `--scenario` 未指定を識別できるようにし、解決後の既定値を維持する。
 `--method`、`--rng-seed`、`--output-root`、`--generate-only`、`--no-build` は従来どおり。
 
-### 実装後に使う予定のコマンド（今回は未実行）
+### 利用コマンド
 
 ```bash
 # 現行の固定イベント設定
@@ -193,7 +194,7 @@ python3 scripts/run_capacity_scenario.py --scenario configs/capacity/random_walk
 将来の容量イベントを方策の観測状態に追加しない。
 同じ seed だけで公平性を保証せず、同じ設定・初期割当・保存系列で比較する。
 
-## 7. 実装単位と受け入れテスト（今後の作業）
+## 7. 実装単位と受け入れテスト
 
 1. Python に random_walk の検証・生成を追加し、単体テストする。
 2. JSON と CLI モード選択を追加する。既存 mode の回帰テストを行う。
@@ -229,7 +230,7 @@ ns-3 seed と event_seed の組を保存し、複数組で評価する。
 従来の fixed は急変条件、random_walk は時間相関を持つ条件として別々に報告する。
 等確率・周期更新が実環境に適合するかは未検証であり、実測由来の設定とは扱わない。
 
-## 9. 今回の作業記録
+## 9. 設計書作成時の作業記録（実装前）
 
 - 成功: 現行 runner、JSON、容量適用 C++、既存設計書を読み、本設計書を追加。
 - 実行した確認コマンド: `pwd`、`find . -name AGENTS.md`（生成物ディレクトリを除外）、
@@ -240,3 +241,64 @@ ns-3 seed と event_seed の組を保存し、複数組で評価する。
 
 次の検証: (1) イベント生成の単体試験、(2) 小規模の両方向適用／replay 試験、
 (3) 複数 seed における容量系列と QoE の比較。
+
+## 10. 実装・検証記録（2026-10-11）
+
+### 実装内容
+
+- runner に `random_walk` 生成、事前検証、`--capacity-mode` の解決・競合検証を追加。
+- `configs/capacity/random_walk_all.json` を追加。既存設定 JSON は変更なし。
+- manifest に生成仕様を追加。replay 時は入力 CSV の hash を保存し、生成仕様は付与しない。
+- checker に予定 CSV の hash・manifest・C++ コピーとの一致、および
+  random_walk の全周期行数・範囲・格子・最大差分の検証を追加。
+- C++・無線条件・Delay・QoE ログ列は変更なし。既存容量適用器を利用する。
+
+### 実行と結果
+
+```bash
+python3 -m unittest discover -s tests -p test_capacity_scenario.py
+python3 -m py_compile scripts/run_capacity_scenario.py scripts/check_capacity_scenario.py
+./ns3 build master -j 4
+git diff --check
+```
+
+- 単体・CLI テスト13件成功。20 seed×100サイクルの範囲・刻み・再現性、
+  強制した乱数による上下限・据え置き、初回更新、AP並び順非依存、
+  入力拒否、旧モード、CLI選択、seed上書き、replayを検証。
+- 構文検査・差分空白検査成功。
+- build は終了コード0（`ninja: no work to do`、既存ターゲットを利用）。
+  configure 中に ccache 設定用一時ファイルの read-only エラー表示あり。
+  ビルド全体は成功したが、クリーンビルドは未実施。
+
+結合試験は `/tmp/capacity-random-walk-smoke-5cinqeaq/` に設定・出力を保存。
+Python の一時ディレクトリ生成スクリプトで既定 setting をコピーし、
+**terminals のみ3に変更**（5周期、9.5秒/周期、seed1001は維持）。
+各モードの既定シナリオの setting_path をそのコピーへ向けた。
+同スクリプトから以下に相当するコマンドを順次実行した。
+
+```bash
+ROOT=/tmp/capacity-random-walk-smoke-5cinqeaq
+for mode in random_walk fixed constant random; do
+  python3 scripts/run_capacity_scenario.py --capacity-mode "$mode" \
+    --scenario "$ROOT/$mode.json" --no-build --output-root "$ROOT/$mode"
+done
+python3 scripts/run_capacity_scenario.py --scenario "$ROOT/random_walk.json" \
+  --events "$ROOT/random_walk/20261011T050521Z_b939ccdf/planned_events.csv" \
+  --no-build --output-root "$ROOT/replay"
+# 各実行直後、対応するrunディレクトリを検証（以下は新モードの例）
+python3 scripts/check_capacity_scenario.py \
+  "$ROOT/random_walk/20261011T050521Z_b939ccdf"
+```
+
+- 全5実行が終了コード0、各実行に対する checker 成功。
+- 新モードは15予定イベント、両方向30適用行＋初期6行。
+  cycle 1・最終cycle 5・同値適用を含め時刻と容量が一致。
+- no_switch の全端末について、初期接続先維持と3端末×5周期のログを確認。
+- 新モードと replay の予定CSVはバイト一致。両者の master_log を列比較し、
+  差分は実測計算時間 `assignment_compute_ms` のみ。
+- 既存の未追跡結果・解析スクリプトは変更していない。
+
+**未確認:** 80端末での本実験、複数 seed の QoE 比較、DRL 学習性能。
+検証成功は容量適用と再現性の確認であり、QoE 改善を示す結果ではない。
+次は (1) 80端末 no_switch の応答確認、(2) 同じ保存系列による手法間比較、
+(3) 複数 event_seed と必要に応じた長周期設定での評価を行う。

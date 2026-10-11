@@ -1,0 +1,3 @@
+method,n_seeds,mean_h,sample_sd_h,mean_switches
+random,2,0.3145103,0.03090466755718298,212.5
+logistic,2,0.413238,0.06556916329129109,59.5
