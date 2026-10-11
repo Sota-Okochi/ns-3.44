@@ -1,0 +1,5 @@
+seed,method,effective_method,bootstrap_cycle_flag,max_switches,action_cycle_id,measured_cycle_id,h_before,h_after_estimated,estimated_reward,h_after_measured,measured_reward,cycle_reward,switch_count,num_degraded_users
+1002,logistic,logistic,0,8,1,2,0.298216,0.774095,0.475880,0.440192,0.141977,0.054977,59,28
+1002,logistic,logistic,0,8,2,3,0.440192,0.440192,0.000000,0.563324,0.123132,0.118132,0,5
+1002,logistic,logistic,0,8,3,4,0.563324,0.563324,0.000000,0.663264,0.099940,0.067940,0,32
+1002,logistic,logistic,0,8,4,5,0.663264,0.663264,0.000000,0.640576,-0.022688,-0.087688,0,65

@@ -1,0 +1,206 @@
+{
+  "schema_version": 1,
+  "run_id": "20261011T092637Z_2e247612",
+  "method": "logistic",
+  "seed": 1002,
+  "ns3_version": "3.44",
+  "mode": "random_walk",
+  "capacity_variation": {
+    "mode": "random_walk",
+    "event_seed": 2001,
+    "boundary": "clip",
+    "update_interval_cycles": 1,
+    "links": [
+      {
+        "ap_id": 0,
+        "initial_bps": 55000000,
+        "min_bps": 25000000,
+        "max_bps": 85000000,
+        "step_bps": 15000000
+      },
+      {
+        "ap_id": 1,
+        "initial_bps": 40000000,
+        "min_bps": 20000000,
+        "max_bps": 60000000,
+        "step_bps": 5000000
+      },
+      {
+        "ap_id": 2,
+        "initial_bps": 20000000,
+        "min_bps": 15000000,
+        "max_bps": 40000000,
+        "step_bps": 5000000
+      }
+    ]
+  },
+  "events": [
+    {
+      "cycle_id": 1,
+      "ap_id": 0,
+      "rate_bps": 70000000,
+      "direction": "both"
+    },
+    {
+      "cycle_id": 1,
+      "ap_id": 1,
+      "rate_bps": 35000000,
+      "direction": "both"
+    },
+    {
+      "cycle_id": 1,
+      "ap_id": 2,
+      "rate_bps": 20000000,
+      "direction": "both"
+    },
+    {
+      "cycle_id": 2,
+      "ap_id": 0,
+      "rate_bps": 55000000,
+      "direction": "both"
+    },
+    {
+      "cycle_id": 2,
+      "ap_id": 1,
+      "rate_bps": 30000000,
+      "direction": "both"
+    },
+    {
+      "cycle_id": 2,
+      "ap_id": 2,
+      "rate_bps": 25000000,
+      "direction": "both"
+    },
+    {
+      "cycle_id": 3,
+      "ap_id": 0,
+      "rate_bps": 70000000,
+      "direction": "both"
+    },
+    {
+      "cycle_id": 3,
+      "ap_id": 1,
+      "rate_bps": 35000000,
+      "direction": "both"
+    },
+    {
+      "cycle_id": 3,
+      "ap_id": 2,
+      "rate_bps": 20000000,
+      "direction": "both"
+    },
+    {
+      "cycle_id": 4,
+      "ap_id": 0,
+      "rate_bps": 85000000,
+      "direction": "both"
+    },
+    {
+      "cycle_id": 4,
+      "ap_id": 1,
+      "rate_bps": 40000000,
+      "direction": "both"
+    },
+    {
+      "cycle_id": 4,
+      "ap_id": 2,
+      "rate_bps": 25000000,
+      "direction": "both"
+    },
+    {
+      "cycle_id": 5,
+      "ap_id": 0,
+      "rate_bps": 85000000,
+      "direction": "both"
+    },
+    {
+      "cycle_id": 5,
+      "ap_id": 1,
+      "rate_bps": 35000000,
+      "direction": "both"
+    },
+    {
+      "cycle_id": 5,
+      "ap_id": 2,
+      "rate_bps": 30000000,
+      "direction": "both"
+    }
+  ],
+  "initial_bps": {
+    "0": 55000000,
+    "1": 40000000,
+    "2": 20000000
+  },
+  "setting": {
+    "baseStations": 3,
+    "terminals": 80,
+    "rngSeed": 1002,
+    "numCycles": 5,
+    "cycleTimeSec": 9.5,
+    "warmupBeforeCycleSec": 3.0,
+    "monitorStartSec": 1.1,
+    "monitorStopSec": 6.0,
+    "browserFirstBurstSec": 1.2,
+    "browserSecondBurstSec": 2.1,
+    "browserBurstIntervalSec": 1.0,
+    "browserNumRequests": 4,
+    "browserRequestSize": 768000,
+    "cycleEndMarginSec": 0.5,
+    "handoverGraceCycles": 0,
+    "browserPostHandoverDelaySec": 0.0
+  },
+  "argv": [
+    "/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/ns3",
+    "run",
+    "master",
+    "--no-build",
+    "--",
+    "--settingPath=/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/logistic_eval/20261011T092637Z_2e247612/setting.json",
+    "--method=logistic",
+    "--rngSeed=1002",
+    "--mob=1",
+    "--pgwCerRate=55000000bps",
+    "--ap1BackhaulRate=40000000bps",
+    "--ap2BackhaulRate=20000000bps",
+    "--ap0CapacityVariation=0",
+    "--ap1CapacityVariation=0",
+    "--ap2CapacityVariation=0",
+    "--capacityEventsPath=/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/logistic_eval/20261011T092637Z_2e247612/planned_events.csv",
+    "--outputRoot=/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/logistic_eval/20261011T092637Z_2e247612/simulation"
+  ],
+  "source_scenario": "/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/configs/capacity/random_walk_all.json",
+  "replay_source": null,
+  "planned_events_sha256": "5be67c7af12afb6d115725c60fbd2458a134b77563e4c52cd22d12fb34e6e3ea",
+  "setting_sha256": "c2b810706c77aafe69ebe9ba4b44eb68c696fca60d09e11a27708c3a5e2df86a",
+  "python_version": "3.10.12 (main, Aug 31 2026, 10:18:17) [GCC 11.4.0]",
+  "capacity_generation": {
+    "algorithm": "clipped_random_walk_v1",
+    "event_seed": 2001,
+    "boundary": "clip",
+    "first_update_cycle": 1,
+    "update_interval_cycles": 1,
+    "step_multipliers": [
+      -1,
+      0,
+      1
+    ],
+    "probabilities": [
+      0.3333333333333333,
+      0.3333333333333333,
+      0.3333333333333333
+    ],
+    "draw_order": "cycle_ascending_then_ap_id_ascending",
+    "ap_order": [
+      0,
+      1,
+      2
+    ]
+  },
+  "source_sha256": {
+    "scripts/run_capacity_scenario.py": "ceff9b27b235d4d59cfdb75ede222b9bada4b4b628738a16980d80c2ec6a2246",
+    "master/capacity-schedule.cc": "e8298c3021033ad9f702c1f2ef6798c82102d744df2a2a4d89ca810962add10e",
+    "master/config.cc": "b943c1dbb28d9e1b5a7af1121b0c06b387ea475b4684db42efa50c0f0e0aa8f5",
+    "master/NetSim.h": "5db13edc9323ba47fbca03436ca7419f141903761410760fb3992856ea91c645",
+    "master/topology.cc": "bacbd2ec4e995b36741eca1481a1c4e7427aaf72cdfc9a4e2716c94e60d4d289"
+  }
+}
