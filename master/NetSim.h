@@ -137,6 +137,8 @@ private:
     std::ofstream m_ap1Samples;
     EventId m_ap1SampleEvent;
     void StartQueueDiagnostics();
+    void StartMarlRttTrace();
+    bool m_marlRttTrace = false;
     void SampleQueueDiagnostics();
     bool m_queueDiagnostics{false};
     std::string m_pgwCerRate{"80Mbps"};
@@ -282,6 +284,11 @@ private:
     Ptr<Ipv4FlowClassifier> m_termFlowClassifier;
     std::vector<Ipv4Address> m_terminalIpAddresses;
     Time m_terminalTpWindowStart;
+    std::vector<int> m_marlWindowAp;
+    uint32_t m_marlProbeCount = 10;
+    double m_marlProbeInterval = 0.2;
+    double m_marlProbeTimeout = 1.0;
+    double m_marlReportConnTimeout = 0.2;
     Ptr<KamedaAppServer> m_kamedaServer;
     void BuildTerminalIpMap();
     void ResetTerminalFlowStats();

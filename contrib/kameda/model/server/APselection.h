@@ -132,6 +132,10 @@ public:
     void SetHandoverCallback(std::function<void(const std::vector<int>&)> cb);
     const std::vector<int>& GetLastAssignment() const { return m_lastAssignment; }
     void setTerminalTp(int termIdx, double tpBps);
+    void SetMarlTp(int ue, int ap, double bps, const std::string& status);
+    void SetMarlRtt(uint32_t cycle, uint32_t ap, const std::string& status,
+                    double rtt, uint32_t sent, uint32_t replies, uint32_t failures, uint32_t late);
+
     void PrintCycleHarmonicMeans();
     void SetTotalCycles(uint32_t n);
 
@@ -146,6 +150,16 @@ private:
     void multi_greedy_assignment(); // 複数端末greedy法による割り当て
     void multi_offload_assignment(); // 混雑AP視点の複数端末offload法
     void reactive_dqn_assignment();
+    void marl_ppo_assignment();
+    struct MarlRtt {
+        std::string status = "report_missing";
+        double rtt = 0;
+        uint32_t sent = 0, replies = 0, failures = 0, late = 0;
+    };
+    std::vector<MarlRtt> m_marlRtt;
+    std::vector<std::string> m_marlTpStatus;
+    std::vector<int> m_marlActualAp;
+
     void logistic_assignment(); // ロジスティック回帰による割り当て
     void dqn_assignment(); // DQN action CSVによる割り当て
     void multi_dqn_assignment(); // Multi-DQN action CSVによる複数割り当て

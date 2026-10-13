@@ -177,3 +177,132 @@ NetSim::SampleQueueDiagnostics()
 }
 
 } // namespace ns3
+
+// Passive trace callbacks: no scheduled events, packets, RNG draws, or parameter changes.
+namespace ns3
+{
+namespace
+{
+struct MarlTraceContext
+{
+    std::shared_ptr<std::ofstream> out;
+    std::string event;
+    uint32_t node;
+    uint32_t device;
+    int framing; // 0=IPv4, 1=LLC, 2=Wi-Fi MAC+LLC, 3=PPP
+    bool operator==(const MarlTraceContext&) const = default;
+};
+
+void TraceMarlPacket(MarlTraceContext c, Ptr<const Packet> original)
+{
+    auto packet = original->Copy();
+    bool retry = false;
+    if (c.framing == 2)
+    {
+        WifiMacHeader mac;
+        if (packet->GetSize() < 10 || !packet->RemoveHeader(mac) || !mac.IsData() ||
+            (mac.IsQosData() && mac.IsQosAmsdu())) return;
+        retry = mac.IsRetry();
+    }
+    if (c.framing == 1 || c.framing == 2)
+    {
+        LlcSnapHeader llc;
+        if (packet->GetSize() < llc.GetSerializedSize()) return;
+        packet->RemoveHeader(llc);
+        if (llc.GetType() != 0x0800) return;
+    }
+    if (c.framing == 3)
+    {
+        PppHeader ppp;
+        if (packet->GetSize() < ppp.GetSerializedSize()) return;
+        packet->RemoveHeader(ppp);
+        if (ppp.GetProtocol() != 0x0021) return;
+    }
+    Ipv4Header ip;
+    if (packet->GetSize() < 20) return;
+    packet->RemoveHeader(ip);
+    if (ip.GetProtocol() != 1 || ip.GetFragmentOffset() != 0 || packet->GetSize() < 8) return;
+    Icmpv4Header icmp; packet->RemoveHeader(icmp);
+    if (icmp.GetType() != Icmpv4Header::ICMPV4_ECHO &&
+        icmp.GetType() != Icmpv4Header::ICMPV4_ECHO_REPLY) return;
+    Icmpv4Echo echo; packet->RemoveHeader(echo);
+    if (echo.GetIdentifier() < 0xa000 || echo.GetIdentifier() > 0xa002) return;
+    *c.out << std::setprecision(17) << Simulator::Now().GetSeconds() << ',' << c.event
+           << ',' << c.node << ',' << c.device << ',' << echo.GetIdentifier()-0xa000
+           << ',' << echo.GetSequenceNumber() << ',' << unsigned(icmp.GetType())
+           << ',' << ip.GetSource() << ',' << ip.GetDestination() << ',' << original->GetUid()
+           << ',' << retry << '\n';
+}
+void TraceMarlIp(MarlTraceContext c, Ptr<const Packet> packet, Ptr<Ipv4>, uint32_t interface)
+{
+    c.device = interface; TraceMarlPacket(c, packet);
+}
+void TraceMarlWifiTx(MarlTraceContext c, Ptr<const Packet> packet, double)
+{
+    TraceMarlPacket(c, packet);
+}
+void TraceMarlWifiQueue(MarlTraceContext c, Ptr<const WifiMpdu> mpdu)
+{
+    if (mpdu->GetHeader().IsData() &&
+        !(mpdu->GetHeader().IsQosData() && mpdu->GetHeader().IsQosAmsdu()))
+        TraceMarlPacket(c, mpdu->GetPacket());
+}
+} // namespace
+
+void NetSim::StartMarlRttTrace()
+{
+    auto out = std::make_shared<std::ofstream>(std::string(m_outputDir)+"marl_rtt_path.csv");
+    NS_ABORT_MSG_IF(!*out, "Cannot open MARL passive trace");
+    *out << "time,event,node,device_or_ip_interface,ap,sequence,icmp_type,src,dst,uid,retry\n";
+    std::ofstream nodes(std::string(m_outputDir)+"marl_trace_nodes.csv");
+    nodes << "node,role,device_or_interface,address\n";
+    for (auto it=NodeList::Begin(); it!=NodeList::End(); ++it)
+    {
+        auto node=*it;
+        std::string role="router_or_other";
+        if (node==server_rtt) role="server_rtt";
+        for (uint32_t a=0; a<monitorTerminals.size(); ++a)
+            if (node==monitorTerminals[a]) role="monitor_ap"+std::to_string(a);
+        for (uint32_t a=0; a<wifiAPs.size(); ++a)
+            if (node==wifiAPs[a]) role="ap"+std::to_string(a);
+        for (uint32_t u=0; u<terms.size(); ++u)
+            if (node==terms[u]) role="ue"+std::to_string(u);
+        if (auto ip=node->GetObject<Ipv4>())
+        {
+            for (uint32_t i=0; i<ip->GetNInterfaces(); ++i)
+                for (uint32_t j=0; j<ip->GetNAddresses(i); ++j)
+                    nodes << node->GetId() << ',' << role << ',' << i << ',' << ip->GetAddress(i,j).GetLocal() << '\n';
+            for (const std::string event : {"Tx", "Rx"})
+                NS_ABORT_MSG_IF(!ip->TraceConnectWithoutContext(event, MakeBoundCallback(&TraceMarlIp,
+                    MarlTraceContext{out,"ip_"+event,node->GetId(),0,0})), "Cannot attach IP trace");
+        }
+        for (uint32_t d=0; d<node->GetNDevices(); ++d)
+        {
+            auto device=node->GetDevice(d);
+            if (auto wifi=DynamicCast<WifiNetDevice>(device))
+            {
+                for (const std::string event : {"MacTx", "MacRx", "MacTxDrop", "MacRxDrop"})
+                    NS_ABORT_MSG_IF(!wifi->GetMac()->TraceConnectWithoutContext(event,
+                        MakeBoundCallback(&TraceMarlPacket,MarlTraceContext{out,event,node->GetId(),d,1})), "Cannot attach MAC trace");
+                NS_ABORT_MSG_IF(!wifi->GetPhy()->TraceConnectWithoutContext("PhyTxBegin",
+                    MakeBoundCallback(&TraceMarlWifiTx,MarlTraceContext{out,"wifi_phy_tx",node->GetId(),d,2})), "Cannot attach PHY trace");
+                for (auto ac : {AC_BE, AC_BK, AC_VI, AC_VO})
+                {
+                    auto queue=wifi->GetMac()->GetTxopQueue(ac);
+                    if (!queue) continue;
+                    for (const std::string event : {"Enqueue", "Dequeue", "Drop", "Expired"})
+                        NS_ABORT_MSG_IF(!queue->TraceConnectWithoutContext(event,
+                            MakeBoundCallback(&TraceMarlWifiQueue,MarlTraceContext{out,
+                            "wifi_queue_"+std::to_string(int(ac))+"_"+event,node->GetId(),d,1})), "Cannot attach Wi-Fi queue trace");
+                }
+            }
+            if (auto p2p=DynamicCast<PointToPointNetDevice>(device))
+            {
+                for (const std::string event : {"MacTx", "PhyTxBegin", "PhyRxEnd", "MacTxDrop"})
+                    NS_ABORT_MSG_IF(!p2p->TraceConnectWithoutContext(event,
+                        MakeBoundCallback(&TraceMarlPacket,MarlTraceContext{out,"p2p_"+event,node->GetId(),d,3})), "Cannot attach P2P trace");
+            }
+        }
+    }
+}
+} // namespace ns3

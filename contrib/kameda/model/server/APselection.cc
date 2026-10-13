@@ -464,6 +464,11 @@ void APselection::tmain(){
     NS_LOG_FUNCTION(this);
     std::cout << "=== APselection::tmain() START (cycle " << m_cycleIndex << ") ===" << std::endl;
 
+    if (m_assignmentMethod == "marl_ppo")
+    {
+        marl_ppo_assignment();
+        return; // New QoE/logging path: never compute legacy imputed H or estimated post-action QoE.
+    }
     PrintMonitorRttReport();
 
     // アプリ種別の必要TP, RTT
@@ -3313,6 +3318,12 @@ void APselection::StartNewCycle(uint32_t cycleIndex)
 {
     std::cout << "=== APselection::StartNewCycle(" << cycleIndex << ") ===" << std::endl;
     m_cycleIndex = cycleIndex;
+    if (m_assignmentMethod == "marl_ppo")
+    {
+        m_marlRtt.assign(3, MarlRtt{});
+        m_marlTpStatus.assign(terms, "measurement_missing");
+        m_marlActualAp.assign(terms, -1);
+    }
 
     // ハンドオーバ検出: 前サイクルの割当と現在のAPを比較し、切り替わった端末の猶予期間を開始する
     if (!m_lastAssignment.empty() && !m_switchCycle.empty())

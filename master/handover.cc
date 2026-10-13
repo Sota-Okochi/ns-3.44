@@ -118,6 +118,12 @@ void NetSim::PrintAssignmentSummary(const std::vector<int>& assignment) const
 void NetSim::ApplyHandoverBatch(const std::vector<std::pair<uint32_t, int>>& switchList)
 {
     ResearchWallProfiler::Scope perfScope("NetSim::ApplyHandoverBatch");
+    if (m_assignmentMethod == "marl_ppo" && m_terminalTpWindowStart.IsPositive())
+    {
+        const Time end = m_terminalTpWindowStart + m_terminalTpStopOffset - m_monitorStartOffset;
+        NS_ABORT_MSG_IF(Simulator::Now() >= m_terminalTpWindowStart && Simulator::Now() < end,
+                        "MARL handover/reset inside TP measurement window");
+    }
     for (const auto& entry : switchList)
     {
         uint32_t termIdx = entry.first;

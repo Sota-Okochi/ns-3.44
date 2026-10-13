@@ -1,0 +1,34 @@
+{
+  "schema": "marl_v1",
+  "command": [
+    "/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/build/marl-ppo-v4/master",
+    "--settingPath=/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/marl/smoke30_seed734_v4_check/smoke_000009_seed734/setting.json",
+    "--method=marl_ppo",
+    "--rngSeed=734",
+    "--mob=1",
+    "--outputRoot=/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/marl/smoke30_seed734_v4_check/smoke_000009_seed734/simulation",
+    "--capacityEventsPath=/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/marl/smoke30_seed734_v4_check/smoke_000009_seed734/planned_events.csv",
+    "--pgwCerRate=80000000bps",
+    "--ap1BackhaulRate=40000000bps",
+    "--ap2BackhaulRate=20000000bps",
+    "--drlServerPort=36445",
+    "--drlTimeoutMs=30000",
+    "--marlProbeCount=10",
+    "--marlProbeInterval=0.2",
+    "--marlProbeTimeout=1.0",
+    "--marlReportConnTimeout=0.2"
+  ],
+  "run_id": "smoke_m1_e9_s734_p0",
+  "environment_seed": 734,
+  "capacity_seed": 100734,
+  "action_seed": 7670319029989516857,
+  "model_seed": 1,
+  "phase": "smoke",
+  "episode_id": 9,
+  "policy_version": 0,
+  "capacity": {
+    "mode": "constant"
+  },
+  "report_conn_timeout": 0.2,
+  "events_sha256": "c7f3a33bbc6455f10f6a742b9460adc28726ebd45b7b3d91ca6d5d5affe28e9c"
+}

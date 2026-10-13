@@ -30,6 +30,9 @@ public:
      * \brief 連続監視を開始
      */
     void StartContinuousMonitoring();
+    void EnableMarl(uint32_t count, double interval, double timeout, double reportConnTimeout);
+    double m_marlReportConnTimeout = 0.2;
+
 
     /**
      * \brief 監視を停止
@@ -55,6 +58,19 @@ private:
      * \brief 定期的なping送信
      */
     void SendPeriodicPing();
+    void SendMarlPing();
+    void MarlDeadline(uint32_t cycle, uint16_t seq);
+    void FinishMarlReport();
+    void SendMarlReportBytes(Ptr<Socket> socket, uint32_t available);
+    bool m_marl = false;
+    bool m_marlFinished = false;
+    bool m_marlMeasurementError = false;
+    uint32_t m_marlCycle = 0, m_marlAttempts = 0, m_marlFailures = 0, m_marlExpired = 0, m_marlLate = 0;
+    double m_marlTimeout = 1.0;
+    std::map<uint16_t, Time> m_marlExpiredTimes;
+    std::string m_marlReport;
+    size_t m_marlReportOffset = 0;
+
 
     /**
      * \brief サーバーにRTTデータを送信

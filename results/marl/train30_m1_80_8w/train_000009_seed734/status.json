@@ -1,0 +1,9 @@
+{
+  "returncode": 134,
+  "error": "Evaluation missing: H/reward remain null; episode quarantined. See observations.jsonl",
+  "seconds": 1494.8283505220024,
+  "terminal": false,
+  "transitions": 2,
+  "max_rss_kib": 283088,
+  "valid": false
+}

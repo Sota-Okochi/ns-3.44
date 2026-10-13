@@ -1,0 +1,53 @@
+{
+  "args": {
+    "mode": "smoke",
+    "episodes": 1,
+    "terminals": 30,
+    "model_seed": 1,
+    "workers": 1,
+    "parallel_validated": false,
+    "output": "/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/marl/smoke30_m1",
+    "setting": "/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/data/setting.json",
+    "capacity": "/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/configs/capacity/constant.json",
+    "config": null,
+    "binary": "/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/build/marl-ppo-v2/master",
+    "checkpoint": null,
+    "resume": false,
+    "episode_timeout": 3600,
+    "probe_count": 10,
+    "probe_interval": 0.2,
+    "probe_timeout": 1.0
+  },
+  "config": {
+    "actor_lr": 0.0001,
+    "critic_lr": 0.0003,
+    "clip": 0.1,
+    "epochs": 4,
+    "minibatch": 16,
+    "rollout_episodes": 16,
+    "entropy": 0.01,
+    "grad_norm": 0.5,
+    "epsilon": 1e-06,
+    "browser_mbps": 3.0,
+    "video_mbps": 8.0,
+    "voice_ms": 100.0,
+    "game_ms": 40.0,
+    "gamma": 1.0,
+    "gae_lambda": 1.0,
+    "width": 64,
+    "head_width": 128
+  },
+  "schema": "marl_v1",
+  "seed_schema": "marl_seed_v1",
+  "torch_version": "2.10.0.dev20251204+cu128",
+  "python": "3.10.12 (main, Aug 31 2026, 10:18:17) [GCC 11.4.0]",
+  "binary_sha256": "cc66fa17367e05d009eb4d7ae9db8d45ba3fcd98d66b4551a20959b4df4fc7ac",
+  "source_sha256": {
+    "rl/marl/core.py": "48768e76205ccd7ad846aca40a5e5678cd2425135307a45c371de1bcf8486c4e",
+    "rl/marl/__init__.py": "5893b9da87941ab53a1536dcceb345c56a719763d6d6a817891ee6aaadb10939",
+    "scripts/run_marl.py": "b1d93e310e625b3c552a5bc43d63dba08a8265f49994c63e5a2ed0fb5b401a76",
+    "contrib/kameda/model/server/marl-ppo.cc": "35716e799b7d333443d9739a441853e47b3b4d06442e017cf9e95af5c5706279",
+    "contrib/kameda/model/client/APMonitorTerminal.cc": "d949a8b7ddb9f2b45b12f532e3fbbdaae48f9002304598f6a1546e29447b7e10",
+    "master/applications.cc": "78bee46ac214cc76a431703083c91a12fb76ef7e20fff6b3f38fc62ba2f9c284"
+  }
+}

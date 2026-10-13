@@ -1,0 +1,2 @@
+phase,episode_id,environment_seed,model_seed,policy_version,return_sum,mean_h_after,mean_h_all,initial_h,seconds,max_rss_kib,wall_elapsed_seconds
+smoke,0,693,1,0,2.8994100693002824,0.7248525173250706,0.6907234925199359,0.5542073932993969,1109.427470388,500360,1109.429631938001

@@ -1,0 +1,11 @@
+{
+  "source": "/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/marl/train30_m1_16_8w_v/checkpoint_000016/validation_000005_seed1016",
+  "checkpoint": "/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/marl/train30_m1_16_8w_v/latest.pt",
+  "binary": "/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/build/marl-ppo-v4/master",
+  "binary_sha256": "024b40c85a18cc7abd65306c3cc7f13805fa231bec0450acd431c1c561a64bd7",
+  "trace": false,
+  "environment_seed": 1016,
+  "episode_id": 5,
+  "phase": "validation",
+  "policy_version": 1
+}

@@ -24,6 +24,8 @@ public:
     void SetCycleEndGuard(Time guard);
     void SetHandoverCallback(const std::function<void(const std::vector<int>&)>& cb);
     void SetTerminalTp(int termIdx, double tpBps);
+    void SetMarlTp(int ue, int ap, double bps, const std::string& status);
+
 
 protected:
     virtual void DoDispose();
@@ -40,6 +42,7 @@ private:
     uint16_t m_listeningPort;
     Ptr<Socket> m_socket;
     std::list<Ptr<Socket> > m_socketList;
+    std::map<Ptr<Socket>, std::string> m_marlBuffers;
 
     void SERVER_LOG_INFO(std::string info);
 

@@ -1,0 +1,6 @@
+{
+  "status": "collection_incomplete",
+  "completed_episodes": 0,
+  "phase": "smoke",
+  "error": "Collection paused; successful episodes preserved; no PPO update. (9, 734): [Errno 1] Operation not permitted"
+}

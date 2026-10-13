@@ -13,6 +13,8 @@
 #include "ns3/uinteger.h"
 
 #include <iostream>
+#include <cmath>
+#include <iomanip>
 #include <sstream>
 #include <algorithm>
 #include <numeric>
@@ -88,6 +90,16 @@ void APMonitorTerminal::StartContinuousMonitoring()
     }
 
     m_isMonitoring = true;
+    if (m_marl)
+    {
+        ++m_marlCycle;
+        m_marlAttempts = m_marlFailures = m_marlExpired = m_marlLate = 0;
+        m_marlFinished = m_marlMeasurementError = false;
+        m_marlReport.clear();
+        m_marlExpiredTimes.clear();
+        m_marlReportOffset = 0;
+        if (m_socket) { m_socket->Close(); m_socket = nullptr; }
+    }
     std::cout << "=== Monitoring started for AP" << m_apId << " ===" << std::endl;
 
     m_totalPings = 0;
@@ -113,6 +125,13 @@ void APMonitorTerminal::StopMonitoring()
     }
 
     m_isMonitoring = false;
+    if (m_marl && m_socket)
+    {
+        std::cout << "[MARL report stop] cycle=" << m_marlCycle << " ap=" << m_apId
+                  << " time=" << Simulator::Now().GetSeconds()
+                  << " queued=" << m_marlReportOffset << '/' << m_marlReport.size() << std::endl;
+        m_socket->Close(); m_socket = nullptr;
+    }
     
     // イベントをキャンセル
     if (m_pingEvent.IsPending()) {
@@ -141,6 +160,7 @@ void APMonitorTerminal::SendPeriodicPing()
         return;
     }
     m_pingEvent = EventId();
+    if (m_marl) { SendMarlPing(); return; }
 
     if (m_sentPingsInWindow >= m_samplesPerReport)
     {
@@ -431,12 +451,38 @@ void APMonitorTerminal::HandlePingReply(Ptr<Socket> socket)
         auto sentIt = m_pingSendTimes.find(seq);
         if (sentIt == m_pingSendTimes.end())
         {
+            if (m_marl && m_marlExpiredTimes.erase(seq))
+            {
+                ++m_marlLate;
+                std::cout << "[MARL late] cycle=" << m_marlCycle << " ap=" << m_apId
+                          << " seq=" << seq << " time=" << Simulator::Now().GetSeconds() << std::endl;
+            }
             continue;
         }
 
         const Time rtt = Simulator::Now() - sentIt->second;
-        m_pingSendTimes.erase(sentIt);
-        OnRttMeasured(rtt);
+        if (m_marl)
+        {
+            if (!m_isMonitoring || m_marlFinished) continue;
+            if (rtt >= Seconds(m_marlTimeout))
+            {
+                ++m_marlLate; ++m_marlExpired;
+                m_pingSendTimes.erase(sentIt);
+                std::cout << "[MARL late] cycle=" << m_marlCycle << " ap=" << m_apId
+                          << " seq=" << seq << " time=" << Simulator::Now().GetSeconds() << std::endl;
+                FinishMarlReport();
+                continue;
+            }
+            m_pingSendTimes.erase(sentIt);
+            if (rtt.IsStrictlyPositive()) m_rttSamples.push_back(rtt.GetSeconds()*1000.0);
+            else { m_marlMeasurementError = true; ++m_marlExpired; }
+            FinishMarlReport();
+        }
+        else
+        {
+            m_pingSendTimes.erase(sentIt);
+            OnRttMeasured(rtt);
+        }
     }
 }
 
@@ -444,6 +490,12 @@ void APMonitorTerminal::OnConnectionSucceeded(Ptr<Socket> socket)
 {
     NS_LOG_FUNCTION(this);
     
+    if (m_marl)
+    {
+        std::cout << "[MARL report connected] cycle=" << m_marlCycle << " ap=" << m_apId
+                  << " time=" << Simulator::Now().GetSeconds() << std::endl;
+        SendMarlReportBytes(socket, socket->GetTxAvailable()); return;
+    }
     std::stringstream message;
     message << "MONITOR_AP" << m_apId << "," << m_averageRtt;
     
@@ -462,6 +514,12 @@ void APMonitorTerminal::OnConnectionFailed(Ptr<Socket> socket)
     NS_LOG_FUNCTION(this);
     std::cout << "=== Monitor AP" << m_apId << ": Connection to server failed ===" << std::endl;
     
+    if (m_marl)
+    {
+        socket->Close();
+        m_socket = nullptr;
+        return; // TCP transport retries only; no application reconnect.
+    }
     // リトライのため、少し待ってから再送信
     if (m_isMonitoring) {
         m_reportEvent = Simulator::Schedule(Seconds(2.0), &APMonitorTerminal::ReportRTTToServer, this);
@@ -536,6 +594,7 @@ Ipv4Address APMonitorTerminal::GetPrimaryIpv4(Ptr<Node> node) const
 
 void APMonitorTerminal::ForceReportToServer()
 {
+    if (m_marl) { FinishMarlReport(); return; }
     if (m_rttSamples.empty())
     {
         if (m_averageRtt > 0.0)
@@ -548,6 +607,105 @@ void APMonitorTerminal::ForceReportToServer()
         }
     }
     ReportRTTToServer();
+}
+
+
+void APMonitorTerminal::EnableMarl(uint32_t count, double interval, double timeout, double reportConnTimeout)
+{
+    NS_ABORT_MSG_IF(!std::isfinite(reportConnTimeout) || reportConnTimeout <= 0,
+                    "Invalid MARL report connection timeout");
+    m_marlReportConnTimeout = reportConnTimeout;
+    NS_ABORT_MSG_IF(count == 0 || count > 10000 || !std::isfinite(interval) || interval <= 0 ||
+                    !std::isfinite(timeout) || timeout <= 0, "Invalid MARL probe configuration");
+    m_marl = true;
+    m_samplesPerReport = count; m_pingInterval = interval; m_marlTimeout = timeout;
+}
+
+void APMonitorTerminal::SendMarlPing()
+{
+    if (!m_isMonitoring || m_marlFinished || m_marlAttempts >= m_samplesPerReport) return;
+    ++m_marlAttempts;
+    if (EnsurePingSocket())
+    {
+        const uint16_t seq = m_pingSeq++;
+        std::vector<uint8_t> payload(std::max<uint32_t>(m_pingPayloadSize, 16), 0);
+        Icmpv4Echo echo;
+        echo.SetIdentifier(GetPingIdentifier()); echo.SetSequenceNumber(seq);
+        echo.SetData(Create<Packet>(payload.data(), payload.size()));
+        auto packet = Create<Packet>(); packet->AddHeader(echo);
+        Icmpv4Header icmp;
+        icmp.SetType(Icmpv4Header::ICMPV4_ECHO); icmp.SetCode(0);
+        if (Node::ChecksumEnabled()) icmp.EnableChecksum();
+        packet->AddHeader(icmp);
+        if (m_pingSocket->SendTo(packet, 0, InetSocketAddress(m_targetAP, 0)) > 0)
+        {
+            m_pingSendTimes[seq] = Simulator::Now(); ++m_sentPingsInWindow;
+            Simulator::Schedule(Seconds(m_marlTimeout), &APMonitorTerminal::MarlDeadline, this, m_marlCycle, seq);
+        }
+        else ++m_marlFailures;
+    }
+    else ++m_marlFailures;
+    if (m_marlAttempts < m_samplesPerReport)
+        m_pingEvent = Simulator::Schedule(Seconds(m_pingInterval), &APMonitorTerminal::SendMarlPing, this);
+    FinishMarlReport();
+}
+
+void APMonitorTerminal::MarlDeadline(uint32_t cycle, uint16_t seq)
+{
+    if (cycle != m_marlCycle || !m_isMonitoring || m_marlFinished) return;
+    auto it = m_pingSendTimes.find(seq);
+    if (it != m_pingSendTimes.end())
+    {
+        m_marlExpiredTimes[seq] = it->second;
+        m_pingSendTimes.erase(it);
+        ++m_marlExpired;
+    }
+    FinishMarlReport();
+}
+
+void APMonitorTerminal::FinishMarlReport()
+{
+    if (m_marlFinished || !m_isMonitoring || m_marlAttempts != m_samplesPerReport ||
+        m_rttSamples.size()+m_marlExpired != m_sentPingsInWindow) return;
+    m_marlFinished = true;
+    const std::string status = m_marlFailures ? "probe_send_error" :
+        m_marlMeasurementError ? "measurement_error" : m_rttSamples.empty() ? "timeout" : "ok";
+    const double mean = m_rttSamples.empty() ? 0.0 :
+        std::accumulate(m_rttSamples.begin(), m_rttSamples.end(), 0.0)/m_rttSamples.size();
+    std::ostringstream report;
+    report << std::setprecision(17) << "MARL_RTT_V1 " << m_marlCycle << ' ' << m_apId << ' ' << status
+           << ' ' << mean << ' ' << m_sentPingsInWindow << ' ' << m_rttSamples.size()
+           << ' ' << m_marlFailures << ' ' << m_marlLate << '\n';
+    m_marlReport = report.str();
+    std::cout << "[MARL monitor] " << m_marlReport;
+    std::cout << "[MARL report connect] cycle=" << m_marlCycle << " ap=" << m_apId
+              << " time=" << Simulator::Now().GetSeconds()
+              << " conn_timeout=" << m_marlReportConnTimeout << std::endl;
+    m_socket = CreateTcpSocket();
+    // Only the control report socket changes. Probe/report deadlines remain unchanged.
+    m_socket->SetAttribute("ConnTimeout", TimeValue(Seconds(m_marlReportConnTimeout)));
+    m_socket->SetConnectCallback(MakeCallback(&APMonitorTerminal::OnConnectionSucceeded, this),
+                                 MakeCallback(&APMonitorTerminal::OnConnectionFailed, this));
+    m_socket->SetSendCallback(MakeCallback(&APMonitorTerminal::SendMarlReportBytes, this));
+    if (m_socket->Connect(InetSocketAddress(m_serverAddress, m_serverPort)) < 0)
+        OnConnectionFailed(m_socket);
+}
+
+void APMonitorTerminal::SendMarlReportBytes(Ptr<Socket> socket, uint32_t available)
+{
+    if (!m_isMonitoring || socket != m_socket) return;
+    while (m_marlReportOffset < m_marlReport.size() && available > 0)
+    {
+        const size_t size = std::min<size_t>(available, m_marlReport.size()-m_marlReportOffset);
+        int sent = socket->Send(reinterpret_cast<const uint8_t*>(m_marlReport.data()+m_marlReportOffset), size, 0);
+        if (sent <= 0) return;
+        m_marlReportOffset += sent;
+        std::cout << "[MARL report queued] cycle=" << m_marlCycle << " ap=" << m_apId
+                  << " time=" << Simulator::Now().GetSeconds()
+                  << " bytes=" << m_marlReportOffset << '/' << m_marlReport.size() << std::endl;
+        available = socket->GetTxAvailable();
+    }
+    if (m_marlReportOffset == m_marlReport.size()) socket->ShutdownSend();
 }
 
 } // namespace ns3

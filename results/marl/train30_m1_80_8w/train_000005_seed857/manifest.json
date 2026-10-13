@@ -1,0 +1,32 @@
+{
+  "schema": "marl_v1",
+  "command": [
+    "/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/build/marl-ppo-v2/master",
+    "--settingPath=/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/marl/train30_m1_80_8w/train_000005_seed857/setting.json",
+    "--method=marl_ppo",
+    "--rngSeed=857",
+    "--mob=1",
+    "--outputRoot=/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/marl/train30_m1_80_8w/train_000005_seed857/simulation",
+    "--capacityEventsPath=/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/marl/train30_m1_80_8w/train_000005_seed857/planned_events.csv",
+    "--pgwCerRate=80000000bps",
+    "--ap1BackhaulRate=40000000bps",
+    "--ap2BackhaulRate=20000000bps",
+    "--drlServerPort=37469",
+    "--drlTimeoutMs=30000",
+    "--marlProbeCount=10",
+    "--marlProbeInterval=0.2",
+    "--marlProbeTimeout=1.0"
+  ],
+  "run_id": "train_m1_e5_s857_p0",
+  "environment_seed": 857,
+  "capacity_seed": 100857,
+  "action_seed": 140784546651277646,
+  "model_seed": 1,
+  "phase": "train",
+  "episode_id": 5,
+  "policy_version": 0,
+  "capacity": {
+    "mode": "constant"
+  },
+  "events_sha256": "c7f3a33bbc6455f10f6a742b9460adc28726ebd45b7b3d91ca6d5d5affe28e9c"
+}

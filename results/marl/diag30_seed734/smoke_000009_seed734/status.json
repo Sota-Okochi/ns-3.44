@@ -1,0 +1,9 @@
+{
+  "returncode": 134,
+  "error": "Evaluation missing at cycle 4: H/reward remain null; episode quarantined; missing_users=[{'ue_id': 10, 'bs': 2, 'app': 3, 'tp_status': 'demand_unconfirmed', 'rtt_status': 'report_missing'}, {'ue_id': 21, 'bs': 2, 'app': 3, 'tp_status': 'demand_unconfirmed', 'rtt_status': 'report_missing'}, {'ue_id': 25, 'bs': 2, 'app': 3, 'tp_status': 'demand_unconfirmed', 'rtt_status': 'report_missing'}, {'ue_id': 27, 'bs': 2, 'app': 2, 'tp_status': 'demand_unconfirmed', 'rtt_status': 'report_missing'}, {'ue_id': 29, 'bs': 2, 'app': 2, 'tp_status': 'demand_unconfirmed', 'rtt_status': 'report_missing'}]. See observations.jsonl",
+  "seconds": 738.705596697997,
+  "terminal": false,
+  "transitions": 2,
+  "max_rss_kib": 284088,
+  "valid": false
+}

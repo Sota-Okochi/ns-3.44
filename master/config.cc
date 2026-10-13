@@ -329,6 +329,11 @@ void NetSim::Init(int argc, char *argv[]){
     cmd.AddValue("ap1DropCycle", "1-based cycle at whose start AP1 capacity drops", m_ap1DropCycle);
     cmd.AddValue("ap1RecoveryCycle", "1-based cycle at whose start AP1 capacity recovers", m_ap1RecoveryCycle);
     cmd.AddValue("ap1SampleSec", "AP1 queue sampling interval in seconds", m_ap1SampleSec);
+    cmd.AddValue("marlProbeCount", "MARL probes per AP/window", m_marlProbeCount);
+    cmd.AddValue("marlProbeInterval", "MARL probe interval seconds", m_marlProbeInterval);
+    cmd.AddValue("marlProbeTimeout", "MARL strict response deadline seconds", m_marlProbeTimeout);
+    cmd.AddValue("marlRttTrace", "Passive ICMP path/MAC trace for MARL diagnosis", m_marlRttTrace);
+    cmd.AddValue("marlReportConnTimeout", "MARL report TCP connection retransmission timeout seconds", m_marlReportConnTimeout);
     cmd.AddValue("pgwCerRate", "PGW-CER capacity; other link parameters unchanged", m_pgwCerRate);
     cmd.AddValue("ap1BackhaulRate", "Wi-Fi AP1 initial backhaul capacity", m_ap1BackhaulRate);
     cmd.AddValue("ap2BackhaulRate", "Wi-Fi AP2 initial backhaul capacity", m_ap2BackhaulRate);
@@ -342,7 +347,7 @@ void NetSim::Init(int argc, char *argv[]){
     cmd.AddValue("perfDetailed", "Also time NR/Wi-Fi/FlowMonitor internals (implies perfTiming)", perfDetailed);
     cmd.AddValue("perfWifiSampleEvery", "Sample Wi-Fi subphases once per N receptions (positive)", perfWifiSampleEvery);
     cmd.AddValue("perfOutputDir", "Parent directory for unique timing run directories", perfOutputDir);
-    cmd.AddValue("method", "Assignment method: no_switch, random, all5g, rulebase, greedy, multi_greedy, multi_offload, logistic, dqn, multi_dqn, online_dqn", m_assignmentMethod);
+    cmd.AddValue("method", "Assignment method: no_switch, random, all5g, rulebase, greedy, multi_greedy, multi_offload, logistic, dqn, multi_dqn, online_dqn, centralized_dqn, reactive_dqn, marl_ppo", m_assignmentMethod);
     cmd.AddValue("rngSeed",
                  "Override rngSeed from data/setting.json when non-zero. This avoids editing setting.json during parallel runs.",
                  cliRngSeed);
@@ -350,10 +355,10 @@ void NetSim::Init(int argc, char *argv[]){
                  "DQN/Multi-DQN action CSV path used when --method=dqn or --method=multi_dqn",
                  m_dqnActionCsvPath);
     cmd.AddValue("drlServerHost",
-                 "Online DQN TCP JSON server host used when --method=online_dqn",
+                 "External learner TCP server host (including marl_ppo)",
                  m_drlServerHost);
     cmd.AddValue("drlServerPort",
-                 "Online DQN TCP JSON server port used when --method=online_dqn",
+                 "External learner TCP server port (including marl_ppo)",
                  m_drlServerPort);
     cmd.AddValue("drlTimeoutMs",
                  "Online DQN TCP JSON request timeout in milliseconds",
@@ -406,6 +411,7 @@ void NetSim::Init(int argc, char *argv[]){
         m_assignmentMethod != "logistic" && m_assignmentMethod != "dqn" &&
         m_assignmentMethod != "multi_dqn" &&
         m_assignmentMethod != "reactive_dqn" &&
+        m_assignmentMethod != "marl_ppo" &&
         m_assignmentMethod != "online_dqn" &&
         m_assignmentMethod != "centralized_dqn" &&
         m_assignmentMethod != "ml")
@@ -760,6 +766,7 @@ void NetSim::RunSim(){
     BuildTerminalIpMap();
 
     SetAppLayer(); // 各種アプリケーションの設定
+    if (m_marlRttTrace) StartMarlRttTrace();
     if (m_queueDiagnostics)
     {
         StartQueueDiagnostics();

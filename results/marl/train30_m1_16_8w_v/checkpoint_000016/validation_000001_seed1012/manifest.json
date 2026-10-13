@@ -1,0 +1,34 @@
+{
+  "schema": "marl_v1",
+  "command": [
+    "/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/build/marl-ppo-v4/master",
+    "--settingPath=/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/marl/train30_m1_16_8w_v/checkpoint_000016/validation_000001_seed1012/setting.json",
+    "--method=marl_ppo",
+    "--rngSeed=1012",
+    "--mob=1",
+    "--outputRoot=/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/marl/train30_m1_16_8w_v/checkpoint_000016/validation_000001_seed1012/simulation",
+    "--capacityEventsPath=/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/marl/train30_m1_16_8w_v/checkpoint_000016/validation_000001_seed1012/planned_events.csv",
+    "--pgwCerRate=80000000bps",
+    "--ap1BackhaulRate=40000000bps",
+    "--ap2BackhaulRate=20000000bps",
+    "--drlServerPort=44557",
+    "--drlTimeoutMs=30000",
+    "--marlProbeCount=10",
+    "--marlProbeInterval=0.2",
+    "--marlProbeTimeout=1.0",
+    "--marlReportConnTimeout=0.2"
+  ],
+  "run_id": "validation_m1_e1_s1012_p1",
+  "environment_seed": 1012,
+  "capacity_seed": 101012,
+  "action_seed": 1041115503979577717,
+  "model_seed": 1,
+  "phase": "validation",
+  "episode_id": 1,
+  "policy_version": 1,
+  "capacity": {
+    "mode": "constant"
+  },
+  "report_conn_timeout": 0.2,
+  "events_sha256": "c7f3a33bbc6455f10f6a742b9460adc28726ebd45b7b3d91ca6d5d5affe28e9c"
+}

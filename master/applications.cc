@@ -681,6 +681,14 @@ void NetSim::AttachMonitorApplication(uint32_t apId, Ptr<Node> monitor)
     }
 
     Ptr<APMonitorTerminal> monitorApp = CreateObject<APMonitorTerminal>(apId, rttServerAddress, remoteAddress);
+    if (m_assignmentMethod == "marl_ppo")
+    {
+        monitorApp->EnableMarl(m_marlProbeCount, m_marlProbeInterval, m_marlProbeTimeout,
+                              m_marlReportConnTimeout);
+        NS_ABORT_MSG_IF(m_marlProbeCount == 0 || m_marlProbeInterval <= 0 || m_marlProbeTimeout <= 0 ||
+            (m_marlProbeCount - 1) * m_marlProbeInterval + m_marlProbeTimeout >=
+                (m_monitorStopOffset-m_monitorStartOffset).GetSeconds(), "MARL probes exceed monitoring window");
+    }
     monitor->AddApplication(monitorApp);
     monitorApp->SetStartTime(Seconds(0.0));
     monitorApp->SetStopTime(m_simulationDuration);
@@ -1244,6 +1252,20 @@ void NetSim::ResetTerminalFlowStats()
     ResearchWallProfiler::Scope perfScope("NetSim::ResetTerminalFlowStats");
     // TPは「サイクル固定窓」平均で評価するため、窓開始時刻を保持する。
     m_terminalTpWindowStart = Simulator::Now();
+    m_marlWindowAp.clear();
+    if (m_assignmentMethod == "marl_ppo")
+    {
+        for (const auto& state : m_termAccessState) m_marlWindowAp.push_back(state.currentAp);
+        const std::string filename = std::string(m_outputDir)+"marl_initial_positions.csv";
+        if (!std::ifstream(filename).good())
+        {
+            std::ofstream out(filename);
+            NS_ABORT_MSG_IF(!out, "Cannot save MARL initial positions");
+            out << "ue_id,position_x,position_y\n";
+            for (uint32_t i=0; i<m_termData.size(); ++i)
+                out << i << ',' << std::setprecision(17) << m_termData[i].x << ',' << m_termData[i].y << '\n';
+        }
+    }
     if (m_termFlowMonitor != nullptr)
     {
         m_termFlowMonitor->ResetAllStats();
@@ -1266,6 +1288,7 @@ void NetSim::CollectTerminalThroughput()
     struct TermStats
     {
         double totalBits = 0.0;
+        uint64_t txPackets = 0;
     };
     std::vector<TermStats> perTerm(terms.size());
 
@@ -1325,7 +1348,7 @@ void NetSim::CollectTerminalThroughput()
     {
         const FlowId flowId = kv.first;
         const FlowMonitor::FlowStats& fs = kv.second;
-        if (fs.rxPackets == 0)
+        if (fs.rxPackets == 0 && m_assignmentMethod != "marl_ppo")
         {
             continue;
         }
@@ -1340,6 +1363,7 @@ void NetSim::CollectTerminalThroughput()
         if (termIt != ipToTermIndex.end() && termIt->second < perTerm.size())
         {
             perTerm[termIt->second].totalBits += bits;
+            perTerm[termIt->second].txPackets += fs.txPackets;
         }
     }
 
@@ -1418,6 +1442,17 @@ void NetSim::CollectTerminalThroughput()
     {
         if (i >= m_termData.size())
         {
+            continue;
+        }
+        if (m_assignmentMethod == "marl_ppo")
+        {
+            const auto& state = m_termAccessState.at(i);
+            const bool stable = i < m_marlWindowAp.size() && m_marlWindowAp[i] == state.currentAp &&
+                state.lastSwitchTime < m_terminalTpWindowStart;
+            const bool observed = perTerm[i].totalBits > 0 || perTerm[i].txPackets > 0;
+            std::string status = !stable ? "window_assignment_changed" :
+                observed ? "ok" : "demand_unconfirmed";
+            m_kamedaServer->SetMarlTp(i, state.currentAp-1, perTerm[i].totalBits/fixedWindowSec, status);
             continue;
         }
         // 切替直後の端末はTP計測をスキップ
