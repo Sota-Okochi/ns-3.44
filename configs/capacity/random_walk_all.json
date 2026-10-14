@@ -23,7 +23,7 @@
       },
       {
         "ap_id": 2,
-        "initial_bps": 20000000,
+        "initial_bps": 30000000,
         "min_bps": 15000000,
         "max_bps": 40000000,
         "step_bps": 5000000
