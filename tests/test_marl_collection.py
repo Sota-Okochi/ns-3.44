@@ -29,6 +29,28 @@ def result(learner, args, episode, env, phase, base):
 
 
 class CollectionTest(unittest.TestCase):
+    def test_rollout8_staged_validation(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp); binary=root/'binary'; binary.write_text('fake')
+            config=root/'config.json'; config.write_text('{"rollout_episodes":8}')
+            common=['--mode','train','--terminals','4','--binary',str(binary),
+                    '--config',str(config)]
+            calls=[]
+            def record(l,a,e,s,p,b):
+                if p=='validation': calls.append((l.updates,s))
+                return result(l,a,e,s,p,b)
+            first=root/'first'; second=root/'second'
+            with patch.object(runner,'run_episode',side_effect=record),patch('builtins.print'):
+                runner.main(common+['--episodes','64','--output',str(first)])
+                runner.main(common+['--episodes','192','--resume','--checkpoint',str(first/'latest.pt'),
+                                    '--output',str(second)])
+            self.assertEqual(calls,[(v,s) for v in (0,8,16,24) for s in range(1011,1016)])
+            ck=torch.load(second/'latest.pt',weights_only=False)
+            self.assertEqual(ck['completed_episodes'],192)
+            self.assertEqual(ck['updates'],24)
+            self.assertEqual(ck['validation_interval'],64)
+            self.assertEqual(ck['validation_seeds'],list(range(1011,1016)))
+
     def test_stop_refill_and_drain(self):
         with tempfile.TemporaryDirectory() as tmp:
             p=Path(tmp); ready=threading.Event();release=threading.Event();seen=[]
@@ -70,7 +92,7 @@ class CollectionTest(unittest.TestCase):
                 with patch.object(runner,'run_episode',side_effect=success),patch('builtins.print'):
                     runner.main(common+['--output',str(recovered),'--recover-run',str(failed)])
                 replay=[e for p,v,e in calls if p=='validation' and v==fail_version]
-                self.assertEqual(replay,list(range(3,8)))
+                self.assertEqual(replay,list(range(3,5)))
                 if fail_version==1:self.assertFalse(any(p=='train' for p,v,e in calls))
                 ck=torch.load(recovered/'recovery.pt',weights_only=False)
                 self.assertEqual(ck['updates'],1)
@@ -90,7 +112,7 @@ class CollectionTest(unittest.TestCase):
             ck=torch.load(failed/'recovery.pt',weights_only=False)
             self.assertEqual(ck['updates'],0)
             self.assertEqual(ck['pending_phase'],'train')
-            self.assertEqual(len(list((failed/'trajectory_cache').glob('*.pt'))),17) # val8+train9
+            self.assertEqual(len(list((failed/'trajectory_cache').glob('*.pt'))),14) # val5+train9
             calls=[]
             def success(l,a,e,s,p,b):calls.append((p,e));return result(l,a,e,s,p,b)
             with patch.object(runner,'run_episode',side_effect=success),patch('builtins.print'):

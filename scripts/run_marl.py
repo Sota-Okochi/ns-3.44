@@ -28,6 +28,11 @@ from run_capacity_scenario import FIELDS, generate_events
 from rl.marl.collection import collect_durable, policy_digest, digest
 
 
+# Fixed evaluation protocol for the new staged MARL experiment.
+VALIDATION_SEEDS = tuple(range(1011, 1016))
+VALIDATION_INTERVAL = 64
+
+
 def write_json(path, data):
     path.write_text(json.dumps(data, indent=2, allow_nan=False)+'\n')
 
@@ -263,7 +268,7 @@ def main(argv=None):
     if args.resume and (checkpoint.get('terminals') != args.terminals or checkpoint.get('capacity') != json.loads(args.capacity.read_text()) or checkpoint.get('setting') != json.loads(args.setting.read_text()) or checkpoint.get('probe') != [args.probe_count, args.probe_interval, args.probe_timeout] or checkpoint.get('report_conn_timeout') != args.report_conn_timeout):
         p.error('Resume environment differs from checkpoint')
     manifest = dict(args={k:str(v) if isinstance(v, Path) else v for k,v in vars(args).items()},
-                    config=asdict(config), report_transport='internal_callback_v1', schema=SCHEMA, seed_schema='marl_seed_v1', torch_version=torch.__version__,
+                    config=asdict(config), report_transport='internal_callback_v1', validation_seeds=list(VALIDATION_SEEDS), validation_interval=VALIDATION_INTERVAL, schema=SCHEMA, seed_schema='marl_seed_v1', torch_version=torch.__version__,
                     python=sys.version, binary_sha256=hashlib.sha256(args.binary.read_bytes()).hexdigest())
     sources = list((ROOT/'rl/marl').glob('*.py'))+[Path(__file__), ROOT/'contrib/kameda/model/server/marl-ppo.cc',
                ROOT/'contrib/kameda/model/client/APMonitorTerminal.cc', ROOT/'master/applications.cc']
@@ -272,7 +277,7 @@ def main(argv=None):
     libraries = args.binary.parent/'lib'
     manifest['library_sha256'] = {f.name:hashlib.sha256(f.read_bytes()).hexdigest()
                                   for f in sorted(libraries.glob('*.so*')) if f.is_file()}
-    experiment = dict(config=asdict(config), model_seed=args.model_seed, terminals=args.terminals,
+    experiment = dict(validation_seeds=list(VALIDATION_SEEDS), validation_interval=VALIDATION_INTERVAL, config=asdict(config), model_seed=args.model_seed, terminals=args.terminals,
                       capacity=json.loads(args.capacity.read_text()), setting=json.loads(args.setting.read_text()),
                       probe=[args.probe_count,args.probe_interval,args.probe_timeout],
                       report_conn_timeout=args.report_conn_timeout, report_transport='internal_callback_v1', binary=manifest['binary_sha256'],
@@ -320,14 +325,15 @@ def main(argv=None):
     def save(name, count, score, **extra):
         learner.save(args.output/name, completed_episodes=count, terminals=args.terminals,
                      capacity=json.loads(args.capacity.read_text()), best_score=score,
+                     validation_seeds=list(VALIDATION_SEEDS), validation_interval=VALIDATION_INTERVAL,
                      setting=json.loads(args.setting.read_text()), seed_schema='marl_seed_v1',
                      probe=[args.probe_count, args.probe_interval, args.probe_timeout],
                      report_conn_timeout=args.report_conn_timeout, experiment_id=experiment_id, **extra)
 
     def validate(count):
         nonlocal best_score
-        _, rows = collect(list(enumerate(range(1011,1019))), 'validation', args.output/f'checkpoint_{count:06d}')
-        score = sum(r['mean_h_after'] for r in rows)/8
+        _, rows = collect(list(enumerate(VALIDATION_SEEDS)), 'validation', args.output/f'checkpoint_{count:06d}')
+        score = sum(r['mean_h_after'] for r in rows)/len(VALIDATION_SEEDS)
         append_csv(args.output/'validation.csv', dict(episodes=count, steps=count*4, model_seed=learner.seed,
                    score=score, wall_elapsed_seconds=time.monotonic()-launch))
         # Save every evaluated checkpoint, including untrained, for audit.
@@ -336,13 +342,13 @@ def main(argv=None):
         save(f'checkpoint_{count:06d}.pt', count, best_score)
 
     if args.mode in ('validation', 'test'):
-        seeds = range(1011,1019) if args.mode == 'validation' else range(1001,1011)
+        seeds = VALIDATION_SEEDS if args.mode == 'validation' else range(1001,1011)
         collect(list(enumerate(seeds)), args.mode, args.output)
     elif args.mode == 'smoke':
         collect([(e, environment_seed(learner.seed,e))
                  for e in range(args.episode_start, args.episode_start+args.episodes)], 'smoke', args.output)
     else:
-        interval = 64 if args.terminals < 80 else 128
+        interval = VALIDATION_INTERVAL
         if not args.resume: validate(0)
         elif args.recover_run and checkpoint.get('pending_phase') == 'validation': validate(start_episode)
         for begin in range(start_episode, args.episodes, config.rollout_episodes):

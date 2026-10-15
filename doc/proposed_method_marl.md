@@ -1528,3 +1528,35 @@ IEEE Xploreの「Cite This」から著者を含む公式書誌を取得して補
 - seed384・更新2回時点の旧モデル、行動ログ、ソース、実行バイナリ・共有ライブラリを
   `artifacts/marl-before-internal-report-20261015/replay-state.tar.gz`に退避した。
   旧バイナリの再現実行には同梱ライブラリを使い、現在のbuild/libと混用しない。
+
+## 2026-10-16 確定：80端末・8本更新・段階学習
+
+- 新規初期化。動的容量、モデルseed1、8並列、8エピソードでPPO更新。
+- `configs/marl/ppo_rollout8.json`でrollout_episodes=8を指定。他のPPO設定は維持。
+- validationは初期と累計64本ごと。seed1011〜1015の固定5本、確率的選択を維持。
+  validationスコアは5本のmean_h_afterの平均。test seed1001〜1010は従来どおり分離。
+- 実行を累計64→192→320→448→512で区切る。各段階はlatest.ptからresumeする。
+  再開時の初期validationは省略。段階の途中も累計64の倍数で評価する。
+- 初回は学習64+評価10=74本。以後追加128本の段階は学習128+評価10=138本ずつ。
+  最後は学習64+評価5=69本。全期間は学習512+評価45=557本。
+- 評価seedと間隔もmanifest/checkpoint/experiment identityへ保存し、異なる規約の
+  checkpointをそのまま再開しない。旧16本学習の軌跡は混ぜない。
+- 詳細計測のない `build/wifi-band-cache-v1/run-master` を使用。
+  独立バイナリと共有ライブラリを維持し、学習中にcleanや再ビルドをしない。
+- 収集中の障害はrecover-runで更新前モデルと完了済み軌跡を再利用する。
+  未完了シミュレーションはエピソード先頭から再実行。再開先は新規ディレクトリ。
+
+初回コマンド:
+```
+python3 scripts/run_marl.py --mode train --episodes 64 --terminals 80 --model-seed 1 \
+  --workers 8 --parallel-validated --config configs/marl/ppo_rollout8.json \
+  --capacity configs/capacity/random_walk_all.json --episode-timeout 14400 \
+  --report-conn-timeout 0.2 --binary build/wifi-band-cache-v1/run-master \
+  --output results/marl/train80_dynamic_m1_b8_e64
+```
+64本完了後は上記のepisodesを192へ、outputを新規e192へ変更し、
+`--resume --checkpoint results/marl/train80_dynamic_m1_b8_e64/latest.pt`を追加する。
+以後も直前段階のlatest.ptを指定し、episodesは追加本数でなく累計とする。
+
+検証: unittestのmock環境で64→192の段階再開、8本更新、validationが更新回数
+0/8/16/24（累計0/64/128/192）で各5seedとなることを検査。
