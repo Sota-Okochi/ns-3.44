@@ -41,6 +41,23 @@ class ResearchWallProfiler
         Clock::time_point m_start;
     };
 
+    // Synchronous call-tree context only: never propagated to scheduled events.
+    // Restore nested contexts to keep all subphase samples on the same receptions.
+    class WifiRxSampleContext
+    {
+      public:
+        explicit WifiRxSampleContext(bool selected) : m_previous(m_wifiRxSampleActive)
+        {
+            m_wifiRxSampleActive = selected;
+        }
+        ~WifiRxSampleContext() { m_wifiRxSampleActive = m_previous; }
+        WifiRxSampleContext(const WifiRxSampleContext&) = delete;
+        WifiRxSampleContext& operator=(const WifiRxSampleContext&) = delete;
+      private:
+        bool m_previous;
+    };
+    static bool WifiRxSampleActive() { return m_wifiRxSampleActive; }
+
     static ResearchWallProfiler& Get();
     // directory must be a new run directory, protecting previous measurements.
     void Start(const std::string& directory, bool detailed, uint64_t wifiSampleEvery = 1024);
@@ -64,6 +81,7 @@ class ResearchWallProfiler
     static double ElapsedMs(Clock::time_point start);
 
   private:
+    inline static bool m_wifiRxSampleActive{false};
     bool m_enabled{false};
     bool m_detailed{false};
     bool m_hasBoundary{false};

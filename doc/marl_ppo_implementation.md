@@ -229,3 +229,30 @@ python3 scripts/run_marl.py --mode train --episodes 16 \
 模擬試験では失敗後の投入停止・実行中成功データの保存・条件不一致時の拒否、
 初期/最終validationの復旧、学習収集中の復旧後の更新結果が中断なしの更新結果と
 Actor/Criticとも完全一致することを検査する。実ns-3の確認状況は別途追記する。
+
+### 2026-10-15：報告経路の変更（internal_callback_v1）
+
+seed384 cycle5はRTT測定10/10成功・106.1879262 msだったが、報告TCP接続が
+45.0037秒から48秒の期限までに成立せずqueued=0/48で欠測となった。
+根本のTCP接続失敗原因を特定した修正ではなく、合意したモデル仮定の変更である。
+`FinishMarlReport`から`ReceiveMarlReport`へ内部通知し、周期・AP・報告期限を検証して
+既存の`SetMarlRtt`へ渡す。報告TCPは使わない。非MARL方式は変更しない。
+
+実行コマンド（学習は未開始）:
+```
+python3 scripts/build_marl_isolated.py --output build/marl-internal-report-v1 --jobs 2
+python3 -m unittest discover -s tests -p 'test_marl*.py'
+```
+旧状態の保存先: `artifacts/marl-before-internal-report-20261015/`。
+次の検証: 新バイナリでseed384を含む計測通知確認、その後に計算時間のプロファイリング。
+長時間の80端末検証と新規学習は、この修正のビルド確認と分けて実施する。
+
+修正後の確認結果:
+- 独立ビルド成功: `build/marl-internal-report-v1/master`（通常buildの実行物は未上書き）。
+- 既存Pythonテスト13件成功。`git diff --check`成功。
+- 3端末・動的容量・seed693・5周期・4遷移のsmoke成功（学習更新なし）。
+  全15件のAP通知が内部経路で期限内に受理され、報告TCP接続ログは0件。
+  保存先: `results/marl/verify_internal_report_3_20261015`。
+  元実行は `/tmp/marl-internal-report-smoke3-20261015-allowed`、保存先はそのコピー。
+- sandbox内の最初のsmokeはローカルsocket権限不足で失敗。許可後の再実行は成功。
+- 80端末seed384の長時間再検証、プロファイリング、8本単位の学習は未実行。

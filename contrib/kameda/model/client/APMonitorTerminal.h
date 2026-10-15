@@ -10,6 +10,7 @@
 #include "ns3/packet.h"
 
 #include <map>
+#include <functional>
 
 namespace ns3 {
 
@@ -31,6 +32,7 @@ public:
      */
     void StartContinuousMonitoring();
     void EnableMarl(uint32_t count, double interval, double timeout, double reportConnTimeout);
+    void SetMarlReportCallback(std::function<void(const std::string&)> callback);
     double m_marlReportConnTimeout = 0.2;
 
 
@@ -62,6 +64,7 @@ private:
     void MarlDeadline(uint32_t cycle, uint16_t seq);
     void FinishMarlReport();
     void SendMarlReportBytes(Ptr<Socket> socket, uint32_t available);
+    std::function<void(const std::string&)> m_marlReportCallback;
     bool m_marl = false;
     bool m_marlFinished = false;
     bool m_marlMeasurementError = false;

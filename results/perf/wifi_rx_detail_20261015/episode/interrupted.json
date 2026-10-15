@@ -1,0 +1,6 @@
+{
+  "status": "collection_incomplete",
+  "completed_episodes": 0,
+  "phase": "smoke",
+  "error": "Collection paused; successful episodes preserved; no PPO update. (45, 384): Episode quarantined: /home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/perf/wifi_rx_detail_20261015/episode/smoke_000045_seed384; {'returncode': 143, 'error': None, 'seconds': 175.15077963500153, 'terminal': False, 'transitions': 0, 'max_rss_kib': 420312, 'valid': False}"
+}

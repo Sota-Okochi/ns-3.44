@@ -10,6 +10,7 @@
  */
 
 #include "phy-entity.h"
+#include "ns3/research-wall-profiler.h"
 
 #include "frame-capture-model.h"
 #include "interference-helper.h"
@@ -398,7 +399,11 @@ PhyEntity::StartReceivePreamble(Ptr<const WifiPpdu> ppdu,
         });
     NS_LOG_FUNCTION(this << ppdu << it->second);
 
-    auto event = DoGetEvent(ppdu, rxPowersW);
+    auto event = [&]() {
+        ResearchWallProfiler::Scope timer("WifiRx.sampled.do_get_event", true,
+                                         ResearchWallProfiler::WifiRxSampleActive());
+        return DoGetEvent(ppdu, rxPowersW);
+    }();
     if (!event)
     {
         // PPDU should be simply considered as interference (once it has been accounted for in
@@ -406,6 +411,8 @@ PhyEntity::StartReceivePreamble(Ptr<const WifiPpdu> ppdu,
         return;
     }
 
+    ResearchWallProfiler::Scope stateTimer("WifiRx.sampled.phy_state_dispatch", true,
+                                           ResearchWallProfiler::WifiRxSampleActive());
     Time endRx = Simulator::Now() + rxDuration;
     if (ppdu->IsTruncatedTx())
     {
@@ -507,6 +514,8 @@ PhyEntity::StartReceivePreamble(Ptr<const WifiPpdu> ppdu,
 void
 PhyEntity::DropPreambleEvent(Ptr<const WifiPpdu> ppdu, WifiPhyRxfailureReason reason, Time endRx)
 {
+    ResearchWallProfiler::Scope timer("WifiRx.sampled.DropPreambleEvent", true,
+                                     ResearchWallProfiler::WifiRxSampleActive());
     NS_LOG_FUNCTION(this << ppdu << reason << endRx);
     m_wifiPhy->NotifyRxPpduDrop(ppdu, reason);
     auto it = m_wifiPhy->m_currentPreambleEvents.find({ppdu->GetUid(), ppdu->GetPreamble()});
@@ -881,6 +890,8 @@ PhyEntity::GetCurrentPreambleEvents() const
 void
 PhyEntity::AddPreambleEvent(Ptr<Event> event)
 {
+    ResearchWallProfiler::Scope timer("WifiRx.sampled.AddPreambleEvent", true,
+                                     ResearchWallProfiler::WifiRxSampleActive());
     NS_LOG_FUNCTION(this << *event);
     Ptr<const WifiPpdu> ppdu = event->GetPpdu();
     m_wifiPhy->m_currentPreambleEvents.insert({{ppdu->GetUid(), ppdu->GetPreamble()}, event});

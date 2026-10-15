@@ -663,6 +663,11 @@ void APMonitorTerminal::MarlDeadline(uint32_t cycle, uint16_t seq)
     FinishMarlReport();
 }
 
+void APMonitorTerminal::SetMarlReportCallback(std::function<void(const std::string&)> callback)
+{
+    m_marlReportCallback = callback;
+}
+
 void APMonitorTerminal::FinishMarlReport()
 {
     if (m_marlFinished || !m_isMonitoring || m_marlAttempts != m_samplesPerReport ||
@@ -678,17 +683,10 @@ void APMonitorTerminal::FinishMarlReport()
            << ' ' << m_marlFailures << ' ' << m_marlLate << '\n';
     m_marlReport = report.str();
     std::cout << "[MARL monitor] " << m_marlReport;
-    std::cout << "[MARL report connect] cycle=" << m_marlCycle << " ap=" << m_apId
-              << " time=" << Simulator::Now().GetSeconds()
-              << " conn_timeout=" << m_marlReportConnTimeout << std::endl;
-    m_socket = CreateTcpSocket();
-    // Only the control report socket changes. Probe/report deadlines remain unchanged.
-    m_socket->SetAttribute("ConnTimeout", TimeValue(Seconds(m_marlReportConnTimeout)));
-    m_socket->SetConnectCallback(MakeCallback(&APMonitorTerminal::OnConnectionSucceeded, this),
-                                 MakeCallback(&APMonitorTerminal::OnConnectionFailed, this));
-    m_socket->SetSendCallback(MakeCallback(&APMonitorTerminal::SendMarlReportBytes, this));
-    if (m_socket->Connect(InetSocketAddress(m_serverAddress, m_serverPort)) < 0)
-        OnConnectionFailed(m_socket);
+    // Research assumption: completed measurements reach the controller reliably,
+    // at the current simulation time. No TCP report traffic or fallback values.
+    NS_ABORT_MSG_IF(!m_marlReportCallback, "MARL internal report callback is not configured");
+    m_marlReportCallback(m_marlReport);
 }
 
 void APMonitorTerminal::SendMarlReportBytes(Ptr<Socket> socket, uint32_t available)

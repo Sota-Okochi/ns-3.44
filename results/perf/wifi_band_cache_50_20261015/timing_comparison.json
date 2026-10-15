@@ -1,0 +1,342 @@
+{
+  "FlowMonitor::CheckForLostPackets": {
+    "before_seconds": 0.8041360919999999,
+    "after_seconds": 0.791671222,
+    "reduction_percent": 1.5500945827463197
+  },
+  "FlowMonitor::ReportDrop": {
+    "before_seconds": 0.0024103469999999998,
+    "after_seconds": 0.0025128430000000003,
+    "reduction_percent": -4.252333792603328
+  },
+  "FlowMonitor::ReportFirstTx": {
+    "before_seconds": 1.3351946780000001,
+    "after_seconds": 1.335657611,
+    "reduction_percent": -0.0346715731891112
+  },
+  "FlowMonitor::ReportLastRx": {
+    "before_seconds": 3.248470059,
+    "after_seconds": 3.2825556639999998,
+    "reduction_percent": -1.0492817966896204
+  },
+  "FlowMonitor::ResetAllStats": {
+    "before_seconds": 0.000588749,
+    "after_seconds": 0.000579592,
+    "reduction_percent": 1.5553317288012347
+  },
+  "FlowMonitorHelper::Install": {
+    "before_seconds": 0.002168311,
+    "after_seconds": 0.0020758169999999998,
+    "reduction_percent": 4.2657164954658375
+  },
+  "IdealWifiManager::DoGetDataTxVector": {
+    "before_seconds": 1.183913446,
+    "after_seconds": 1.184887352,
+    "reduction_percent": -0.08226158789652131
+  },
+  "InterferenceHelper::CalculatePayloadSnrPer": {
+    "before_seconds": 45.043581526000004,
+    "after_seconds": 44.327849040000004,
+    "reduction_percent": 1.5889777450020621
+  },
+  "InterferenceHelper::CalculatePhyHeaderSnrPer": {
+    "before_seconds": 58.270233246000004,
+    "after_seconds": 57.377432375,
+    "reduction_percent": 1.5321731547407056
+  },
+  "MultiModelSpectrumChannel::StartRx": {
+    "before_seconds": 1570.052357691,
+    "after_seconds": 1407.8597427920001,
+    "reduction_percent": 10.330395295703939
+  },
+  "MultiModelSpectrumChannel::StartTx": {
+    "before_seconds": 167.860679187,
+    "after_seconds": 166.421684822,
+    "reduction_percent": 0.8572551785024758
+  },
+  "NetSim::ApplyHandoverBatch": {
+    "before_seconds": 0.017514253,
+    "after_seconds": 0.016080793,
+    "reduction_percent": 8.18453404778383
+  },
+  "NetSim::BuildTerminalIpMap": {
+    "before_seconds": 2.61e-06,
+    "after_seconds": 2.5e-06,
+    "reduction_percent": 4.214559386973172
+  },
+  "NetSim::CollectTerminalThroughput": {
+    "before_seconds": 0.09075543999999999,
+    "after_seconds": 0.084823232,
+    "reduction_percent": 6.536476491106202
+  },
+  "NetSim::Configure": {
+    "before_seconds": 1.0201e-05,
+    "after_seconds": 8.505e-06,
+    "reduction_percent": 16.625820997941368
+  },
+  "NetSim::ConfigureCycleParameters": {
+    "before_seconds": 1.573e-06,
+    "after_seconds": 1.01e-06,
+    "reduction_percent": 35.7914812460267
+  },
+  "NetSim::ConfigureDataLinkLayer": {
+    "before_seconds": 0.026428137,
+    "after_seconds": 0.023462754,
+    "reduction_percent": 11.220552549731378
+  },
+  "NetSim::ConfigureNetworkLayer": {
+    "before_seconds": 0.007057687,
+    "after_seconds": 0.006264564,
+    "reduction_percent": 11.23771853299813
+  },
+  "NetSim::ConfigureNrForAp0": {
+    "before_seconds": 0.003004378,
+    "after_seconds": 0.002902881,
+    "reduction_percent": 3.3783032627718574
+  },
+  "NetSim::ConfigureNrIpAfterNetwork": {
+    "before_seconds": 0.000649524,
+    "after_seconds": 0.000715461,
+    "reduction_percent": -10.151587932085661
+  },
+  "NetSim::ConfigureWifiForAP1": {
+    "before_seconds": 0.014822225,
+    "after_seconds": 0.012924465,
+    "reduction_percent": 12.803475861417567
+  },
+  "NetSim::ConfigureWifiForAP2": {
+    "before_seconds": 0.008003621,
+    "after_seconds": 0.007095438,
+    "reduction_percent": 11.347151495554334
+  },
+  "NetSim::CreateNetworkTopology": {
+    "before_seconds": 7.6893e-05,
+    "after_seconds": 6.4853e-05,
+    "reduction_percent": 15.6581223258294
+  },
+  "NetSim::HandoverRequest": {
+    "before_seconds": 0.017535069,
+    "after_seconds": 0.016098721,
+    "reduction_percent": 8.19128798409633
+  },
+  "NetSim::Init": {
+    "before_seconds": 0.004879115,
+    "after_seconds": 0.004512171000000001,
+    "reduction_percent": 7.520708161213648
+  },
+  "NetSim::NrToWifiHandover": {
+    "before_seconds": 0.005662436,
+    "after_seconds": 0.004974495,
+    "reduction_percent": 12.14920574819742
+  },
+  "NetSim::RebindTerminalApps": {
+    "before_seconds": 0.016782622,
+    "after_seconds": 0.015384622,
+    "reduction_percent": 8.33004520986053
+  },
+  "NetSim::ResetTerminalFlowStats": {
+    "before_seconds": 0.001531548,
+    "after_seconds": 0.000829522,
+    "reduction_percent": 45.83767534546747
+  },
+  "NetSim::RunSim": {
+    "before_seconds": 2805.202520507,
+    "after_seconds": 2631.150091812,
+    "reduction_percent": 6.204629698662271
+  },
+  "NetSim::SetAppLayer": {
+    "before_seconds": 0.00661615,
+    "after_seconds": 0.0061363500000000005,
+    "reduction_percent": 7.2519516637319255
+  },
+  "NetSim::WifiToNrHandover": {
+    "before_seconds": 0.004931025,
+    "after_seconds": 0.00501127,
+    "reduction_percent": -1.6273492833639986
+  },
+  "NetSim::WifiToWifiHandover": {
+    "before_seconds": 0.006594672,
+    "after_seconds": 0.005751163,
+    "reduction_percent": 12.790765029708831
+  },
+  "NetSim::constructor": {
+    "before_seconds": 2.8668e-05,
+    "after_seconds": 2.3293999999999998e-05,
+    "reduction_percent": 18.745639737686627
+  },
+  "NetSim::destruction": {
+    "before_seconds": 0.062461958000000005,
+    "after_seconds": 0.054399096,
+    "reduction_percent": 12.908436203680973
+  },
+  "NrAmc::CalculateTbSize": {
+    "before_seconds": 0.408168311,
+    "after_seconds": 0.41088714,
+    "reduction_percent": -0.666104870644889
+  },
+  "NrMacSchedulerOfdma::AssignDLRBG": {
+    "before_seconds": 2.03818635,
+    "after_seconds": 2.0325140839999998,
+    "reduction_percent": 0.2782996755915066
+  },
+  "NrMacSchedulerOfdma::AssignULRBG": {
+    "before_seconds": 0.232542016,
+    "after_seconds": 0.232664612,
+    "reduction_percent": -0.052719935136368044
+  },
+  "Simulator::Destroy": {
+    "before_seconds": 0.11473064200000001,
+    "after_seconds": 0.106847928,
+    "reduction_percent": 6.870626593373384
+  },
+  "Simulator::Run": {
+    "before_seconds": 2805.044055719,
+    "after_seconds": 2631.003930716,
+    "reduction_percent": 6.20454158814947
+  },
+  "SpectrumWifiPhy::StartRx": {
+    "before_seconds": 984.982251801,
+    "after_seconds": 833.965361698,
+    "reduction_percent": 15.331940228046921
+  },
+  "ThreeGppChannelModel::GenerateChannelParameters": {
+    "before_seconds": 0.054240909999999996,
+    "after_seconds": 0.050028407999999996,
+    "reduction_percent": 7.7662819447535085
+  },
+  "ThreeGppChannelModel::GetChannel": {
+    "before_seconds": 31.970087532,
+    "after_seconds": 32.161597744,
+    "reduction_percent": -0.5990293639587561
+  },
+  "ThreeGppChannelModel::GetNewChannel": {
+    "before_seconds": 0.30574075900000003,
+    "after_seconds": 0.286711868,
+    "reduction_percent": 6.2238646434445615
+  },
+  "ThreeGppSpectrumPropagationLossModel::CalcBeamformingGain": {
+    "before_seconds": 402.786694141,
+    "after_seconds": 394.637351804,
+    "reduction_percent": 2.0232402051859335
+  },
+  "ThreeGppSpectrumPropagationLossModel::DoCalcRxPowerSpectralDensity": {
+    "before_seconds": 460.86774802499997,
+    "after_seconds": 453.19537293499997,
+    "reduction_percent": 1.6647671968540119
+  },
+  "ThreeGppSpectrumPropagationLossModel::GenSpectrumChannelMatrix": {
+    "before_seconds": 186.630774959,
+    "after_seconds": 183.430010772,
+    "reduction_percent": 1.715024860022772
+  },
+  "ThreeGppSpectrumPropagationLossModel::GetLongTerm": {
+    "before_seconds": 17.968329627,
+    "after_seconds": 18.503223562,
+    "reduction_percent": -2.976870672476113
+  },
+  "WifiRx.sampled.AddPreambleEvent": {
+    "before_seconds": 0.002241571,
+    "after_seconds": 0.002299693,
+    "reduction_percent": -2.5929136306634883
+  },
+  "WifiRx.sampled.AppendEvent": {
+    "before_seconds": 2.39147,
+    "after_seconds": 2.1821706450000002,
+    "reduction_percent": 8.751912212990327
+  },
+  "WifiRx.sampled.DropPreambleEvent": {
+    "before_seconds": 0.000182807,
+    "after_seconds": 0.000167978,
+    "reduction_percent": 8.111833791922631
+  },
+  "WifiRx.sampled.GetEnergyDuration": {
+    "before_seconds": 1.9475e-05,
+    "after_seconds": 2.3201e-05,
+    "reduction_percent": -19.132220795892177
+  },
+  "WifiRx.sampled.append.add_power": {
+    "before_seconds": 0.064046895,
+    "after_seconds": 0.063632356,
+    "reduction_percent": 0.6472429303559609
+  },
+  "WifiRx.sampled.append.empty_reference": {
+    "before_seconds": 0.057428269,
+    "after_seconds": 0.058310255,
+    "reduction_percent": -1.5358046052197765
+  },
+  "WifiRx.sampled.append.erase": {
+    "before_seconds": 0.155121122,
+    "after_seconds": 0.155849614,
+    "reduction_percent": -0.4696278563534354
+  },
+  "WifiRx.sampled.append.insert": {
+    "before_seconds": 0.17141270700000003,
+    "after_seconds": 0.169170085,
+    "reduction_percent": 1.3083172416150146
+  },
+  "WifiRx.sampled.append.time_bounds": {
+    "before_seconds": 0.563366618,
+    "after_seconds": 0.563066742,
+    "reduction_percent": 0.05322928097241861
+  },
+  "WifiRx.sampled.band_power": {
+    "before_seconds": 0.24945962900000002,
+    "after_seconds": 0.245821993,
+    "reduction_percent": 1.4582062895636019
+  },
+  "WifiRx.sampled.do_get_event": {
+    "before_seconds": 2.438680295,
+    "after_seconds": 2.227995706,
+    "reduction_percent": 8.639286971398601
+  },
+  "WifiRx.sampled.he_ru_bands": {
+    "before_seconds": 0.7048849279999999,
+    "after_seconds": 0.693035565,
+    "reduction_percent": 1.6810350922980648
+  },
+  "WifiRx.sampled.interference_event_create": {
+    "before_seconds": 0.0015370969999999999,
+    "after_seconds": 0.001661076,
+    "reduction_percent": -8.065788951510555
+  },
+  "WifiRx.sampled.layout_and_storage": {
+    "before_seconds": 0.025515332,
+    "after_seconds": 0.025966185,
+    "reduction_percent": -1.7669885698528147
+  },
+  "WifiRx.sampled.map_insert": {
+    "before_seconds": 0.073545316,
+    "after_seconds": 0.073029636,
+    "reduction_percent": 0.7011731379330867
+  },
+  "WifiRx.sampled.phy_state_dispatch": {
+    "before_seconds": 0.024231197000000003,
+    "after_seconds": 0.027415054,
+    "reduction_percent": -13.139495337353734
+  },
+  "WifiRx.sampled.post_power": {
+    "before_seconds": 2.506626827,
+    "after_seconds": 2.299054476,
+    "reduction_percent": 8.280943488043187
+  },
+  "WifiRx.sampled.ppdu_prepare": {
+    "before_seconds": 0.006167712,
+    "after_seconds": 0.006118187,
+    "reduction_percent": 0.802971993504235
+  },
+  "WifiRx.sampled.regular_bands": {
+    "before_seconds": 0.076118155,
+    "after_seconds": 0.071747102,
+    "reduction_percent": 5.742457893258202
+  },
+  "WifiRx.sampled.start_preamble": {
+    "before_seconds": 2.481717441,
+    "after_seconds": 2.2742628490000003,
+    "reduction_percent": 8.359315551910953
+  },
+  "main::lifetime_before_report": {
+    "before_seconds": 2805.269967375,
+    "after_seconds": 2631.209129395,
+    "reduction_percent": 6.204780288681988
+  }
+}

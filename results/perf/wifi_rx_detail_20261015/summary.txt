@@ -1,0 +1,27 @@
+Snapshot: run_start, cycle=0
+Partial run: active outer scopes (including Simulator::Run) are not counted yet.
+Cumulative inclusive time: nested rows overlap; DO NOT sum them.
+WifiRx.sampled.* rows cover sampled receptions ONLY; do not compare their totals to full-run totals.
+     total_s        calls      mean_ms       max_ms  function
+       0.038            1    38.085205    38.085205  NetSim::ConfigureDataLinkLayer
+       0.022            1    21.522835    21.522835  NetSim::ConfigureWifiForAP1
+       0.012            1    11.643916    11.643916  NetSim::ConfigureWifiForAP2
+       0.010            1     9.843286     9.843286  NetSim::SetAppLayer
+       0.010            1     9.647556     9.647556  NetSim::ConfigureNetworkLayer
+       0.005            1     4.919110     4.919110  NetSim::Init
+       0.005            1     4.543041     4.543041  FlowMonitorHelper::Install
+       0.004            1     4.230549     4.230549  NetSim::ConfigureNrForAp0
+       0.001            1     1.032197     1.032197  NetSim::ConfigureNrIpAfterNetwork
+       0.000            1     0.076833     0.076833  NetSim::CreateNetworkTopology
+       0.000            1     0.022762     0.022762  NetSim::constructor
+       0.000            1     0.009007     0.009007  NetSim::Configure
+       0.000            1     0.001199     0.001199  NetSim::ConfigureCycleParameters
+       0.000            1     0.001030     0.001030  NetSim::BuildTerminalIpMap
+
+Boundary intervals (first interval includes warmup; final interval is the tail):
+       label cycle      sim_s  delta_sim_s       wall_s         events
+   run_start     0      0.000        0.000        0.000              0
+
+Device counters (AP IDs are 1-based; cumulative, not packet counts):
+Per-node/NetDevice details: devices.csv. Selected means application's chosen AP, not PHY power state.
+

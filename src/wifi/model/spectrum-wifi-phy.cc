@@ -468,6 +468,7 @@ SpectrumWifiPhy::StartRx(Ptr<SpectrumSignalParameters> rxParams,
     NS_LOG_FUNCTION(this << rxParams << interface);
     auto& profiler = ResearchWallProfiler::Get();
     const bool sample = profiler.SampleWifiRx();
+    ResearchWallProfiler::WifiRxSampleContext sampleContext(sample);
     auto countRx = [&](ResearchWallProfiler::Metric metric) {
         if (profiler.Detailed() && GetDevice() && GetDevice()->GetNode())
         {
@@ -504,8 +505,11 @@ SpectrumWifiPhy::StartRx(Ptr<SpectrumSignalParameters> rxParams,
     Watt_u totalRxPower{0.0};
     const auto rxInterface = interface ? interface
         : Ptr<const WifiSpectrumPhyInterface>(m_currentSpectrumPhyInterface);
-    RxPowerWattPerChannelBand rxPowers(
-        rxInterface->GetRxPowerLayout(GetStandard() >= WIFI_STANDARD_80211ax));
+    auto rxPowers = [&]() {
+        ResearchWallProfiler::Scope timer("WifiRx.sampled.layout_and_storage", true, sample);
+        return RxPowerWattPerChannelBand(
+            rxInterface->GetRxPowerLayout(GetStandard() >= WIFI_STANDARD_80211ax));
+    }();
     std::size_t inputBandIndex = 0;
 
     const auto rxGainRatio = DbToRatio(GetRxGain());
@@ -625,7 +629,10 @@ SpectrumWifiPhy::StartRx(Ptr<SpectrumSignalParameters> rxParams,
     // Do no further processing if signal is too weak
     // Current implementation assumes constant RX power over the PPDU duration
     // Compare received TX power per MHz to normalized RX sensitivity
-    const auto ppdu = GetRxPpduFromTxPpdu(wifiRxParams->ppdu);
+    const auto ppdu = [&]() {
+        ResearchWallProfiler::Scope timer("WifiRx.sampled.ppdu_prepare", true, sample);
+        return GetRxPpduFromTxPpdu(wifiRxParams->ppdu);
+    }();
     if (totalRxPower < DbmToW(GetRxSensitivity()) * (ppdu->GetTxChannelWidth() / MHz_u{20}))
     {
         countRx(ResearchWallProfiler::Metric::WIFI_WEAK);

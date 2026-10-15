@@ -84,6 +84,7 @@ class RxPowerWattPerChannelBand
     auto end() const { return m_values.end(); }
     auto cbegin() const { return m_values.cbegin(); }
     auto cend() const { return m_values.cend(); }
+    const std::shared_ptr<const RxPowerBandLayout>& GetLayout() const { return m_layout; }
     auto size() const { return m_values.size(); }
     bool empty() const { return m_values.empty(); }
     void clear() { m_values.clear(); m_layout.reset(); }

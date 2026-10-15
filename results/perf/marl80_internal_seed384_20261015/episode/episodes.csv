@@ -1,0 +1,2 @@
+phase,episode_id,environment_seed,model_seed,policy_version,return_sum,mean_h_after,mean_h_all,initial_h,source_directory,seconds,max_rss_kib,reused,wall_elapsed_seconds
+smoke,45,384,1,0,0.8139450029018871,0.20348625072547177,0.22696231221913493,0.3208665581937874,/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/perf/marl80_internal_seed384_20261015/episode/smoke_000045_seed384,6070.309654897999,1191548,False,6070.317288381

@@ -1,0 +1,7 @@
+snapshot,cycle_id,function,call_count,total_wall_ms,mean_wall_ms,max_wall_ms
+final,0,WifiRx.sampled.append.time_bounds,4498894,563.366618,0.000125,0.190813
+final,0,WifiRx.sampled.append.band_find,4498894,249.160992,0.000055,0.293731
+final,0,WifiRx.sampled.append.insert,4498894,171.412707,0.000038,0.311688
+final,0,WifiRx.sampled.append.erase,4401166,155.121122,0.000035,0.211171
+final,0,WifiRx.sampled.append.add_power,4498894,64.046895,0.000014,0.132438
+final,0,WifiRx.sampled.append.empty_reference,4498894,57.428269,0.000013,0.146506

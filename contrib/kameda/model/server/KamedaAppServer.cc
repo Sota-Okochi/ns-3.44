@@ -118,47 +118,36 @@ void KamedaAppServer::StopApplication(){
 
 }
 
+void KamedaAppServer::ReceiveMarlReport(const std::string& report)
+{
+    NS_ABORT_MSG_IF(m_input.assignmentMethod != "marl_ppo", "Internal report is MARL-only");
+    std::istringstream line(report);
+    std::string tag, status, extra;
+    uint32_t cycle, ap, sent, replies, failures, late;
+    double rtt;
+    if (!(line >> tag >> cycle >> ap >> status >> rtt >> sent >> replies >> failures >> late) ||
+        (line >> extra) || tag != "MARL_RTT_V1" || ap > 2 || cycle != m_cycleIndex+1)
+    {
+        std::cout << "[MARL report rejected] transport=internal_callback_v1 time="
+                  << Simulator::Now().GetSeconds() << " frame=" << report << std::endl;
+        return;
+    }
+    const Time deadline = m_cycleStartOffset + m_cycleDuration*(cycle-1) + m_monitorStopOffset;
+    std::cout << "[MARL report received] transport=internal_callback_v1 cycle=" << cycle
+              << " ap=" << ap << " time=" << Simulator::Now().GetSeconds()
+              << " deadline=" << deadline.GetSeconds()
+              << " accepted=" << (Simulator::Now() < deadline) << std::endl;
+    if (Simulator::Now() < deadline)
+        apselect->SetMarlRtt(cycle, ap, status, rtt, sent, replies, failures, late);
+}
+
 // クライアントからのRTTデータ受信
 void KamedaAppServer::HandleRead(Ptr<Socket> socket){
     NS_LOG_FUNCTION(this);
 
-    if (m_input.assignmentMethod == "marl_ppo")
-    {
-        // TCP is a byte stream: don't treat a partial report as a complete observation.
-        while (auto packet = socket->Recv())
-        {
-            if (packet->GetSize() == 0) break;
-            std::string bytes(packet->GetSize(), '\0');
-            packet->CopyData(reinterpret_cast<uint8_t*>(&bytes[0]), bytes.size());
-            auto& buffer = m_marlBuffers[socket];
-            buffer += bytes;
-            NS_ABORT_MSG_IF(buffer.size() > 4096, "Oversized MARL monitor report");
-            size_t pos;
-            while ((pos = buffer.find('\n')) != std::string::npos)
-            {
-                std::istringstream line(buffer.substr(0, pos));
-                buffer.erase(0, pos+1);
-                std::string tag, status, extra;
-                uint32_t cycle, ap, sent, replies, failures, late;
-                double rtt;
-                if (!(line >> tag >> cycle >> ap >> status >> rtt >> sent >> replies >> failures >> late) ||
-                    (line >> extra) || tag != "MARL_RTT_V1" || ap > 2 || cycle != m_cycleIndex+1)
-                {
-                    std::cout << "[MARL report rejected] time=" << Simulator::Now().GetSeconds()
-                              << " expected_cycle=" << m_cycleIndex+1 << " frame=" << line.str() << std::endl;
-                    continue;
-                }
-                const Time deadline = m_cycleStartOffset + m_cycleDuration*(cycle-1) + m_monitorStopOffset;
-                std::cout << "[MARL report received] cycle=" << cycle << " ap=" << ap
-                          << " time=" << Simulator::Now().GetSeconds()
-                          << " deadline=" << deadline.GetSeconds()
-                          << " accepted=" << (Simulator::Now() < deadline) << std::endl;
-                if (Simulator::Now() < deadline)
-                    apselect->SetMarlRtt(cycle, ap, status, rtt, sent, replies, failures, late);
-            }
-        }
-        return;
-    }
+    // MARL measurements use only the reliable internal notification path.
+    // Do not accept TCP reports as a second, potentially stale source.
+    if (m_input.assignmentMethod == "marl_ppo") return;
     char buf[1024] = {'\0'};
     Address recvFrom;
     [[maybe_unused]] int recvSize = socket->RecvFrom((uint8_t*)buf, sizeof(buf)/sizeof(char), 0, recvFrom);

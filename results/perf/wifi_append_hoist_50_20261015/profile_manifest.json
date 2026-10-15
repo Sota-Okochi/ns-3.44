@@ -1,0 +1,11 @@
+{
+  "baseline": "results/perf/wifi_rx_detail_50_20261015",
+  "purpose": "AppendEvent loop-invariant hoist A/B; no change to event or arithmetic order",
+  "binary_wrapper": "/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/build/wifi-append-hoist-v1/run-master",
+  "sample_every": 1024,
+  "environment_seed": 384,
+  "episode_id": 45,
+  "model_seed": 1,
+  "policy_version": 0,
+  "terminals": 50
+}

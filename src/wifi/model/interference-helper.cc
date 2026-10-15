@@ -188,6 +188,7 @@ InterferenceHelper::GetTypeId()
 void
 InterferenceHelper::DoDispose()
 {
+    InvalidateBandStateCache();
     NS_LOG_FUNCTION(this);
     for (auto it : m_niChanges)
     {
@@ -204,7 +205,11 @@ InterferenceHelper::Add(Ptr<const WifiPpdu> ppdu,
                         const FrequencyRange& freqRange,
                         bool isStartHePortionRxing)
 {
-    Ptr<Event> event = Create<Event>(ppdu, duration, std::move(rxPowerW));
+    Ptr<Event> event = [&]() {
+        ResearchWallProfiler::Scope timer("WifiRx.sampled.interference_event_create", true,
+                                         ResearchWallProfiler::WifiRxSampleActive());
+        return Create<Event>(ppdu, duration, std::move(rxPowerW));
+    }();
     AppendEvent(event, freqRange, isStartHePortionRxing);
     return event;
 }
@@ -240,6 +245,7 @@ InterferenceHelper::HasBand(const WifiSpectrumBandInfo& band) const
 void
 InterferenceHelper::AddBand(const WifiSpectrumBandInfo& band)
 {
+    InvalidateBandStateCache();
     NS_LOG_FUNCTION(this << band);
     NS_ASSERT(!m_niChanges.contains(band));
     auto result = m_niChanges.try_emplace(band);
@@ -251,6 +257,7 @@ InterferenceHelper::AddBand(const WifiSpectrumBandInfo& band)
 void
 InterferenceHelper::RemoveBand(const WifiSpectrumBandInfo& band)
 {
+    InvalidateBandStateCache();
     NS_LOG_FUNCTION(this << band);
     auto it = m_niChanges.find(band);
     NS_ASSERT(it != std::end(m_niChanges));
@@ -322,6 +329,8 @@ InterferenceHelper::SetNumberOfReceiveAntennas(uint8_t rx)
 Time
 InterferenceHelper::GetEnergyDuration(Watt_u energy, const WifiSpectrumBandInfo& band)
 {
+    ResearchWallProfiler::Scope timer("WifiRx.sampled.GetEnergyDuration", true,
+                                     ResearchWallProfiler::WifiRxSampleActive());
     NS_LOG_FUNCTION(this << energy << band);
     Time now = Simulator::Now();
     auto niIt = m_niChanges.find(band);
@@ -341,28 +350,91 @@ InterferenceHelper::GetEnergyDuration(Watt_u energy, const WifiSpectrumBandInfo&
 }
 
 void
+InterferenceHelper::InvalidateBandStateCache()
+{
+    m_cachedBandStates.clear();
+    m_cachedBandLayout.reset();
+}
+
+const std::vector<InterferenceHelper::BandStates::iterator>&
+InterferenceHelper::GetCachedBandStates(const RxPowerWattPerChannelBand& powers)
+{
+    const auto& layout = powers.GetLayout();
+    if (layout != m_cachedBandLayout)
+    {
+        std::vector<BandStates::iterator> states;
+        states.reserve(powers.size());
+        for (const auto& [band, power] : powers)
+        {
+            auto it = m_niChanges.find(band);
+            NS_ABORT_IF(it == m_niChanges.end());
+            states.push_back(it);
+        }
+        m_cachedBandStates = std::move(states);
+        m_cachedBandLayout = layout;
+    }
+    NS_ASSERT(m_cachedBandStates.size() == powers.size());
+    return m_cachedBandStates;
+}
+
+void
 InterferenceHelper::AppendEvent(Ptr<Event> event,
                                 const FrequencyRange& freqRange,
                                 bool isStartHePortionRxing)
 {
+    ResearchWallProfiler::Scope timer("WifiRx.sampled.AppendEvent", true,
+                                     ResearchWallProfiler::WifiRxSampleActive());
     NS_LOG_FUNCTION(this << event << freqRange << isStartHePortionRxing);
+    // These values are invariant across bands: the loop changes only noise
+    // histories. Preserve insertion order and all floating-point additions.
+    const auto startTime = event->GetStartTime();
+    const auto endTime = event->GetEndTime();
+    NS_ASSERT(endTime >= startTime);
+    const auto rxingIt = m_rxing.find(freqRange);
+    const bool rxing = rxingIt != m_rxing.end() && rxingIt->second;
+    const bool sample = ResearchWallProfiler::WifiRxSampleActive();
+    // Non-sampled receptions execute the original operations without clocks or
+    // statistics lookups. Timings below are per-band, sampled receptions only.
+    auto measure = [sample](const char* name, auto&& operation) -> decltype(auto) {
+        if (sample)
+        {
+            ResearchWallProfiler::Scope phase(name, true);
+            return operation();
+        }
+        return operation();
+    };
+    const auto& bandStates = measure("WifiRx.sampled.append.layout_lookup", [&]() -> const auto& {
+        return GetCachedBandStates(event->GetRxPowerPerBand());
+    });
+    std::size_t bandIndex = 0;
     for (const auto& [band, power] : event->GetRxPowerPerBand())
     {
-        auto niIt = m_niChanges.find(band);
+        if (sample)
+        {
+            // Reference timer overhead; never subtract blindly from short operations.
+            ResearchWallProfiler::Scope empty("WifiRx.sampled.append.empty_reference", true);
+        }
+        auto niIt = measure("WifiRx.sampled.append.band_lookup", [&] {
+            return bandStates[bandIndex++];
+        });
         NS_ABORT_IF(niIt == m_niChanges.end());
-        const auto startTime = event->GetStartTime();
-        const auto endTime = event->GetEndTime();
-        NS_ASSERT(endTime >= startTime);
         auto& changes = niIt->second.changes;
-        const auto startNext = GetNextPosition(startTime, niIt);
-        const auto endNext = GetNextPosition(endTime, niIt);
+        const auto positions = measure("WifiRx.sampled.append.time_bounds", [&] {
+            const auto start = GetNextPosition(startTime, niIt);
+            const auto end = GetNextPosition(endTime, niIt);
+            return std::make_pair(start, end);
+        });
+        const auto startNext = positions.first;
+        const auto endNext = positions.second;
         const auto previousPowerStart = std::prev(startNext)->second.GetPower();
         const auto previousPowerEnd = std::prev(endNext)->second.GetPower();
-        if (const auto rxing = (m_rxing.contains(freqRange) && m_rxing.at(freqRange)); !rxing)
+        if (!rxing)
         {
             niIt->second.firstPower = previousPowerStart;
             // Always leave the first zero power noise event in the list
-            changes.erase(std::next(changes.begin()), startNext);
+            measure("WifiRx.sampled.append.erase", [&] {
+                changes.erase(std::next(changes.begin()), startNext);
+            });
         }
         else if (isStartHePortionRxing)
         {
@@ -375,18 +447,25 @@ InterferenceHelper::AppendEvent(Ptr<Event> event,
         // excludes startNext and endNext (endTime >= startTime). Inserting the
         // start node leaves endNext valid and still upper_bound(endTime), even
         // for zero duration. Equal-time nodes retain the original insertion order.
-        auto first = changes.insert(startNext, {startTime, NiChange(previousPowerStart, event)});
-        auto last = changes.insert(endNext, {endTime, NiChange(previousPowerEnd, event)});
-        for (auto i = first; i != last; ++i)
-        {
-            i->second.AddPower(power);
-        }
+        const auto inserted = measure("WifiRx.sampled.append.insert", [&] {
+            auto first = changes.insert(startNext, {startTime, NiChange(previousPowerStart, event)});
+            auto last = changes.insert(endNext, {endTime, NiChange(previousPowerEnd, event)});
+            return std::make_pair(first, last);
+        });
+        measure("WifiRx.sampled.append.add_power", [&] {
+            for (auto i = inserted.first; i != inserted.second; ++i)
+            {
+                i->second.AddPower(power);
+            }
+        });
     }
 }
 
 void
 InterferenceHelper::UpdateEvent(Ptr<Event> event, const RxPowerWattPerChannelBand& rxPower)
 {
+    ResearchWallProfiler::Scope timer("WifiRx.sampled.UpdateEvent", true,
+                                     ResearchWallProfiler::WifiRxSampleActive());
     NS_LOG_FUNCTION(this << event);
     // This is called for UL MU events, in order to scale power as long as UL MU PPDUs arrive
     for (const auto& [band, power] : rxPower)

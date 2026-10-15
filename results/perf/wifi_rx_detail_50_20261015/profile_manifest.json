@@ -1,0 +1,17 @@
+{
+  "baseline": null,
+  "purpose": "50 terminal detailed profiling; no equivalence comparison to 80 terminals",
+  "binary_wrapper": "/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/build/wifi-rx-detail-v1/run-master",
+  "sample_every": 1024,
+  "environment_seed": 384,
+  "episode_id": 45,
+  "model_seed": 1,
+  "policy_version": 0,
+  "terminals": 50,
+  "sources": {
+    "src/core/model/research-wall-profiler.h": "43ff258f1e974eb196ce92e35300e2110bd45f56ee8926494b1b328a7002e175",
+    "src/wifi/model/spectrum-wifi-phy.cc": "9dc770d43b8cc3ea18d0e082320008296df28c61f58d9feafd5574490449e0e1",
+    "src/wifi/model/phy-entity.cc": "025c62cf9075f840e7ca1dd4d0c3b94dbf6c415dd64802ec44180ab2f9c397c0",
+    "src/wifi/model/interference-helper.cc": "d8df8297839af98f2c5e44d40cef81084af24be55f292ccdcb4927dedd161d30"
+  }
+}

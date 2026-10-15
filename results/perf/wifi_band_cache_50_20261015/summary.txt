@@ -1,0 +1,140 @@
+Snapshot: final, cycle=0
+Cumulative inclusive time: nested rows overlap; DO NOT sum them.
+WifiRx.sampled.* rows cover sampled receptions ONLY; do not compare their totals to full-run totals.
+     total_s        calls      mean_ms       max_ms  function
+    2631.209            1 2631209.129395 2631209.129395  main::lifetime_before_report
+    2631.150            1 2631150.091812 2631150.091812  NetSim::RunSim
+    2631.004            1 2631003.930716 2631003.930716  Simulator::Run
+    1407.860     81966078     0.017176     2.646679  MultiModelSpectrumChannel::StartRx
+     833.965     46241751     0.018035     1.973136  SpectrumWifiPhy::StartRx
+     453.195     35724327     0.012686     2.603371  ThreeGppSpectrumPropagationLossModel::DoCalcRxPowerSpectralDensity
+     394.637     35724327     0.011047     1.949908  ThreeGppSpectrumPropagationLossModel::CalcBeamformingGain
+     183.430     35724327     0.005135     1.015183  ThreeGppSpectrumPropagationLossModel::GenSpectrumChannelMatrix
+     166.422      1607178     0.103549     5.092456  MultiModelSpectrumChannel::StartTx
+      57.377     65408705     0.000877     1.114906  InterferenceHelper::CalculatePhyHeaderSnrPer
+      44.328     60024360     0.000738     1.242456  InterferenceHelper::CalculatePayloadSnrPer
+      32.162     35724327     0.000900     2.251656  ThreeGppChannelModel::GetChannel
+      18.503     35724327     0.000518     0.693733  ThreeGppSpectrumPropagationLossModel::GetLongTerm
+       3.283       981501     0.003344     1.070419  FlowMonitor::ReportLastRx
+       2.299        45158     0.050911     1.296129  WifiRx.sampled.post_power
+       2.274        45158     0.050362     1.267866  WifiRx.sampled.start_preamble
+       2.228        45158     0.049338     1.107902  WifiRx.sampled.do_get_event
+       2.182        45158     0.048323     1.071316  WifiRx.sampled.AppendEvent
+       2.033        74239     0.027378     1.079951  NrMacSchedulerOfdma::AssignDLRBG
+       1.336      1555989     0.000858     0.462811  FlowMonitor::ReportFirstTx
+       1.185       446183     0.002656     0.408459  IdealWifiManager::DoGetDataTxVector
+       0.792           61    12.978217    19.652408  FlowMonitor::CheckForLostPackets
+       0.693        45158     0.015347     0.521750  WifiRx.sampled.he_ru_bands
+       0.563      4498894     0.000125     0.212594  WifiRx.sampled.append.time_bounds
+       0.411     15857861     0.000026     0.146979  NrAmc::CalculateTbSize
+       0.287         2652     0.108112     2.245838  ThreeGppChannelModel::GetNewChannel
+       0.246      4498894     0.000055     0.448172  WifiRx.sampled.band_power
+       0.233        33335     0.006980     0.236856  NrMacSchedulerOfdma::AssignULRBG
+       0.169      4498894     0.000038     0.294007  WifiRx.sampled.append.insert
+       0.156      4401166     0.000035     0.141819  WifiRx.sampled.append.erase
+       0.107            1   106.847928   106.847928  Simulator::Destroy
+       0.085            5    16.964646    20.292534  NetSim::CollectTerminalThroughput
+       0.073      4498894     0.000016     0.078297  WifiRx.sampled.map_insert
+       0.072        45158     0.001589     0.477915  WifiRx.sampled.regular_bands
+       0.064      4498894     0.000014     0.136591  WifiRx.sampled.append.add_power
+       0.063      4498894     0.000014     0.064561  WifiRx.sampled.append.band_lookup
+       0.058      4498894     0.000013     0.133193  WifiRx.sampled.append.empty_reference
+       0.054            1    54.399096    54.399096  NetSim::destruction
+       0.050         1326     0.037729     0.760683  ThreeGppChannelModel::GenerateChannelParameters
+       0.027        45158     0.000607     0.181175  WifiRx.sampled.phy_state_dispatch
+       0.026        45158     0.000575     0.593961  WifiRx.sampled.layout_and_storage
+       0.023            1    23.462754    23.462754  NetSim::ConfigureDataLinkLayer
+       0.016            4     4.024680     4.961032  NetSim::HandoverRequest
+       0.016            4     4.020198     4.958400  NetSim::ApplyHandoverBatch
+       0.015          128     0.120192     0.638313  NetSim::RebindTerminalApps
+       0.013            1    12.924465    12.924465  NetSim::ConfigureWifiForAP1
+       0.007            1     7.095438     7.095438  NetSim::ConfigureWifiForAP2
+       0.006            1     6.264564     6.264564  NetSim::ConfigureNetworkLayer
+       0.006            1     6.136350     6.136350  NetSim::SetAppLayer
+       0.006        45158     0.000135     0.018413  WifiRx.sampled.ppdu_prepare
+       0.006           39     0.147466     0.687555  NetSim::WifiToWifiHandover
+       0.005           44     0.113892     0.342622  NetSim::WifiToNrHandover
+       0.005           45     0.110544     0.327574  NetSim::NrToWifiHandover
+       0.005            1     4.512171     4.512171  NetSim::Init
+       0.003            1     2.902881     2.902881  NetSim::ConfigureNrForAp0
+       0.003          619     0.004060     0.090027  FlowMonitor::ReportDrop
+       0.002        45158     0.000051     0.010140  WifiRx.sampled.AddPreambleEvent
+       0.002            1     2.075817     2.075817  FlowMonitorHelper::Install
+       0.002        45158     0.000037     0.003956  WifiRx.sampled.interference_event_create
+       0.001        45158     0.000019     0.033112  WifiRx.sampled.append.layout_lookup
+       0.001            5     0.165904     0.184592  NetSim::ResetTerminalFlowStats
+       0.001            1     0.715461     0.715461  NetSim::ConfigureNrIpAfterNetwork
+       0.001            9     0.064399     0.109653  FlowMonitor::ResetAllStats
+       0.000           77     0.002182     0.008814  WifiRx.sampled.DropPreambleEvent
+       0.000            1     0.064853     0.064853  NetSim::CreateNetworkTopology
+       0.000            1     0.023294     0.023294  NetSim::constructor
+       0.000          247     0.000094     0.000574  WifiRx.sampled.GetEnergyDuration
+       0.000            1     0.008505     0.008505  NetSim::Configure
+       0.000            5     0.000500     0.000746  NetSim::BuildTerminalIpMap
+       0.000            1     0.001010     0.001010  NetSim::ConfigureCycleParameters
+
+Boundary intervals (first interval includes warmup; final interval is the tail):
+       label cycle      sim_s  delta_sim_s       wall_s         events
+   run_start     0      0.000        0.000        0.000              0
+   cycle_end     1     13.300       13.300      578.065      106873275
+   cycle_end     2     22.800        9.500      449.263       79465626
+   cycle_end     3     32.300        9.500      443.539       78462460
+   cycle_end     4     41.800        9.500      446.024       78738600
+   cycle_end     5     51.300        9.500      484.037       81826542
+     run_end     0     56.500        5.200      230.077       37099788
+
+Device counters (AP IDs are 1-based; cumulative, not packet counts):
+nr / 1 / base_station / infrastructure / rx_arrival 428232
+nr / 1 / base_station / infrastructure / rx_scheduled 428232
+nr / 1 / base_station / infrastructure / tx_signal 272245
+nr / 1 / monitor / infrastructure / rx_arrival 700211
+nr / 1 / monitor / infrastructure / rx_scheduled 700211
+nr / 1 / monitor / infrastructure / tx_signal 266
+nr / 1 / terminal / selected / rx_arrival 11422492
+nr / 1 / terminal / selected / rx_scheduled 11422492
+nr / 1 / terminal / selected / tx_signal 404472
+nr / 1 / terminal / unselected / rx_arrival 23173392
+nr / 1 / terminal / unselected / rx_scheduled 23173392
+nr / 1 / terminal / unselected / tx_signal 23494
+wifi / 2 / base_station / infrastructure / rx_arrival 243584
+wifi / 2 / base_station / infrastructure / rx_scheduled 243584
+wifi / 2 / base_station / infrastructure / tx_signal 235788
+wifi / 2 / base_station / infrastructure / wifi_preamble 243584
+wifi / 2 / base_station / infrastructure / wifi_start_rx 243584
+wifi / 2 / monitor / infrastructure / rx_arrival 479235
+wifi / 2 / monitor / infrastructure / rx_scheduled 479235
+wifi / 2 / monitor / infrastructure / tx_signal 137
+wifi / 2 / monitor / infrastructure / wifi_preamble 479235
+wifi / 2 / monitor / infrastructure / wifi_start_rx 479235
+wifi / 2 / terminal / selected / rx_arrival 6819369
+wifi / 2 / terminal / selected / rx_scheduled 6819369
+wifi / 2 / terminal / selected / tx_signal 239707
+wifi / 2 / terminal / selected / wifi_preamble 6819369
+wifi / 2 / terminal / selected / wifi_start_rx 6819369
+wifi / 2 / terminal / unselected / rx_arrival 16905784
+wifi / 2 / terminal / unselected / rx_scheduled 16905784
+wifi / 2 / terminal / unselected / tx_signal 3740
+wifi / 2 / terminal / unselected / wifi_preamble 16905784
+wifi / 2 / terminal / unselected / wifi_start_rx 16905784
+wifi / 3 / base_station / infrastructure / rx_arrival 218953
+wifi / 3 / base_station / infrastructure / rx_scheduled 218953
+wifi / 3 / base_station / infrastructure / tx_signal 208376
+wifi / 3 / base_station / infrastructure / wifi_preamble 218953
+wifi / 3 / base_station / infrastructure / wifi_start_rx 218953
+wifi / 3 / monitor / infrastructure / rx_arrival 427209
+wifi / 3 / monitor / infrastructure / rx_scheduled 427209
+wifi / 3 / monitor / infrastructure / tx_signal 120
+wifi / 3 / monitor / infrastructure / wifi_preamble 427209
+wifi / 3 / monitor / infrastructure / wifi_start_rx 427209
+wifi / 3 / terminal / selected / rx_arrival 7683135
+wifi / 3 / terminal / selected / rx_scheduled 7683135
+wifi / 3 / terminal / selected / tx_signal 202820
+wifi / 3 / terminal / selected / wifi_preamble 7683135
+wifi / 3 / terminal / selected / wifi_start_rx 7683135
+wifi / 3 / terminal / unselected / rx_arrival 13464482
+wifi / 3 / terminal / unselected / rx_scheduled 13464482
+wifi / 3 / terminal / unselected / tx_signal 16013
+wifi / 3 / terminal / unselected / wifi_preamble 13464482
+wifi / 3 / terminal / unselected / wifi_start_rx 13464482
+Per-node/NetDevice details: devices.csv. Selected means application's chosen AP, not PHY power state.
+

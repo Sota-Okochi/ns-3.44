@@ -24,6 +24,7 @@ public:
     void SetCycleEndGuard(Time guard);
     void SetHandoverCallback(const std::function<void(const std::vector<int>&)>& cb);
     void SetTerminalTp(int termIdx, double tpBps);
+    void ReceiveMarlReport(const std::string& report);
     void SetMarlTp(int ue, int ap, double bps, const std::string& status);
 
 

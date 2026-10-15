@@ -410,6 +410,14 @@ class InterferenceHelper : public Object
 
     BandStates m_niChanges; //!< NI history and reference power for each band
 
+    // Cache only the most recent immutable layout, bounded by its band count.
+    // Owning the layout prevents address reuse from masquerading as a cache hit.
+    const std::vector<BandStates::iterator>& GetCachedBandStates(
+        const RxPowerWattPerChannelBand& powers);
+    void InvalidateBandStateCache();
+    std::shared_ptr<const RxPowerBandLayout> m_cachedBandLayout;
+    std::vector<BandStates::iterator> m_cachedBandStates;
+
   private:
     /**
      * Check whether a given band is tracked by this interference helper.

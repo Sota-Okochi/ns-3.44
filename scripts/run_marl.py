@@ -263,7 +263,7 @@ def main(argv=None):
     if args.resume and (checkpoint.get('terminals') != args.terminals or checkpoint.get('capacity') != json.loads(args.capacity.read_text()) or checkpoint.get('setting') != json.loads(args.setting.read_text()) or checkpoint.get('probe') != [args.probe_count, args.probe_interval, args.probe_timeout] or checkpoint.get('report_conn_timeout') != args.report_conn_timeout):
         p.error('Resume environment differs from checkpoint')
     manifest = dict(args={k:str(v) if isinstance(v, Path) else v for k,v in vars(args).items()},
-                    config=asdict(config), schema=SCHEMA, seed_schema='marl_seed_v1', torch_version=torch.__version__,
+                    config=asdict(config), report_transport='internal_callback_v1', schema=SCHEMA, seed_schema='marl_seed_v1', torch_version=torch.__version__,
                     python=sys.version, binary_sha256=hashlib.sha256(args.binary.read_bytes()).hexdigest())
     sources = list((ROOT/'rl/marl').glob('*.py'))+[Path(__file__), ROOT/'contrib/kameda/model/server/marl-ppo.cc',
                ROOT/'contrib/kameda/model/client/APMonitorTerminal.cc', ROOT/'master/applications.cc']
@@ -275,7 +275,7 @@ def main(argv=None):
     experiment = dict(config=asdict(config), model_seed=args.model_seed, terminals=args.terminals,
                       capacity=json.loads(args.capacity.read_text()), setting=json.loads(args.setting.read_text()),
                       probe=[args.probe_count,args.probe_interval,args.probe_timeout],
-                      report_conn_timeout=args.report_conn_timeout, binary=manifest['binary_sha256'],
+                      report_conn_timeout=args.report_conn_timeout, report_transport='internal_callback_v1', binary=manifest['binary_sha256'],
                       libraries=manifest['library_sha256'], sources=manifest['source_sha256'],
                       torch=manifest['torch_version'], python=sys.version, seed_schema='marl_seed_v1')
     experiment_id = digest(experiment)

@@ -683,6 +683,10 @@ void NetSim::AttachMonitorApplication(uint32_t apId, Ptr<Node> monitor)
     Ptr<APMonitorTerminal> monitorApp = CreateObject<APMonitorTerminal>(apId, rttServerAddress, remoteAddress);
     if (m_assignmentMethod == "marl_ppo")
     {
+        monitorApp->SetMarlReportCallback([this](const std::string& report) {
+            NS_ABORT_MSG_IF(!m_kamedaServer, "MARL controller is not configured");
+            m_kamedaServer->ReceiveMarlReport(report);
+        });
         monitorApp->EnableMarl(m_marlProbeCount, m_marlProbeInterval, m_marlProbeTimeout,
                               m_marlReportConnTimeout);
         NS_ABORT_MSG_IF(m_marlProbeCount == 0 || m_marlProbeInterval <= 0 || m_marlProbeTimeout <= 0 ||
