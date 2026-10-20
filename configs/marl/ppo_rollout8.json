@@ -1,3 +1,4 @@
 {
-  "rollout_episodes": 8
+  "rollout_episodes": 8,
+  "epsilon": 0.01
 }

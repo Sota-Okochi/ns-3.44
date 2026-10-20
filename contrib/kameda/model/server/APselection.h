@@ -37,10 +37,10 @@ namespace APConstants {
     constexpr double VOICE_CALL_REQUIRED_RTT = 100.0; // ms（通話アプリケーション）
     constexpr double ONLINE_GAME_REQUIRED_RTT = 40.0; // ms（オンラインゲーム）
     
-    // 桁合わせ
-    constexpr double MIN_SATISFACTION_THRESHOLD = 1e-6;
-    // TP未計測端末へのペナルティ値（要求の1%相当）。0.00 ログを防ぎ調和平均の破綻を回避する
-    constexpr double SATISFACTION_FLOOR = 0.1;
+    // Research condition v2: effective satisfaction is max(raw, 0.01).
+    constexpr double MIN_SATISFACTION_THRESHOLD = 0.01;
+    // Legacy missing-TP fallback uses the same floor (not a measured raw value).
+    constexpr double SATISFACTION_FLOOR = MIN_SATISFACTION_THRESHOLD;
     constexpr double BPS_TO_MBPS = 1e-6;
     constexpr double HARMONIC_WEIGHT_BASE = 2000.0;
     // ハンドオーバ直後の猶予満足度: TP未計測でも FLOOR を返さず「満足」扱いにする

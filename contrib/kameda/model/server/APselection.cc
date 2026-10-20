@@ -245,6 +245,10 @@ APselection::~APselection(){
 }
 
 void APselection::init(const ApSelectionInput& input){
+    std::cout << "[QoE] satisfaction_floor="
+              << APConstants::MIN_SATISFACTION_THRESHOLD
+              << " rule=max(raw,floor) legacy_missing_tp_floor="
+              << APConstants::SATISFACTION_FLOOR << std::endl;
     NS_LOG_FUNCTION(this);
 
 
@@ -661,6 +665,15 @@ double APselection::calculate_satisfaction(int terminal_idx, int ap_idx) {
             }
             if (measuredTpMbps <= 0.0)
             {
+                // A measured zero is service failure, not missing data eligible for grace.
+                if (terminal_idx >= 0 &&
+                    terminal_idx < static_cast<int>(m_has_terminal_tp.size()) &&
+                    m_has_terminal_tp[terminal_idx] &&
+                    terminal_idx < static_cast<int>(m_terminal_tp.size()) &&
+                    m_terminal_tp[terminal_idx] == 0.0)
+                {
+                    return APConstants::MIN_SATISFACTION_THRESHOLD;
+                }
                 // ハンドオーバ直後の猶予期間中は満足扱いにして調和平均の破綻と再切り替えループを防ぐ
                 if (!m_switchCycle.empty() &&
                     terminal_idx < static_cast<int>(m_switchCycle.size()) &&
@@ -685,7 +698,7 @@ double APselection::calculate_satisfaction(int terminal_idx, int ap_idx) {
             satis = needRtt / measuredRtt;
     }
 
-    return satis;
+    return std::max(satis, APConstants::MIN_SATISFACTION_THRESHOLD);
 }
 
 std::vector<int>
@@ -835,7 +848,8 @@ APselection::estimate_satisfaction_for_assignment(int terminal_idx,
         {
             return APConstants::MIN_SATISFACTION_THRESHOLD;
         }
-        return estimate_tp_mbps_for_assignment(terminal_idx, ap_idx, assignment) / needTp;
+        return std::max(estimate_tp_mbps_for_assignment(terminal_idx, ap_idx, assignment) / needTp,
+                        APConstants::MIN_SATISFACTION_THRESHOLD);
     }
 
     const double needRtt = traffic_request[terminal_idx];
@@ -844,7 +858,7 @@ APselection::estimate_satisfaction_for_assignment(int terminal_idx,
     {
         return APConstants::MIN_SATISFACTION_THRESHOLD;
     }
-    return needRtt / estimatedRtt;
+    return std::max(needRtt / estimatedRtt, APConstants::MIN_SATISFACTION_THRESHOLD);
 }
 
 double

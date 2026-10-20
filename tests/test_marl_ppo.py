@@ -24,6 +24,22 @@ def message(cycle=1, n=30):
 
 
 class MarlTest(unittest.TestCase):
+    def test_floor_boundaries_and_legacy_override(self):
+        for raw in (0., .005, .01, .02):
+            m = message(n=4)
+            m['users'][0]['tp_mbps'] = raw * 3.
+            _, r = observation(m, Config())
+            self.assertAlmostEqual(r['users'][0]['s_raw'], raw)
+            self.assertAlmostEqual(r['users'][0]['s_eff'], max(raw, .01))
+            self.assertAlmostEqual(r['h'], 4 / (1 / max(raw, .01) + 2 + .5 + 1.25))
+        m['users'][0]['tp_mbps'] = 0.
+        _, r = observation(m, Config(epsilon=1e-6))
+        self.assertEqual(r['users'][0]['s_eff'], 1e-6)
+        m['users'][0]['tp_mbps'] = None
+        _, r = observation(m, Config())
+        self.assertIsNone(r['users'][0]['s_eff'])
+        self.assertIsNone(r['h'])
+
     def test_failed_training_episode_replay_seeds(self):
         self.assertEqual(environment_seed(1, 9), 734)
         with tempfile.TemporaryDirectory() as temp:
@@ -59,11 +75,11 @@ class MarlTest(unittest.TestCase):
         m['users'][0]['tp_mbps'] = 0.
         o,r = observation(m, Config())
         self.assertEqual(r['users'][0]['s_raw'],0)
-        self.assertEqual(r['users'][0]['s_eff'],1e-6)
+        self.assertEqual(r['users'][0]['s_eff'],.01)
         self.assertEqual(r['users'][1]['s_eff'],.5)
         self.assertEqual(r['users'][2]['s_eff'],2)
         self.assertEqual(r['users'][3]['s_eff'],.8)
-        self.assertAlmostEqual(r['h'],4/(1e6+2+.5+1.25))
+        self.assertAlmostEqual(r['h'],4/(100+2+.5+1.25))
         self.assertEqual(o['ue'][0,8],1)
         self.assertEqual(o['ue'][0,12],0)
 
@@ -72,7 +88,7 @@ class MarlTest(unittest.TestCase):
         m['aps'][0].update(status='timeout',rtt_ms=None)
         o,r = observation(m, Config())
         self.assertEqual(r['users'][3]['s_raw'],None)
-        self.assertEqual(r['users'][3]['s_eff'],1e-6)
+        self.assertEqual(r['users'][3]['s_eff'],.01)
         self.assertEqual(r['users'][0]['s_eff'],4/3)  # TP app not overridden by RTT timeout.
         self.assertEqual(o['ap'][0,2:4].tolist(),[0,1])
         self.assertEqual(o['ue'][3,10],1)

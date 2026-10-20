@@ -21,8 +21,12 @@ def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--output',type=Path,default=ROOT/'build/marl-ppo-v1')
     p.add_argument('--jobs',type=int,default=1)
+    p.add_argument('--base-libraries', type=Path, default=ROOT/'build/lib',
+                   help='Runtime libraries to copy unchanged, e.g. a validated isolated build')
     args=p.parse_args()
     if args.jobs<1: p.error('--jobs must be positive')
+    if not (args.base_libraries/'libns3.44-core-optimized.so').is_file():
+        p.error('--base-libraries must contain the ns-3.44 optimized libraries')
     out=args.output.resolve();out.mkdir(parents=True,exist_ok=False)
     cache=ROOT/'cmake-cache';lib=out/'lib';lib.mkdir()
     commands=json.loads((cache/'compile_commands.json').read_text())
@@ -34,7 +38,7 @@ def main():
         selected.append(dict(ref,file=new,command=ref['command'].replace(old,new).replace('reactive-dqn.cc.o','marl-ppo.cc.o')))
     # Snapshot unchanged runtime libraries. Local rebuilt kameda will overwrite ONLY its copy.
     hashes={}
-    for src in (ROOT/'build/lib').glob('*.so*'):
+    for src in args.base_libraries.glob('*.so*'):
         if src.is_file():
             shutil.copy2(src,lib/src.name)
             hashes[src.name]=hashlib.sha256(src.read_bytes()).hexdigest()
@@ -70,6 +74,9 @@ def main():
         subprocess.run(cmd,cwd=cache,check=True)
     (out/'link_commands.json').write_text(json.dumps(links,indent=2))
     (out/'build_manifest.json').write_text(json.dumps(dict(ns3='3.44',dependency_sha256=hashes,
+        base_libraries=str(args.base_libraries.resolve()),
+        apselection_header_sha256=hashlib.sha256(
+            (ROOT/'contrib/kameda/model/server/APselection.h').read_bytes()).hexdigest(),
         source_sha256={e['file']:hashlib.sha256(Path(e['file']).read_bytes()).hexdigest() for e in selected},
         binary_sha256=hashlib.sha256((out/'master').read_bytes()).hexdigest()),indent=2))
     print('Isolated binary:',out/'master')

@@ -1,0 +1,161 @@
+{
+  "exact_equal": {
+    "observations.jsonl": true,
+    "transitions.jsonl": true,
+    "qoe.csv": true
+  },
+  "window_s": [
+    33.6,
+    41.3
+  ],
+  "ue43_flows": [
+    {
+      "cycle": "5",
+      "time_s": "41.30",
+      "term_idx": "44",
+      "term_ip": "7.0.0.46",
+      "flow_id": "29",
+      "src": "10.201.2.1",
+      "dst": "7.0.0.46",
+      "tx_bytes": "0",
+      "tx_packets": "0",
+      "rx_bytes": "0",
+      "rx_packets": "0",
+      "lost_packets": "5844",
+      "time_first_tx_s": "24.60",
+      "time_first_rx_s": "32.30",
+      "time_last_tx_s": "32.20",
+      "time_last_rx_s": "32.77",
+      "tp_mbps": "0.00",
+      "diagnosis": "no_tx"
+    },
+    {
+      "cycle": "5",
+      "time_s": "41.30",
+      "term_idx": "44",
+      "term_ip": "10.1.2.46",
+      "flow_id": "580",
+      "src": "10.201.2.1",
+      "dst": "10.1.2.46",
+      "tx_bytes": "7122466",
+      "tx_packets": "6771",
+      "rx_bytes": "0",
+      "rx_packets": "0",
+      "lost_packets": "11",
+      "time_first_tx_s": "33.95",
+      "time_first_rx_s": "0.00",
+      "time_last_tx_s": "40.95",
+      "time_last_rx_s": "0.00",
+      "tp_mbps": "0.00",
+      "diagnosis": "lost_or_unrouted"
+    }
+  ],
+  "arp_events": {
+    "MacTx|3|0|arp_request": 36,
+    "MacRx|50|2|arp_request": 36,
+    "MacTx|50|2|arp_reply": 36,
+    "MacRxDrop|3|0|arp_reply": 36
+  },
+  "arp_reply_unique_uids": 36,
+  "reply_uids_dropped_at_ap": 36,
+  "ip_path": {
+    "ip_Rx|3|1|ip_17": 3524,
+    "ip_Tx|3|2|ip_17": 3524,
+    "ip_Tx|91|1|ip_17": 6771,
+    "ip_Rx|0|5|ip_17": 6760,
+    "ip_Tx|0|3|ip_17": 6760,
+    "ip_Rx|89|1|ip_17": 6760,
+    "ip_Tx|89|2|ip_17": 6760
+  },
+  "arp_drop": {
+    "arp_drop|3|0|ip_17": 3497
+  },
+  "association_events": [
+    {
+      "time": "0.57230000000000003",
+      "event": "DeAssoc",
+      "node": "50",
+      "interface_or_device": "2",
+      "uid": "0",
+      "bytes": "0",
+      "src": "",
+      "dst": "",
+      "detail": "00:00:00:00:00:ac"
+    },
+    {
+      "time": "0.57235499999999995",
+      "event": "DeAssoc",
+      "node": "50",
+      "interface_or_device": "1",
+      "uid": "0",
+      "bytes": "0",
+      "src": "",
+      "dst": "",
+      "detail": "00:00:00:00:00:5a"
+    },
+    {
+      "time": "1.144808",
+      "event": "DeAssoc",
+      "node": "50",
+      "interface_or_device": "1",
+      "uid": "0",
+      "bytes": "0",
+      "src": "",
+      "dst": "",
+      "detail": "00:00:00:00:00:5a"
+    },
+    {
+      "time": "1.1451533359999999",
+      "event": "DeAssoc",
+      "node": "50",
+      "interface_or_device": "2",
+      "uid": "0",
+      "bytes": "0",
+      "src": "",
+      "dst": "",
+      "detail": "00:00:00:00:00:ac"
+    },
+    {
+      "time": "1.2434731640000001",
+      "event": "Assoc",
+      "node": "50",
+      "interface_or_device": "2",
+      "uid": "0",
+      "bytes": "0",
+      "src": "",
+      "dst": "",
+      "detail": "00:00:00:00:00:ac"
+    },
+    {
+      "time": "1.7171179999999999",
+      "event": "DeAssoc",
+      "node": "50",
+      "interface_or_device": "1",
+      "uid": "0",
+      "bytes": "0",
+      "src": "",
+      "dst": "",
+      "detail": "00:00:00:00:00:5a"
+    },
+    {
+      "time": "1.7876551549999999",
+      "event": "Assoc",
+      "node": "50",
+      "interface_or_device": "1",
+      "uid": "0",
+      "bytes": "0",
+      "src": "",
+      "dst": "",
+      "detail": "00:00:00:00:00:5a"
+    }
+  ],
+  "sink_window_rows_parseable": 0,
+  "sink_malformed_rows": [
+    {
+      "line": 13782,
+      "row": [
+        "01:56:c0"
+      ]
+    }
+  ]
+}

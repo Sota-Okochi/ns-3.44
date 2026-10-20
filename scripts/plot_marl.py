@@ -74,6 +74,37 @@ def main():
         fig.tight_layout()
         for ext in ('png','pdf'): fig.savefig(args.output/f'{kind}.{ext}')
         plt.close(fig)
+    # Optional new diagnostics: old CSVs have no columns and are skipped, not zero-filled.
+    diagnostic_groups = (
+        ('update_diagnostics', 'updates.csv', None, 'episodes', (
+            ('explained_variance_before', 'EV before (dimensionless)'),
+            ('explained_variance_after', 'EV after, in-sample (dimensionless)'),
+            ('advantage_raw_mean', 'Raw advantage mean (return units)'),
+            ('advantage_raw_std', 'Raw advantage SD (return units)'),
+            ('return_std', 'Return SD (return units)'),
+            ('joint_kl', 'Joint KL (nats)'))),
+
+    )
+    for name, filename, phase, xkey, fields in diagnostic_groups:
+        available = [(p, seed, [r for r in read(p/filename)
+                               if phase is None or r['phase'] == phase])
+                     for p, seed in zip(args.runs, seeds)]
+        if not any(any(r.get(k, '') != '' for k, _ in fields) for _, _, rows in available for r in rows):
+            continue
+        fig, axes = plt.subplots(len(fields), 1, figsize=(9, 2.3*len(fields)), squeeze=False)
+        for ax, (key, label) in zip(axes[:, 0], fields):
+            for _, seed, rows in available:
+                rows = sorted(rows, key=lambda r: int(r[xkey]))
+                points = [(int(r[xkey]) + (1 if xkey == 'episode_id' else 0),
+                           float(r[key]) if r.get(key, '') != '' else float('nan'))
+                          for r in rows]
+                if any(r.get(key, '') != '' for r in rows):
+                    ax.plot([v[0] for v in points], [v[1] for v in points], label=f'model seed {seed}')
+            ax.set_ylabel(label); ax.set_xlabel('Completed training episodes'); ax.grid(alpha=.25)
+            if ax.lines: ax.legend()
+        fig.tight_layout()
+        for ext in ('png', 'pdf'): fig.savefig(args.output/f'{name}.{ext}')
+        plt.close(fig)
     (args.output/'plot_config.json').write_text(json.dumps(dict(runs=[str(p.resolve()) for p in args.runs],
         window=16,validation_smoothing=False,band='sample SD across model seeds',terminals=next(iter(sizes))),indent=2))
 

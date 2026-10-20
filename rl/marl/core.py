@@ -10,6 +10,7 @@ import random
 
 import torch
 from torch import nn
+from .diagnostics import update_statistics
 
 SCHEMA = 'marl_v1'
 UE_DIM, AP_DIM, GLOBAL_DIM = 13, 8, 3
@@ -36,7 +37,7 @@ class Config:
     rollout_episodes: int = 16
     entropy: float = .01
     grad_norm: float = .5
-    epsilon: float = 1e-6
+    epsilon: float = 0.01
     browser_mbps: float = 3.
     video_mbps: float = 8.
     voice_ms: float = 100.
@@ -186,7 +187,7 @@ class Learner:
     def update(self, episodes):
         c = self.config
         if len(episodes) != c.rollout_episodes or any(len(e) != 4 for e in episodes):
-            raise ValueError('PPO requires complete 16-episode batches, four transitions each')
+            raise ValueError(f'PPO requires complete {c.rollout_episodes}-episode batches, four transitions each')
         rows, returns = [], []
         for ep in episodes:
             ret = 0.
@@ -231,8 +232,13 @@ class Learner:
         with torch.no_grad():
             new_lp = self.actor(obs).log_softmax(-1)
             kl = (old_lp.exp()*(old_lp-new_lp)).sum(-1).mean().item()
+            diagnostics = update_statistics(
+                target, torch.stack([r['value'] for r in rows]),
+                self.critic(obs), old_lp, new_lp)
         self.updates += 1
-        return dict(update=self.updates, kl=kl, **{k: sum(m[k] for m in metrics)/len(metrics) for k in metrics[0]})
+        return dict(update=self.updates, kl=kl,
+                    **{k: sum(m[k] for m in metrics)/len(metrics) for k in metrics[0]},
+                    **diagnostics)
 
     def save(self, path, **metadata):
         state = dict(schema=SCHEMA, config=asdict(self.config), seed=self.seed, updates=self.updates,

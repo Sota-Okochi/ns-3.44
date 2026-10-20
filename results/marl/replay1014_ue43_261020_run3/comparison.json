@@ -1,0 +1,21 @@
+{
+  "exact_equal": {
+    "observations.jsonl": true,
+    "transitions.jsonl": true,
+    "qoe.csv": true
+  },
+  "summary": {
+    "phase": "validation",
+    "episode_id": 3,
+    "environment_seed": 1014,
+    "model_seed": 1,
+    "policy_version": 32,
+    "return_sum": 1.3604494533550842,
+    "mean_h_after": 0.34011236333877104,
+    "mean_h_all": 0.359819163200397,
+    "initial_h": 0.43864636264690093,
+    "source_directory": "/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/marl/replay1014_ue43_261020_run3/validation_000003_seed1014",
+    "seconds": 6182.748124935999,
+    "max_rss_kib": 1104032
+  }
+}

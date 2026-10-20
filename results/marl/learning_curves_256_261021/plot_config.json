@@ -1,0 +1,27 @@
+{
+  "runs": [
+    "/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/marl/train80_b8_episodes64_261016",
+    "/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/marl/train80_b8_episodes192_261017",
+    "/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/marl/train80_b8_episodes256_261019"
+  ],
+  "window": 16,
+  "training_x": "episode_id+1",
+  "validation_smoothing": false,
+  "model_seed": 1,
+  "epsilon": 1e-06,
+  "note": "Validation y axis is cropped. No confidence bands: one model seed. Training environment seeds differ by episode.",
+  "source_sha256": {
+    "/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/marl/train80_b8_episodes64_261016/episodes.csv": "f4a1de75a65dc961532d6f5d95596a80e2fccc636e95b986140d7941282519d2",
+    "/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/marl/train80_b8_episodes64_261016/validation.csv": "fb34fa7788915a4742a5849e402d53683c577787d588eaa487f82f412d68becb",
+    "/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/marl/train80_b8_episodes64_261016/updates.csv": "f40df62dd203acdcbd1149f82be59db656d6fad19418047deb77e747139c0a56",
+    "/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/marl/train80_b8_episodes64_261016/manifest.json": "a8dcabb8f18aa49d7c49f492693b8160dada25f56bdb289e4c11269ec66650aa",
+    "/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/marl/train80_b8_episodes192_261017/episodes.csv": "214b2bcaa5585c048b0c94210227542e8e2cb1327f2b4f043664becb53857ad0",
+    "/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/marl/train80_b8_episodes192_261017/validation.csv": "5a124924c18226fe3a66dafe399b3d2222f25b2a5bbdedbb49e09b9699c8ac25",
+    "/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/marl/train80_b8_episodes192_261017/updates.csv": "efd278d88d8673556496bd0a5fcb35ff09f1d7f8200faeb188b5a6e383c10359",
+    "/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/marl/train80_b8_episodes192_261017/manifest.json": "6a5b3a15ef311df5ac6b3f38e37d12c4180fad17c70ef2cca1d10b61f133a843",
+    "/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/marl/train80_b8_episodes256_261019/episodes.csv": "d1ef1c4d16057be13c6e0a7bea9808cb4aa3c9157ee65d6487d17353568eccd3",
+    "/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/marl/train80_b8_episodes256_261019/validation.csv": "d8ea6ad01eedefc23f0d663a78d316711e81c4092877a7247ff9ce0481731d1a",
+    "/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/marl/train80_b8_episodes256_261019/updates.csv": "2ee5fbdefd73f3bcd60996771713f55f62ade1e5b8889b8d4c6be09d4a382011",
+    "/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/marl/train80_b8_episodes256_261019/manifest.json": "b90086eecec0b859545414518a037417685f20c7943b903873682f72856d5347"
+  }
+}

@@ -207,7 +207,8 @@ def run_episode(learner, args, episode, env_seed, phase, base):
     summary = dict(phase=phase, episode_id=episode, environment_seed=env_seed, model_seed=learner.seed,
                    policy_version=learner.updates, return_sum=sum(session.hs[1:]),
                    mean_h_after=sum(session.hs[1:])/4, mean_h_all=sum(session.hs)/5,
-                   initial_h=session.hs[0], source_directory=str(directory), seconds=status['seconds'], max_rss_kib=status['max_rss_kib'])
+                   initial_h=session.hs[0], source_directory=str(directory), seconds=status['seconds'],
+                   max_rss_kib=status['max_rss_kib'])
     return session.transitions, summary
 
 
