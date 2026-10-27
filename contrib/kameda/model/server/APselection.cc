@@ -1,3 +1,4 @@
+#include "assignment-compute-timer.h"
 /* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
 #include "ns3/log.h"
 #include "ns3/ipv4-address.h"
@@ -335,6 +336,7 @@ void APselection::init(const ApSelectionInput& input){
         std::tm *tm_local = std::localtime(&t);
         char dateBuf[32];
         std::strftime(dateBuf, sizeof(dateBuf), "%Y%m%d_%H%M%S", tm_local);
+        m_assignmentTimingPath = m_outputDir + "assignment_timing_" + std::to_string(m_rngSeed) + "_" + dateBuf + ".csv";
         m_masterLogPath = m_outputDir + "master_log_" + std::to_string(m_rngSeed) + "_" +
                           dateBuf + ".csv";
         m_decisionLogPath = m_outputDir + "decision_log_" + std::to_string(m_rngSeed) + "_" +
@@ -468,15 +470,26 @@ void APselection::tmain(){
     NS_LOG_FUNCTION(this);
     std::cout << "=== APselection::tmain() START (cycle " << m_cycleIndex << ") ===" << std::endl;
 
+    m_assignmentCppMs = 0.0;
+    m_assignmentPythonMs = 0.0;
+    m_assignmentTimingStatus = (m_totalCycles != 0 && m_cycleIndex >= m_totalCycles)
+                                   ? "no_decision" : "ok";
+    m_effectiveAssignmentMethod = m_assignmentMethod;
     if (m_assignmentMethod == "marl_ppo")
     {
         marl_ppo_assignment();
+        WriteAssignmentTiming();
         return; // New QoE/logging path: never compute legacy imputed H or estimated post-action QoE.
     }
     PrintMonitorRttReport();
 
     // アプリ種別の必要TP, RTT
-    cal_traffic_request();
+    {
+        AssignmentComputeTimer features(m_assignmentCppMs,
+            m_assignmentMethod == "centralized_dqn" &&
+            m_cycleIndex > m_centralizedDqnBootstrapCycles && m_assignmentTimingStatus == "ok");
+        cal_traffic_request();
+    }
     // 割り当て前端末満足度の調和平均の計算
     cal_initial_harmonic_mean();
     {
@@ -562,6 +575,9 @@ void APselection::tmain(){
     const auto assignmentComputeEnd = std::chrono::steady_clock::now();
     m_lastAssignmentComputeMs =
         std::chrono::duration<double, std::milli>(assignmentComputeEnd - assignmentComputeStart).count();
+    if (m_assignmentMethod == "random" || m_assignmentMethod == "logistic" ||
+        m_assignmentMethod == "centralized_dqn")
+        WriteAssignmentTiming();
     std::cout << "[AssignmentComputeTime] cycle=" << m_cycleIndex
               << " method=" << m_assignmentMethod
               << " effective_method=" << m_effectiveAssignmentMethod
@@ -936,6 +952,7 @@ APselection::PrepareDecisionLogState(const std::vector<int>& assignmentBefore,
 void APselection::random_assignment() {
     std::cout << "=== APselection::random_assignment() ===" << std::endl;
 
+    AssignmentComputeTimer timer(m_assignmentCppMs);
     // 割り当て結果用の一次元配列（initial_AP に合わせて 1 ベースで保持）
     std::vector<int> assignment;
     assignment.reserve(terms);
@@ -950,6 +967,8 @@ void APselection::random_assignment() {
         assignment.push_back(apIndex + 1); // 1 ベースで格納
     }
 
+    m_lastAssignment = assignment;
+    timer.Pause();
     std::cout << "割り当て結果: [";
     for (size_t i = 0; i < assignment.size(); ++i) {
         std::cout << assignment[i];
@@ -959,7 +978,6 @@ void APselection::random_assignment() {
     }
     std::cout << "]" << std::endl;
 
-    m_lastAssignment = assignment;
     const double hBefore =
         m_cycleHarmonicMeans.empty() ? calculate_harmonic_mean_for_assignment(initial_AP)
                                      : m_cycleHarmonicMeans.back();
@@ -2090,7 +2108,8 @@ APselection::BuildCentralizedDqnStateJson(const std::vector<int>& assignment,
                                           double harmonicMean,
                                           uint32_t appliedSwitchesInCycle,
                                           const std::set<int>& bannedActionIds,
-                                          std::vector<int>& validActionIds)
+                                          std::vector<int>& validActionIds,
+                                          AssignmentComputeTimer& computeTimer)
 {
     validActionIds.clear();
     const int evalTerms = std::min(terms, static_cast<int>(assignment.size()));
@@ -2320,6 +2339,7 @@ APselection::BuildCentralizedDqnStateJson(const std::vector<int>& assignment,
     features.push_back(static_cast<double>(m_lastNumDegradedUsersMeasured));
     features.push_back(prevCycleReward);
 
+    computeTimer.Pause(); // Transport serialization is not feature generation.
     std::ostringstream oss;
     oss << std::fixed << std::setprecision(6)
         << "{"
@@ -2440,7 +2460,7 @@ APselection::SendCentralizedStateReceiveAction(const std::string& requestJson,
                                                int& selectedBsId,
                                                double& qValue,
                                                std::vector<double>& qValues,
-                                               std::string& errorMessage) const
+                                               std::string& errorMessage)
 {
     actionId = -1;
     targetUeId = -1;
@@ -2500,6 +2520,15 @@ APselection::SendCentralizedStateReceiveAction(const std::string& requestJson,
     }
     close(fd);
 
+    double remoteMs = 0.0;
+    int timingVersion = 0;
+    if (!ExtractJsonIntScalar(response, "assignment_timing_version", timingVersion) || timingVersion != 2 ||
+        !ExtractJsonDoubleScalar(response, "assignment_compute_ms", remoteMs) ||
+        !std::isfinite(remoteMs) || remoteMs < 0.0)
+        m_assignmentTimingStatus = "invalid_remote_timing";
+    else
+        m_assignmentPythonMs += remoteMs;
+    AssignmentComputeTimer decodeTimer(m_assignmentCppMs);
     if (response.empty())
     {
         errorMessage = "empty_response";
@@ -2539,6 +2568,7 @@ void APselection::centralized_dqn_assignment()
 {
     std::cout << "=== APselection::centralized_dqn_assignment() ===" << std::endl;
 
+    AssignmentComputeTimer timer(m_assignmentCppMs);
     std::vector<int> assignment = initial_AP;
     const double hBeforeCycle =
         m_cycleHarmonicMeans.empty() ? calculate_harmonic_mean_for_assignment(initial_AP)
@@ -2560,9 +2590,11 @@ void APselection::centralized_dqn_assignment()
                                          hBeforeStep,
                                          applied,
                                          bannedActionIds,
-                                         validActionIds);
+                                         validActionIds, timer);
+        timer.Resume();
         if (validActionIds.empty())
         {
+            timer.Pause();
             std::cout << "[CentralizedDQN] cycle=" << m_cycleIndex
                       << " step=" << stepId
                       << " no valid action above safety threshold; end cycle"
@@ -2576,6 +2608,7 @@ void APselection::centralized_dqn_assignment()
         double selectedQValue = 0.0;
         std::vector<double> qValues;
         std::string errorMessage;
+        timer.Pause();
         if (!SendCentralizedStateReceiveAction(requestJson,
                                                actionId,
                                                targetUeId,
@@ -2584,13 +2617,16 @@ void APselection::centralized_dqn_assignment()
                                                qValues,
                                                errorMessage))
         {
+            m_assignmentTimingStatus = "request_failed";
             std::cerr << "[CentralizedDQN][WARN] request failed reason="
                       << errorMessage << std::endl;
             break;
         }
 
+        timer.Resume();
         if (actionId < 0)
         {
+            timer.Pause();
             std::cout << "[CentralizedDQN] cycle=" << m_cycleIndex
                       << " step=" << stepId
                       << " server returned stop/no-action; end cycle"
@@ -2609,6 +2645,7 @@ void APselection::centralized_dqn_assignment()
         const int targetIdx = targetUeId - 1;
         const int decodedActionId = (targetIdx >= 0 && selectedBsId >= 0) ? targetIdx * aps + selectedBsId : actionId;
 
+        timer.Pause();
         DqnAction action;
         action.stepId = stepId;
         action.targetUeId = targetUeId;
@@ -2629,6 +2666,7 @@ void APselection::centralized_dqn_assignment()
             action.advantage = selectedQValue;
         }
 
+        timer.Resume();
         std::string skipReason;
         bool apply = true;
         int previousBsId = -1;
@@ -2642,6 +2680,7 @@ void APselection::centralized_dqn_assignment()
         else
         {
             previousBsId = assignment[targetIdx] - 1;
+            timer.Pause();
             action.currentBsId = previousBsId;
             std::vector<int> usersPerAp = count_users_per_ap(assignment);
             auto usersAt = [&usersPerAp](int idx) -> int {
@@ -2682,6 +2721,7 @@ void APselection::centralized_dqn_assignment()
             }
         }
 
+        timer.Resume();
         if (apply)
         {
             if (selectedBsId < 0 || selectedBsId >= aps)
@@ -2718,6 +2758,7 @@ void APselection::centralized_dqn_assignment()
             }
         }
 
+        timer.Pause();
         action.selectedEstimatedHDelta = selectedEstimatedHDelta;
         action.hBeforeStepEstimated = hBeforeStep;
         action.hAfterStepEstimated = hAfterStep;
@@ -2726,6 +2767,7 @@ void APselection::centralized_dqn_assignment()
         else if (selectedBsId == 1) { action.targetSatisfactionAfterEstimated = action.estimatedSatisfactionIfAp1; }
         else if (selectedBsId == 2) { action.targetSatisfactionAfterEstimated = action.estimatedSatisfactionIfAp2; }
 
+        timer.Resume();
         if (apply)
         {
             assignment[targetIdx] = selectedBsId + 1;
@@ -2737,6 +2779,7 @@ void APselection::centralized_dqn_assignment()
                 bannedActionIds.insert(targetIdx * aps + ap);
             }
             ++applied;
+            timer.Pause();
             std::cout << "[CentralizedDQN] cycle=" << m_cycleIndex
                       << " step=" << stepId
                       << " switch term=" << targetUeId
@@ -2751,6 +2794,7 @@ void APselection::centralized_dqn_assignment()
             {
                 bannedActionIds.insert(decodedActionId);
             }
+            timer.Pause();
             std::cout << "[CentralizedDQN] cycle=" << m_cycleIndex
                       << " step=" << stepId
                       << " skip target_ue_id=" << targetUeId
@@ -2758,11 +2802,14 @@ void APselection::centralized_dqn_assignment()
                       << " estimated_h_delta=" << selectedEstimatedHDelta << std::endl;
             WriteDecisionLogRow(action, previousBsId, false, skipReason);
         }
+        timer.Resume();
         ++stepId;
     }
 
-    const double hAfterEstimated = calculate_harmonic_mean_for_assignment(assignment);
+    timer.Resume();
     m_lastAssignment = assignment;
+    timer.Pause();
+    const double hAfterEstimated = calculate_harmonic_mean_for_assignment(assignment);
     PrepareDecisionLogState(initial_AP, assignment, hBeforeCycle, hAfterEstimated);
     if (m_handoverCallback)
     {
@@ -3230,8 +3277,11 @@ void APselection::KeepCurrentAssignment(const std::string& reason)
 void APselection::logistic_assignment()
 {
     std::cout << "=== APselection::logistic_assignment() ===" << std::endl;
+    AssignmentComputeTimer timer(m_assignmentCppMs);
     if (!m_logisticModelLoaded)
     {
+        timer.Pause();
+        m_assignmentTimingStatus = "fallback";
         KeepCurrentAssignment("学習済みモデルを利用不可");
         return;
     }
@@ -3259,6 +3309,8 @@ void APselection::logistic_assignment()
     {
         if (tpCount[apIdx] == 0)
         {
+            timer.Pause();
+            m_assignmentTimingStatus = "fallback";
             KeepCurrentAssignment("AP" + std::to_string(apIdx) + " の平均TPを取得不可");
             return;
         }
@@ -3309,6 +3361,8 @@ void APselection::logistic_assignment()
 
         if (bestClassIdx < 0)
         {
+            timer.Pause();
+            m_assignmentTimingStatus = "fallback";
             KeepCurrentAssignment("推論結果を算出不可");
             return;
         }
@@ -3316,6 +3370,7 @@ void APselection::logistic_assignment()
     }
 
     m_lastAssignment = assignment;
+    timer.Pause();
     const double hBefore =
         m_cycleHarmonicMeans.empty() ? calculate_harmonic_mean_for_assignment(initial_AP)
                                      : m_cycleHarmonicMeans.back();
@@ -4230,4 +4285,25 @@ void APselection::WriteMasterLog()
 
     ofs.close();
 }
+}
+
+// v2: measured local segments + server-reported compute, never socket round-trip time.
+void ns3::APselection::WriteAssignmentTiming()
+{
+    m_lastAssignmentComputeMs = m_assignmentCppMs + m_assignmentPythonMs;
+    const bool valid = m_assignmentTimingStatus == "ok";
+    if (!valid) m_lastAssignmentComputeMs = std::numeric_limits<double>::quiet_NaN();
+    std::ofstream out(m_assignmentTimingPath,
+                      m_assignmentTimingInitialized ? std::ios::app : std::ios::trunc);
+    NS_ABORT_MSG_IF(!out, "Cannot write assignment timing log");
+    if (!m_assignmentTimingInitialized)
+        out << "timing_version,seed,cycle_id,method,effective_method,num_terminals,status,cpp_compute_ms,python_compute_ms,assignment_compute_ms\n";
+    out << std::setprecision(17) << "2," << m_rngSeed << ',' << m_cycleIndex << ','
+        << m_assignmentMethod << ',' << m_effectiveAssignmentMethod << ',' << terms << ','
+        << m_assignmentTimingStatus << ',' << m_assignmentCppMs << ',' << m_assignmentPythonMs << ',';
+    if (valid) out << m_lastAssignmentComputeMs;
+    out << '\n';
+    out.flush();
+    NS_ABORT_MSG_IF(!out, "Cannot flush assignment timing log");
+    m_assignmentTimingInitialized = true;
 }

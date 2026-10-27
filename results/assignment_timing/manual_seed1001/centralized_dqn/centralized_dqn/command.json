@@ -1,0 +1,21 @@
+[
+  "/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/build/assignment-timing-v2-validated/master",
+  "--settingPath=/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/assignment_timing/manual_seed1001/centralized_dqn/setting.json",
+  "--rngSeed=1001",
+  "--mob=1",
+  "--capacityEventsPath=/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/assignment_timing/manual_seed1001/centralized_dqn/planned_events.csv",
+  "--pgwCerRate=55000000bps",
+  "--ap1BackhaulRate=40000000bps",
+  "--ap2BackhaulRate=30000000bps",
+  "--perfTiming=0",
+  "--perfDetailed=0",
+  "--method=centralized_dqn",
+  "--outputRoot=/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/assignment_timing/manual_seed1001/centralized_dqn/centralized_dqn/simulation",
+  "--drlServerPort=42049",
+  "--drlTimeoutMs=30000",
+  "--centralizedDqnBootstrapCycles=0",
+  "--centralizedDqnStateSchema=v2_onehot",
+  "--maxSwitches=4",
+  "--kScheduleType=fixed",
+  "--onlineDqnSafetyThreshold=0.001"
+]

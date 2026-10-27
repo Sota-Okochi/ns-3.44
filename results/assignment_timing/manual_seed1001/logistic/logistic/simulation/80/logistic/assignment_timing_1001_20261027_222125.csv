@@ -1,0 +1,6 @@
+timing_version,seed,cycle_id,method,effective_method,num_terminals,status,cpp_compute_ms,python_compute_ms,assignment_compute_ms
+2,1001,1,logistic,logistic,80,ok,0.0043359999999999996,0,0.0043359999999999996
+2,1001,2,logistic,logistic,80,fallback,0.00064199999999999999,0,
+2,1001,3,logistic,logistic,80,fallback,0.00070799999999999997,0,
+2,1001,4,logistic,logistic,80,fallback,0.037506999999999999,0,
+2,1001,5,logistic,logistic,80,no_decision,0,0,

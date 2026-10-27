@@ -1,0 +1,6 @@
+timing_version,seed,cycle_id,method,effective_method,num_terminals,status,cpp_compute_ms,python_compute_ms,assignment_compute_ms
+2,1001,1,marl_ppo,marl_ppo,80,ok,0.023428999999999998,31.028510999999998,31.051939999999998
+2,1001,2,marl_ppo,marl_ppo,80,ok,0.019094,1.8577170000000001,1.876811
+2,1001,3,marl_ppo,marl_ppo,80,ok,0.022114999999999999,4.5321549999999995,4.5542699999999998
+2,1001,4,marl_ppo,marl_ppo,80,ok,0.024265000000000002,4.3160850000000002,4.3403499999999999
+2,1001,5,marl_ppo,marl_ppo,80,no_decision,0,0,

@@ -216,3 +216,11 @@ DQN 実行時に間違えやすい点をまとめます。
 ## 未確認事項
 
 この README は手順整理用の初稿です。ここに書いたコマンドの一連実行は、まだこの作業では未実行です。
+
+## Assignment computation time（v2）
+
+4手法の計算区間を統一した計測・比較は
+[`doc/assignment_computation_timing.md`](../doc/assignment_computation_timing.md) を参照。
+`run_assignment_timing.py` は同seedの4手法を逐次評価し、
+`summarize_assignment_timing.py` はv2専用ログを1意思決定サイクル1サンプルで集計する。
+旧masterログの時間、bootstrap、失敗・最終観測サイクルはそのまま混ぜない。

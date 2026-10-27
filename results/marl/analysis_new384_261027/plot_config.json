@@ -1,0 +1,20 @@
+{
+  "runs": [
+    "/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/marl/train80_new_episodes128_261021",
+    "/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/marl/train80_new_episodes256_261023",
+    "/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/marl/train80_new_episodes384_261025"
+  ],
+  "model_seed": 1,
+  "environment_seeds": [
+    1011,
+    1012,
+    1013,
+    1014,
+    1015
+  ],
+  "rolling_window": 16,
+  "reward": "H_after",
+  "return_definition": "sum of 4 step rewards",
+  "validation_band": "sample standard deviation over 5 environment seeds",
+  "command": "python3 results/marl/analysis_new384_261027/plot_rewards.py"
+}

@@ -75,6 +75,8 @@ def main():
     (out/'link_commands.json').write_text(json.dumps(links,indent=2))
     (out/'build_manifest.json').write_text(json.dumps(dict(ns3='3.44',dependency_sha256=hashes,
         base_libraries=str(args.base_libraries.resolve()),
+        assignment_timer_sha256=hashlib.sha256(
+            (ROOT/'contrib/kameda/model/server/assignment-compute-timer.h').read_bytes()).hexdigest(),
         apselection_header_sha256=hashlib.sha256(
             (ROOT/'contrib/kameda/model/server/APselection.h').read_bytes()).hexdigest(),
         source_sha256={e['file']:hashlib.sha256(Path(e['file']).read_bytes()).hexdigest() for e in selected},

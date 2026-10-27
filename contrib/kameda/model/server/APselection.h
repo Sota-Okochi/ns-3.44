@@ -20,6 +20,7 @@
 #include <set>
 
 namespace ns3 {
+class AssignmentComputeTimer;
 
 // === 定数定義 ===
 namespace APConstants {
@@ -184,14 +185,15 @@ private:
                                              double harmonicMean,
                                              uint32_t appliedSwitchesInCycle,
                                              const std::set<int>& bannedActionIds,
-                                             std::vector<int>& validActionIds);
+                                             std::vector<int>& validActionIds,
+                                             AssignmentComputeTimer& computeTimer);
     bool SendCentralizedStateReceiveAction(const std::string& requestJson,
                                            int& actionId,
                                            int& targetUeId,
                                            int& selectedBsId,
                                            double& qValue,
                                            std::vector<double>& qValues,
-                                           std::string& errorMessage) const;
+                                           std::string& errorMessage);
     double calculate_harmonic_mean_for_assignment(const std::vector<int>& assignment);
     double estimate_satisfaction_for_assignment(int terminal_idx,
                                                 int ap_idx,
@@ -213,6 +215,7 @@ private:
     void ResetMonitorStats();
     void RecordHarmonicMean(double value);
     void WriteMasterLog();
+    void WriteAssignmentTiming();
     void WriteMeasuredRewardLogRow(double hAfterMeasured);
     void WriteCentralizedTeacherLogRows(const std::vector<int>& assignmentBefore,
                                         const std::vector<int>& assignmentAfter,
@@ -283,6 +286,11 @@ private:
     std::string m_pendingRewardEffectiveMethod = "random"; // 実測reward対象cycleの実効手法
     bool m_pendingRewardBootstrapCycle = false;  // 実測reward対象cycleがbootstrapか
     std::string m_outputDir = "OUTPUT/";        // master_log 出力先
+    double m_assignmentCppMs = 0.0;
+    double m_assignmentPythonMs = 0.0;
+    std::string m_assignmentTimingStatus = "ok";
+    std::string m_assignmentTimingPath;
+    bool m_assignmentTimingInitialized = false;
     double m_lastAssignmentComputeMs = 0.0;      // 当該cycleの割当算出処理時間[ms]（steady_clock計測）
     std::map<uint32_t, std::vector<DqnAction>> m_dqnActions; // cycle_id -> actions
     uint32_t m_rngSeed = 1;                    // 割り当て手法用乱数seed

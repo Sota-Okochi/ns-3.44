@@ -1,3 +1,4 @@
+#include "assignment-compute-timer.h"
 #include "APselection.h"
 #include "ns3/abort.h"
 #include "ns3/simulator.h"
@@ -35,6 +36,16 @@ void APselection::marl_ppo_assignment()
 {
     NS_ABORT_MSG_IF(aps != 3 || terms < 1 || m_totalCycles != 5, "marl_ppo requires 3 APs / 5 cycles");
     const bool done = m_cycleIndex == m_totalCycles;
+    AssignmentComputeTimer prepare(m_assignmentCppMs, !done);
+    std::vector<double> observedTp(terms, std::numeric_limits<double>::quiet_NaN());
+    for (int i = 0; i < terms; ++i)
+    {
+        const int ap = m_marlActualAp.at(i);
+        NS_ABORT_MSG_IF(ap < 0 || ap != initial_AP[i]-1, "MARL actual assignment missing/mismatch");
+        if (m_marlTpStatus[i] == "ok" && std::isfinite(m_terminal_tp[i]) && m_terminal_tp[i] >= 0)
+            observedTp[i] = m_terminal_tp[i]*1e-6;
+    }
+    prepare.Pause();
     std::ostringstream out;
     out << std::setprecision(17) << "{\"schema\":\"marl_v1\",\"cycle\":" << m_cycleIndex
         << ",\"seed\":" << m_rngSeed << ",\"sim_time\":" << Simulator::Now().GetSeconds()
@@ -46,8 +57,8 @@ void APselection::marl_ppo_assignment()
         NS_ABORT_MSG_IF(ap < 0 || ap != initial_AP[i]-1, "MARL actual assignment missing/mismatch");
         out << "{\"ue_id\":" << i << ",\"app\":" << initial_app[i]-1 << ",\"bs\":" << ap
             << ",\"tp_status\":\"" << m_marlTpStatus[i] << "\",\"tp_mbps\":";
-        if (m_marlTpStatus[i] == "ok" && std::isfinite(m_terminal_tp[i]) && m_terminal_tp[i] >= 0)
-            out << m_terminal_tp[i]*1e-6;
+        if (std::isfinite(observedTp[i]))
+            out << observedTp[i];
         else out << "null";
         out << '}';
     }
@@ -62,7 +73,7 @@ void APselection::marl_ppo_assignment()
         out << ",\"sent\":" << r.sent << ",\"replies\":" << r.replies
             << ",\"send_failures\":" << r.failures << ",\"late\":" << r.late << '}';
     }
-    out << "]}";
+    out << "],\"assignment_timing_version\":2}";
     // A worker has its own listening endpoint; no global files or shared episode state.
     int fd = ::socket(AF_INET, SOCK_STREAM, 0);
     NS_ABORT_MSG_IF(fd < 0, "MARL socket create failed");
@@ -93,6 +104,7 @@ void APselection::marl_ppo_assignment()
         NS_ABORT_MSG_IF(reply.size() > 65536, "MARL response too large");
     }
     ::close(fd);
+    AssignmentComputeTimer timer(m_assignmentCppMs, !done);
     std::istringstream input(reply);
     std::string tag, extra;
     uint32_t cycle, policy;
@@ -107,8 +119,13 @@ void APselection::marl_ppo_assignment()
         assignment[i] = ap+1;
         NS_ABORT_MSG_IF(done && assignment[i] != initial_AP[i], "Terminal observation must not act");
     }
-    NS_ABORT_MSG_IF(input >> extra, "Trailing MARL response data");
     m_lastAssignment = assignment;
+    timer.Pause();
+    std::string timingTag;
+    NS_ABORT_MSG_IF(!(input >> timingTag >> m_assignmentPythonMs) || timingTag != "TIMING_V2" ||
+                    !std::isfinite(m_assignmentPythonMs) || m_assignmentPythonMs < 0,
+                    "Missing/invalid MARL compute timing; rebuild runner and simulator together");
+    NS_ABORT_MSG_IF(input >> extra, "Trailing MARL response data");
     m_cycleHarmonicMeans.push_back(h); // No legacy QoE imputation or hypothetical post-switch quality.
     std::ofstream log(m_outputDir+"marl_wire.jsonl", std::ios::app);
     NS_ABORT_MSG_IF(!log, "Cannot write MARL raw log");

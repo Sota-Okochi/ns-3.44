@@ -5,6 +5,7 @@ import json
 import signal
 import socketserver
 import threading
+import time
 from pathlib import Path
 
 import torch
@@ -89,6 +90,12 @@ class CentralizedDqnService:
         if msg.get("type", "act") != "act":
             return make_error("unsupported message type")
 
+        # CUDA operations must finish inside the measured compute interval.
+        def synchronize():
+            if self.agent.device.type == "cuda":
+                torch.cuda.synchronize(self.agent.device)
+        synchronize()
+        feature_start = time.perf_counter_ns()
         if self.schema_version in {"v2", "v2_onehot", "centralized_state_v2", "centralized_state_v2_onehot"}:
             state = state_to_vector_v2(msg.get("state", {}))
         else:
@@ -100,6 +107,7 @@ class CentralizedDqnService:
                 (x - mean) / (std if abs(std) >= 1e-12 else 1.0)
                 for x, mean, std in zip(state, self.feature_mean, self.feature_std)
             ]
+        feature_ms = (time.perf_counter_ns() - feature_start) / 1e6
         cycle_id = int(msg.get("cycle_id", msg.get("state", {}).get("cycle_id", 0)))
         step_id = int(msg.get("step_id", 0))
         h_now = float(msg.get("harmonic_mean", 0.0))
@@ -130,13 +138,23 @@ class CentralizedDqnService:
                 self.pending.clear()
         self.last_cycle = cycle_id
 
+        synchronize()
+        action_start = time.perf_counter_ns()
         valid_action_ids = [int(x) for x in msg.get("valid_action_ids", [])]
         epsilon = 0.0 if self.args.eval_only else float(msg.get("epsilon", self.args.epsilon))
         action_id, q_values = self.agent.select_action_masked(state, valid_action_ids, epsilon)
+        target_ue_id = action_id // NUM_APS + 1 if action_id >= 0 else -1
+        selected_bs_id = action_id % NUM_APS if action_id >= 0 else -1
+        synchronize()
+        compute_ms = feature_ms + (time.perf_counter_ns() - action_start) / 1e6
+        # Training requests are deliberately not eligible for inference-time comparison.
+        timing = {"assignment_timing_version": 2 if self.args.eval_only else 0,
+                  "assignment_compute_ms": compute_ms}
         self.steps += 1
 
         if action_id < 0:
             return {
+                **timing,
                 "type": "action",
                 "action_id": -1,
                 "target_ue_id": -1,
@@ -149,8 +167,6 @@ class CentralizedDqnService:
                 "eval_only": self.args.eval_only,
             }
 
-        target_ue_id = action_id // NUM_APS + 1
-        selected_bs_id = action_id % NUM_APS
         q_value = q_values[action_id] if 0 <= action_id < len(q_values) else 0.0
         if not self.args.eval_only:
             self.pending[(cycle_id, step_id)] = (state, action_id, h_now)
@@ -159,6 +175,7 @@ class CentralizedDqnService:
             if self.args.checkpoint_out and self.steps % self.args.checkpoint_interval == 0:
                 self.save_checkpoint("interval")
         return {
+            **timing,
             "type": "action",
             "action_id": action_id,
             "target_ue_id": target_ue_id,
@@ -208,7 +225,10 @@ def main():
     p.add_argument("--reward-switch-penalty-alpha", type=float, default=0.001)
     p.add_argument("--reward-degraded-penalty-beta", type=float, default=0.001)
     p.add_argument("--eval-only", "--no-update", action="store_true", dest="eval_only")
+    p.add_argument("--torch-threads", type=int, default=1)
     args = p.parse_args()
+    if args.torch_threads < 1: p.error("--torch-threads must be positive")
+    torch.set_num_threads(args.torch_threads)
     if str(args.port).lower() == "auto":
         bind_port = 0
     else:

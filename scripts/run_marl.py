@@ -72,7 +72,9 @@ class Session:
     def handle(self, msg):
         if self.ended or msg.get('cycle') != self.cycle+1 or msg.get('seed') != self.env_seed or len(msg.get('users', [])) != self.n:
             raise ValueError('episode identity/cycle mismatch')
+        feature_start = time.perf_counter_ns()
         obs, raw = observation(msg, self.learner.config, self.previous)
+        feature_ms = (time.perf_counter_ns() - feature_start) / 1e6
         with (self.directory/'observations.jsonl').open('a') as f:
             f.write(json.dumps(dict(run_id=self.run_id, policy_version=self.learner.updates,
                                    message=msg, evaluated=raw), allow_nan=False)+'\n')
@@ -98,8 +100,18 @@ class Session:
         action = torch.tensor(applied)
         self.pending = None
         if not msg['done']:
-            action, lp, value = self.learner.act(obs, self.generator)
+            action_start = time.perf_counter_ns()
+            action, lp = self.learner.assignment_action(obs, self.generator)
+            assignment = action.tolist()
+            if len(assignment) != self.n or any(type(ap) is not int or ap not in range(3) for ap in assignment):
+                raise ValueError('Invalid assignment vector')
+            self.last_compute_ms = feature_ms + (time.perf_counter_ns() - action_start) / 1e6
+            with torch.no_grad():
+                value = self.learner.critic(obs)
             self.pending = dict(obs=obs, action=action, log_probs=lp, value=value)
+        else:
+            assignment = applied
+            self.last_compute_ms = 0.0  # terminal observation is not a decision
         for i, u in enumerate(raw['users']):
             old = self.previous[i] if self.previous is not None else u
             append_csv(self.directory/'qoe.csv', dict(run_id=self.run_id, seed=self.env_seed,
@@ -114,7 +126,9 @@ class Session:
                 requested_switch_flag=int(action[i] != u['bs']), reward=reward, policy_version=self.learner.updates))
         self.previous = raw['users']; self.cycle += 1
         self.hs.append(raw['h']); self.ended = msg['done']
-        return f'MARL_PPO_V1 {self.cycle} {self.learner.updates} {raw["h"]:.17g} '+ ' '.join(map(str, action.tolist()))+'\n'
+        timing = (f' TIMING_V2 {self.last_compute_ms:.17g}'
+                  if msg.get('assignment_timing_version') == 2 else '')
+        return f'MARL_PPO_V1 {self.cycle} {self.learner.updates} {raw["h"]:.17g} '+ ' '.join(map(str, assignment))+timing+'\n'
 
 
 class Handler(socketserver.StreamRequestHandler):
@@ -227,6 +241,7 @@ def main(argv=None):
     p.add_argument('--capacity', type=Path, default=ROOT/'configs/capacity/constant.json')
     p.add_argument('--config', type=Path, help='Optional JSON Config overrides, saved in manifest')
     p.add_argument('--binary', type=Path, required=True, help='Already built master binary; this runner never builds')
+    p.add_argument('--eval-seed', type=int, help='Single validation/test seed for paired timing runs')
     p.add_argument('--checkpoint', type=Path, help='Trusted local marl checkpoint only')
     p.add_argument('--recover-run', type=Path, help='Trusted stopped run: restore recovery.pt and reuse matching completed episodes into NEW output')
     p.add_argument('--report-conn-timeout', type=float, default=.2)
@@ -236,6 +251,8 @@ def main(argv=None):
     p.add_argument('--probe-interval', type=float, default=.2)
     p.add_argument('--probe-timeout', type=float, default=1.)
     args = p.parse_args(argv)
+    if args.eval_seed is not None and (args.mode not in ('validation', 'test') or args.eval_seed < 1):
+        p.error('--eval-seed requires validation/test and a positive seed')
     if args.recover_run:
         if args.checkpoint or args.resume or args.mode != 'train':
             p.error('--recover-run requires train and cannot combine with --checkpoint/--resume')
@@ -344,6 +361,7 @@ def main(argv=None):
 
     if args.mode in ('validation', 'test'):
         seeds = VALIDATION_SEEDS if args.mode == 'validation' else range(1001,1011)
+        if args.eval_seed is not None: seeds = [args.eval_seed]
         collect(list(enumerate(seeds)), args.mode, args.output)
     elif args.mode == 'smoke':
         collect([(e, environment_seed(learner.seed,e))

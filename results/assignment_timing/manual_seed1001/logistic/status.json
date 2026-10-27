@@ -1,0 +1,8 @@
+{
+  "status": "failed",
+  "completed_methods": [
+    "logistic"
+  ],
+  "current_method": "logistic",
+  "error": "Invalid/incomplete decision: ('logistic', 1001, 2): fallback"
+}

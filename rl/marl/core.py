@@ -179,9 +179,15 @@ class Learner:
         self.critic_opt = torch.optim.Adam(self.critic.parameters(), lr=self.config.critic_lr, eps=1e-8)
 
     @torch.no_grad()
-    def act(self, obs, generator):
+    def assignment_action(self, obs, generator):
+        """Serving-AP decision only; critic is a training diagnostic, not a decision input."""
         log_probs = self.actor(obs).log_softmax(-1)
         action = torch.multinomial(log_probs.exp(), 1, generator=generator).squeeze(-1)
+        return action, log_probs
+
+    @torch.no_grad()
+    def act(self, obs, generator):
+        action, log_probs = self.assignment_action(obs, generator)
         return action, log_probs, self.critic(obs)
 
     def update(self, episodes):

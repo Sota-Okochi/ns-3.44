@@ -1,0 +1,5 @@
+timing_version,seed,cycle_id,method,effective_method,num_terminals,status,cpp_compute_ms,python_compute_ms,assignment_compute_ms
+2,1001,1,centralized_dqn,centralized_dqn,80,ok,15.668365,15.529068999999998,31.197433999999998
+2,1001,2,centralized_dqn,centralized_dqn,80,ok,13.472745999999999,9.7412519999999994,23.213997999999997
+2,1001,3,centralized_dqn,centralized_dqn,80,ok,12.719104999999999,12.957650999999998,25.676755999999997
+2,1001,4,centralized_dqn,centralized_dqn,80,ok,13.363693000000005,13.957084999999999,27.320778000000004

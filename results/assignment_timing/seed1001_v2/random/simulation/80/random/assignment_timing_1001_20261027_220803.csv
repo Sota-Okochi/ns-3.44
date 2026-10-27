@@ -1,0 +1,6 @@
+timing_version,seed,cycle_id,method,effective_method,num_terminals,status,cpp_compute_ms,python_compute_ms,assignment_compute_ms
+2,1001,1,random,random,80,ok,0.0049810000000000002,0,0.0049810000000000002
+2,1001,2,random,random,80,ok,0.0025110000000000002,0,0.0025110000000000002
+2,1001,3,random,random,80,ok,0.0026029999999999998,0,0.0026029999999999998
+2,1001,4,random,random,80,ok,0.0023280000000000002,0,0.0023280000000000002
+2,1001,5,random,random,80,no_decision,0,0,
