@@ -1,0 +1,105 @@
+{
+  "validation": {
+    "0": {
+      "1011": 0.5173935632063101,
+      "1012": 0.3350640739429763,
+      "1013": 0.1836308280585772,
+      "1014": 0.3732140813776207,
+      "1015": 0.26391025762039216
+    },
+    "64": {
+      "1011": 0.5288183474635183,
+      "1012": 0.32574777817730655,
+      "1013": 0.18748726989856845,
+      "1014": 0.38955874963914006,
+      "1015": 0.2550715042999818
+    },
+    "128": {
+      "1011": 0.5751923751550235,
+      "1012": 0.2930373460378932,
+      "1013": 0.2073246815491903,
+      "1014": 0.44923223736213835,
+      "1015": 0.23566053040111096
+    },
+    "192": {
+      "1011": 0.5630598467438239,
+      "1012": 0.20710170715091247,
+      "1013": 0.20305744447238527,
+      "1014": 0.43333924029803933,
+      "1015": 0.19491364719373577
+    },
+    "256": {
+      "1011": 0.5587227116344691,
+      "1012": 0.19529731496167768,
+      "1013": 0.2080467222441201,
+      "1014": 0.4282375888001024,
+      "1015": 0.18386013965456055
+    }
+  },
+  "training_blocks": {
+    "1-64": {
+      "mean_h_after": 0.32559786583490796,
+      "initial_h": 0.35183801434587136
+    },
+    "65-128": {
+      "mean_h_after": 0.3463457094102912,
+      "initial_h": 0.358343185004489
+    },
+    "129-192": {
+      "mean_h_after": 0.3779444457994633,
+      "initial_h": 0.3779100489215831
+    },
+    "193-256": {
+      "mean_h_after": 0.33624935905625997,
+      "initial_h": 0.338030871788635
+    }
+  },
+  "status": {
+    "train80_new_episodes128_261021": {
+      "count": 143,
+      "valid": 143
+    },
+    "train80_new_episodes256_261023": {
+      "count": 138,
+      "valid": 138
+    }
+  },
+  "delta_128_256": {
+    "mean": -0.037256538642085314,
+    "positive_seeds": 1,
+    "t95": [
+      -0.08537308456029472,
+      0.010860007276124094
+    ]
+  },
+  "delta_0_256": {
+    "mean": -0.019809665382189347,
+    "positive_seeds": 3,
+    "t95": [
+      -0.1260845660518998,
+      0.08646523528752112
+    ]
+  },
+  "delta_192_256": {
+    "mean": -0.005461481712793398,
+    "positive_seeds": 1,
+    "t95": [
+      -0.013838272107186472,
+      0.002915308681599676
+    ]
+  },
+  "sources": [
+    "/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/marl/train80_new_episodes128_261021",
+    "/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/marl/train80_new_episodes256_261023"
+  ],
+  "source_hashes": {
+    "/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/marl/train80_new_episodes128_261021/manifest.json": "0210def4ee6c13e86117b672fb612b09aa05e9d7c6fead96dcbadb5f4af45851",
+    "/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/marl/train80_new_episodes128_261021/episodes.csv": "972b90fb5245447c9db658a8e550cae28981ae0be4b1cb7845d5fb6f14f41ac5",
+    "/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/marl/train80_new_episodes128_261021/validation.csv": "93fd98b42338aee91cb6e78b7620f7876043ea64ef91da5ed2a27e8e36fad4fe",
+    "/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/marl/train80_new_episodes128_261021/updates.csv": "b29c79f8e1f109c7134e447b59ef663a2bf1289e139d9d41a4cd2d3d67662690",
+    "/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/marl/train80_new_episodes256_261023/manifest.json": "d13e9a76f412e5c192c3c3f21864dec83bb7b6bc8049b2e8660391f255ebce75",
+    "/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/marl/train80_new_episodes256_261023/episodes.csv": "e9571479977fc758d63dbe8973cbbc59cc3601e14dfee0e0900a6619a077c3fb",
+    "/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/marl/train80_new_episodes256_261023/validation.csv": "8bac4362b6cc4c55277e8628617bb7ae15d1624387a8e7df11299712320d2a7e",
+    "/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/marl/train80_new_episodes256_261023/updates.csv": "d37402c569d7fff9e4e80d710fa5288d98fe09cb8cb0c54c2f6c992a8e9fd261"
+  }
+}
