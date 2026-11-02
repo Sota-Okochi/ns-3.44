@@ -1,0 +1,43 @@
+{
+  "result": "passed",
+  "checks": "Original runner environment and experiment identity checks passed; stopped immediately before simulation collection",
+  "simulation_started": false,
+  "first_batch": {
+    "tasks": [
+      [
+        384,
+        805
+      ],
+      [
+        385,
+        538
+      ],
+      [
+        386,
+        206
+      ],
+      [
+        387,
+        29
+      ],
+      [
+        388,
+        887
+      ],
+      [
+        389,
+        153
+      ],
+      [
+        390,
+        844
+      ],
+      [
+        391,
+        397
+      ]
+    ],
+    "workers": 8
+  },
+  "temporary_output": "/tmp/marl512-preflight-358w9pdp/run"
+}

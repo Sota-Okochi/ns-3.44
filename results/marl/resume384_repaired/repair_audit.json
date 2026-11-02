@@ -1,0 +1,21 @@
+{
+  "source": "/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/marl/train80_new_episodes384_261025/latest.pt",
+  "source_sha256": "03f2ed99040b37354a4dac8889ea735cca13001f6f776aeccd07deed93835516",
+  "repaired_sha256": "3aeb5bf3750fb64a4ca0317225429c332f2d420580385c842654dd687801ab92",
+  "change": {
+    "setting.terminals": {
+      "before": 80,
+      "after": 100
+    }
+  },
+  "actual_simulation_terminals": 80,
+  "completed_episodes": 384,
+  "updates": 48,
+  "experiment_id": "84c00dbf2fb765d4c491d9cd9ca1e0117ef99c3fb699d82f9c79444ac57da7a8",
+  "experiment_identity_verified": true,
+  "all_other_checkpoint_fields_exactly_equal": true,
+  "original_unchanged": true,
+  "actual_training_settings_checked": 128,
+  "best_preserved": true,
+  "command": "python3 results/marl/resume384_repaired/repair.py"
+}

@@ -1,0 +1,2 @@
+phase,episode_id,environment_seed,model_seed,policy_version,return_sum,mean_h_after,mean_h_all,initial_h,source_directory,seconds,max_rss_kib,reused,wall_elapsed_seconds
+test,0,1003,1,16,1.2835518344570938,0.32088795861427344,0.32390490170600894,0.335972674072951,/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/senario1/marl/seed1003/test_000000_seed1003,9724.082188995999,1186588,False,9724.142344455999
