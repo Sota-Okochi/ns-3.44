@@ -1,0 +1,43 @@
+{
+  "runs": [
+    "/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/marl/train80_new_episodes128_261021",
+    "/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/marl/train80_new_episodes256_261023",
+    "/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/marl/train80_new_episodes384_261025",
+    "/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/marl/train80_new_episodes512_261101"
+  ],
+  "input_sha256": {
+    "results/marl/train80_new_episodes128_261021/manifest.json": "0210def4ee6c13e86117b672fb612b09aa05e9d7c6fead96dcbadb5f4af45851",
+    "results/marl/train80_new_episodes128_261021/episodes.csv": "972b90fb5245447c9db658a8e550cae28981ae0be4b1cb7845d5fb6f14f41ac5",
+    "results/marl/train80_new_episodes128_261021/updates.csv": "b29c79f8e1f109c7134e447b59ef663a2bf1289e139d9d41a4cd2d3d67662690",
+    "results/marl/train80_new_episodes128_261021/validation.csv": "93fd98b42338aee91cb6e78b7620f7876043ea64ef91da5ed2a27e8e36fad4fe",
+    "results/marl/train80_new_episodes256_261023/manifest.json": "d13e9a76f412e5c192c3c3f21864dec83bb7b6bc8049b2e8660391f255ebce75",
+    "results/marl/train80_new_episodes256_261023/episodes.csv": "e9571479977fc758d63dbe8973cbbc59cc3601e14dfee0e0900a6619a077c3fb",
+    "results/marl/train80_new_episodes256_261023/updates.csv": "d37402c569d7fff9e4e80d710fa5288d98fe09cb8cb0c54c2f6c992a8e9fd261",
+    "results/marl/train80_new_episodes256_261023/validation.csv": "8bac4362b6cc4c55277e8628617bb7ae15d1624387a8e7df11299712320d2a7e",
+    "results/marl/train80_new_episodes384_261025/manifest.json": "9a21a7b3d2abe387e59612a9a86cec317834962461bb23af00a52d20e1354af6",
+    "results/marl/train80_new_episodes384_261025/episodes.csv": "ec0c8a9a65ec8ea5bdcc858271c6ab8434bc19ac2c1f7572d0fce7f82cdf1665",
+    "results/marl/train80_new_episodes384_261025/updates.csv": "92966b51823a5a61dbda042b769d99dfa425a1feff1e95093004a355dea9fa6c",
+    "results/marl/train80_new_episodes384_261025/validation.csv": "c66e4329fe1f1518de65ded0e0ea849a41a8455e5077c213224d359dfc927052",
+    "results/marl/train80_new_episodes512_261101/manifest.json": "ccf035bea1287a8067c6f666562c9a76c8fdd292c90357641a4ec67bb5585137",
+    "results/marl/train80_new_episodes512_261101/episodes.csv": "521a92314f500d38a3db6458a3aa368132175e3669c95d3e25e2884f290eaf52",
+    "results/marl/train80_new_episodes512_261101/updates.csv": "746f1b32f459ff8e910b45d5650451c3ffe97b30cd4d9cd100124d4878efbf83",
+    "results/marl/train80_new_episodes512_261101/validation.csv": "311c3fa612f5b1501dfb6fa87c8dccc1fafed5c1d8ef373a9533d85a7b056c51"
+  },
+  "model_seed": 1,
+  "validation_seeds": [
+    1011,
+    1012,
+    1013,
+    1014,
+    1015
+  ],
+  "experiment_id": "84c00dbf2fb765d4c491d9cd9ca1e0117ef99c3fb699d82f9c79444ac57da7a8",
+  "statuses_checked": 557,
+  "all_valid": true,
+  "training_episode_count": 512,
+  "moving_average_window": 16,
+  "validation_errorbars": "sample SD, not CI",
+  "paired_interval": "t interval, df=4; descriptive only, repeated validation/model selection",
+  "unsatisfied_definition": "satisfaction < 1",
+  "command": "python3 results/marl/analysis_new512_261103/analyze.py"
+}

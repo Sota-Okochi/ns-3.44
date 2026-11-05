@@ -1,0 +1,60 @@
+{
+  "schema": "marl_v1",
+  "command": [
+    "/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/build/qoe-floor001-v1/master",
+    "--settingPath=/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/marl/train80_new_episodes640_261103/train_000569_seed215/setting.json",
+    "--method=marl_ppo",
+    "--rngSeed=215",
+    "--mob=1",
+    "--outputRoot=/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/marl/train80_new_episodes640_261103/train_000569_seed215/simulation",
+    "--capacityEventsPath=/home/sota/workspace_ns-3.44/ns-allinone-3.44/ns-3.44/results/marl/train80_new_episodes640_261103/train_000569_seed215/planned_events.csv",
+    "--pgwCerRate=55000000bps",
+    "--ap1BackhaulRate=40000000bps",
+    "--ap2BackhaulRate=30000000bps",
+    "--drlServerPort=42899",
+    "--drlTimeoutMs=30000",
+    "--marlProbeCount=10",
+    "--marlProbeInterval=0.2",
+    "--marlProbeTimeout=1.0",
+    "--marlReportConnTimeout=0.2"
+  ],
+  "run_id": "train_m1_e569_s215_p71",
+  "environment_seed": 215,
+  "capacity_seed": 100215,
+  "action_seed": 7112796401394432175,
+  "model_seed": 1,
+  "phase": "train",
+  "episode_id": 569,
+  "policy_version": 71,
+  "capacity": {
+    "mode": "random_walk",
+    "event_seed": 100215,
+    "boundary": "clip",
+    "update_interval_cycles": 1,
+    "links": [
+      {
+        "ap_id": 0,
+        "initial_bps": 55000000,
+        "min_bps": 25000000,
+        "max_bps": 85000000,
+        "step_bps": 15000000
+      },
+      {
+        "ap_id": 1,
+        "initial_bps": 40000000,
+        "min_bps": 20000000,
+        "max_bps": 60000000,
+        "step_bps": 5000000
+      },
+      {
+        "ap_id": 2,
+        "initial_bps": 30000000,
+        "min_bps": 15000000,
+        "max_bps": 40000000,
+        "step_bps": 5000000
+      }
+    ]
+  },
+  "report_conn_timeout": 0.2,
+  "events_sha256": "038856cfa059406b8d7c8328166c9c1f941d4afefe2bdd3eb797599424fe0e28"
+}

@@ -1,0 +1,59 @@
+{
+  "latest.pt": {
+    "completed_episodes": 512,
+    "updates": 64,
+    "terminals": 80,
+    "best_score": 0.3567866648932293,
+    "experiment_id": "84c00dbf2fb765d4c491d9cd9ca1e0117ef99c3fb699d82f9c79444ac57da7a8",
+    "setting": {
+      "baseStations": 3,
+      "terminals": 100,
+      "rngSeed": 1002,
+      "numCycles": 5,
+      "cycleTimeSec": 9.5,
+      "warmupBeforeCycleSec": 3.0,
+      "monitorStartSec": 1.1,
+      "monitorStopSec": 6.0,
+      "browserFirstBurstSec": 1.2,
+      "browserSecondBurstSec": 2.1,
+      "browserBurstIntervalSec": 1.0,
+      "browserNumRequests": 4,
+      "browserRequestSize": 768000,
+      "cycleEndMarginSec": 0.5,
+      "handoverGraceCycles": 0,
+      "browserPostHandoverDelaySec": 0.0
+    }
+  },
+  "latest_metadata_identity_matches": true,
+  "setting_file_matches": true,
+  "runtime_matches": true,
+  "changed_sources": [],
+  "actual_training_terminals": [
+    80
+  ],
+  "best.pt": {
+    "completed_episodes": 512,
+    "updates": 64,
+    "terminals": 80,
+    "best_score": 0.3567866648932293,
+    "experiment_id": "84c00dbf2fb765d4c491d9cd9ca1e0117ef99c3fb699d82f9c79444ac57da7a8",
+    "setting": {
+      "baseStations": 3,
+      "terminals": 100,
+      "rngSeed": 1002,
+      "numCycles": 5,
+      "cycleTimeSec": 9.5,
+      "warmupBeforeCycleSec": 3.0,
+      "monitorStartSec": 1.1,
+      "monitorStopSec": 6.0,
+      "browserFirstBurstSec": 1.2,
+      "browserSecondBurstSec": 2.1,
+      "browserBurstIntervalSec": 1.0,
+      "browserNumRequests": 4,
+      "browserRequestSize": 768000,
+      "cycleEndMarginSec": 0.5,
+      "handoverGraceCycles": 0,
+      "browserPostHandoverDelaySec": 0.0
+    }
+  }
+}
