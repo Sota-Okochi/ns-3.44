@@ -1,0 +1,14 @@
+{
+  "best.pt": {
+    "completed_episodes": 576,
+    "updates": 72,
+    "best_score": 0.3580589464323735,
+    "terminals": 80
+  },
+  "latest.pt": {
+    "completed_episodes": 640,
+    "updates": 80,
+    "best_score": 0.3580589464323735,
+    "terminals": 80
+  }
+}

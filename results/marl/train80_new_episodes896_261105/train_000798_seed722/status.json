@@ -1,0 +1,9 @@
+{
+  "returncode": 0,
+  "error": null,
+  "seconds": 10202.085597569006,
+  "terminal": true,
+  "transitions": 4,
+  "max_rss_kib": 1156956,
+  "valid": true
+}
