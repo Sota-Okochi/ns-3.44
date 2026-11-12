@@ -20,6 +20,13 @@
 ## ネットワークアーキテクチャ
 
 ```mermaid
+---
+config:
+  fontSize: 17px
+  flowchart:
+    nodeSpacing: 28
+    rankSpacing: 30
+---
 flowchart LR
     %% --- Groups ---
     subgraph GWiFi2["AP2 / Wi-Fi"]
