@@ -22,29 +22,9 @@
 ```mermaid
 flowchart LR
     %% --- Groups ---
-    subgraph GNR["AP0 / NR"]
-        NRUE["UE"]
-        NRMON["Monitor Terminal"]
-        gNB["gNB"]
-        NREPC["NR EPC (PGW)"]
-        NRUE --> gNB
-        NRMON --> gNB
-        gNB --> NREPC
-    end
-
-    subgraph GWiFi1["AP1 / Wi-Fi"]
-        WIFI1STA["STA"]
-        WIFI1MON["Monitor Terminal"]
-        WIFI1AP["Wi-Fi AP1"]
-        WIFI1R["L3 Router"]
-        WIFI1STA --> WIFI1AP
-        WIFI1MON --> WIFI1AP
-        WIFI1AP --> WIFI1R
-    end
-
     subgraph GWiFi2["AP2 / Wi-Fi"]
-        WIFI2STA["STA"]
         WIFI2MON["Monitor Terminal"]
+        WIFI2STA["STA"]
         WIFI2AP["Wi-Fi AP2"]
         WIFI2R["L3 Router"]
         WIFI2STA --> WIFI2AP
@@ -52,8 +32,28 @@ flowchart LR
         WIFI2AP --> WIFI2R
     end
 
+    subgraph GWiFi1["AP1 / Wi-Fi"]
+        WIFI1MON["Monitor Terminal"]
+        WIFI1STA["STA"]
+        WIFI1AP["Wi-Fi AP1"]
+        WIFI1R["L3 Router"]
+        WIFI1STA --> WIFI1AP
+        WIFI1MON --> WIFI1AP
+        WIFI1AP --> WIFI1R
+    end
+
+    subgraph GNR["AP0 / NR"]
+        NRMON["Monitor Terminal"]
+        NRUE["UE"]
+        gNB["gNB"]
+        NREPC["NR EPC (PGW)"]
+        NRUE --> gNB
+        NRMON --> gNB
+        gNB --> NREPC
+    end
+
     subgraph Servers["Servers"]
-        RH["RemoteHost"]
+        RH["Control Server"]
         RTT["RTT Server"]
         BRW["Browser Server"]
         VID["Video Server"]
