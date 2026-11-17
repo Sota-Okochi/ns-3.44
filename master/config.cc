@@ -531,16 +531,20 @@ void NetSim::Init(int argc, char *argv[]){
                         "appTypesPath must contain exactly terminals integer IDs");
     }
     
-    // アプリの出現率の設定
+    // 各アプリを等確率で割り当てる（実際の端末数は乱数によって変動する）。
+    std::cout << "アプリ割り当て: "
+              << (fixedApps.empty() ? "ランダム (browser=25%, video=25%, voice=25%, game=25%)"
+                                    : "固定ファイル: " + appTypesPath)
+              << std::endl;
     for (uint32_t i = 0; i < termNum; ++i)
     {
         TermData data;
         const double appDraw = appRand->GetValue(0.0, 1.0);
-        if (appDraw < 0.20)
+        if (appDraw < 0.25)
         {
             data.use_appli = 1;
         }
-        else if (appDraw < 0.60)
+        else if (appDraw < 0.50)
         {
             data.use_appli = 2;
         }
