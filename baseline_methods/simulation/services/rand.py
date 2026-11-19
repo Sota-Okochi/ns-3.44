@@ -2,7 +2,7 @@ import math as Math
 import random
 from typing import List
 
-from simulation.config import load_app_config
+from simulation.config import load_app_config, load_sim_config
 from simulation.entities.term import Term  # 端末1台が持つデータ構造
 from simulation.entities.ap import Ap  # 1基地局が持つデータ構造
 
@@ -11,14 +11,10 @@ confApp = load_app_config()
 
 APP_NUM_MAX = len(confApp) #アプリケーションの種類の数
 
-# ns-3 側の APConstants::AppType と合わせ、appNum は 1..4 とする。
-# 分布も ns-3 側 config.cc と同じ: browser 20%, video 40%, voice 15%, game 25%。
-APP_DISTRIBUTION = [
-    (1, 0.20),  # browser
-    (2, 0.40),  # video
-    (3, 0.15),  # voice
-    (4, 0.25),  # online game
-]
+# ns-3 の app_type は 1..4。master/config.cc の一様分布に合わせる。
+APP_DISTRIBUTION = list(enumerate(load_sim_config()["app_distribution"], start=1))
+if len(APP_DISTRIBUTION) != APP_NUM_MAX or any(p < 0 for _, p in APP_DISTRIBUTION) or not Math.isclose(sum(p for _, p in APP_DISTRIBUTION), 1.0):
+    raise ValueError("app_distribution must contain nonnegative probabilities summing to 1")
 
 
 def _app_config_index(app_num: int) -> int:

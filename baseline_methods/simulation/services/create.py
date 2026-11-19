@@ -8,18 +8,9 @@ from simulation.entities.ap import Ap  # 1基地局が持つデータ構造
 confSim = load_sim_config()
 
 
-# ns-3 OUTPUT/80 の観測範囲から大きく外れないように、run ごとの AP 固定ばらつきを入れる。
-# ここで一度だけ乱数を引き、calLink() 中では固定値として使う。
-TP_SCALE_RANGE = [
-    (0.70, 1.30),  # AP0
-    (0.70, 1.30),  # AP1
-    (0.70, 1.30),  # AP2
-]
-RTT_OFFSET_RANGE_MS = [
-    (-10.0, 10.0),  # AP0
-    (-5.0, 5.0),    # AP1
-    (-8.0, 8.0),    # AP2
-]
+# run ごとに一度だけ抽選し、Hungarian 探索中は固定する。
+TP_SCALE_RANGE = confSim["link_model"]["tp_scale_range"]
+RTT_OFFSET_RANGE_MS = confSim["link_model"]["rtt_offset_range_ms"]
 
 # エリア内の基地局生成
 def createAp(apNum: int):

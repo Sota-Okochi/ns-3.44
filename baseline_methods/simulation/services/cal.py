@@ -53,14 +53,12 @@ def calAppNeed(appNum: int):
 def calLink(terms: List[Term], aps: List[Ap], sec: float):
     apTermNum = sumTermAp(terms, aps)
 
-    # ns-3 OUTPUT/80 の観測範囲から大きく外れないようにした簡易 AP 別品質モデル。
-    # 目的は ns-3 の物理挙動の完全再現ではなく、logistic 学習時の TP/RTT 特徴量が
-    # ns-3 実行時の範囲外になってロジットが暴走することを防ぐこと。
-    base_rtt = [80.0, 75.0, 50.0]
-    base_tp = [7.0, 5.0, 3.5]
-
-    rtt_alpha = [0.65, 0.25, 0.40]
-    tp_alpha = [0.020, 0.025, 0.030]
+    # 最新 random100 ログに基づく簡易モデル。係数・根拠は設定と校正レポートに保存。
+    model = confSim["link_model"]
+    base_rtt = model["base_rtt_ms"]
+    base_tp = model["base_tp_mbps"]
+    rtt_alpha = model["rtt_alpha_ms_per_user"]
+    tp_alpha = model["tp_alpha_per_user"]
 
     for i in range(len(aps)):
         n = apTermNum[i]
@@ -72,8 +70,8 @@ def calLink(terms: List[Term], aps: List[Ap], sec: float):
             (1.0 + tp_alpha[i] * n) *
             getattr(ap, "tpScale", 1.0)
         )
-        ap.setRtt(link_rtt)
-        ap.setTp(max(link_tp, 0.01))  # TP限界値補正（0で割ることを防ぐため）
+        ap.setRtt(max(link_rtt, model["min_rtt_ms"]))
+        ap.setTp(max(link_tp, model["min_tp_mbps"]))  # TP限界値補正（0で割ることを防ぐため）
 
 
 # 端末満足度算出

@@ -1,5 +1,11 @@
 # QoE ベース基地局割り当て baseline
 
+## 100 台向け設定（2026-11-19）
+
+最新 random CSV を用いて `config/sim.json` のリンク品質モデルを校正しました。
+入力一覧・推定方法・実行記録・制約は [校正メモ](docs/random100_calibration.md) を参照してください。
+既存の学習済みモデルは変更していません。以下の 100 台用ファイルは生成・学習後に作成される出力例です。
+
 ## プロジェクトの説明
 
 このプロジェクトは、複数の基地局と端末が存在する環境で、端末ごとの QoE（Quality of Experience）を考慮した基地局割り当てを検討するための Python baseline です。
@@ -9,7 +15,7 @@
 
 - 教師ラベル: ハンガリアン法が最終的に選んだ AP `assigned_ap`
 - AP 数: 3 台固定
-- 端末数: 基本 80 台
+- 端末数: 基本 100 台
 - 推論手法: ロジスティック回帰
 - ns-3 側では、学習済み係数 JSON/CSV を読み込んで `--method=logistic` として利用する想定
 - AP 容量超過時の補正は現時点では行わない
@@ -120,7 +126,7 @@ python main.py
 
 標準出力に、割り当て前後の調和平均やハンガリアン法で得られた接続先が表示されます。
 
-注意: `config/sim.json` の `termNum` が 80 の場合、ハンガリアン法の計算時間が非常に長くなる可能性があります。
+注意: `config/sim.json` の `termNum` が 100 の場合、ハンガリアン法の計算時間が非常に長くなる可能性があります。
 
 ---
 
@@ -145,12 +151,12 @@ head -5 /tmp/logistic_teacher_small.csv
 
 ### 4. 本番用教師データ生成
 
-80端末・100回分の教師データを生成する例です。
+100端末・100回分の教師データを生成する例です。
 
 ```bash
 python scripts/generate_logistic_teacher.py \
   --num-runs 100 \
-  --output data/raw/logistic_teacher_term80_runs100_seed001.csv
+  --output data/raw/logistic_teacher_term100_runs100_seed001.csv
 ```
 
 ---
@@ -164,7 +170,7 @@ python - <<'PY'
 import csv
 from collections import Counter
 
-path = "data/raw/logistic_teacher_term80_runs100_seed001.csv"
+path = "data/raw/logistic_teacher_term100_runs100_seed001.csv"
 cnt = Counter()
 with open(path, newline="") as f:
     for row in csv.DictReader(f):
@@ -179,8 +185,8 @@ PY
 
 ```bash
 python scripts/train_logistic.py \
-  --input data/raw/logistic_teacher_term80_runs100_seed001.csv \
-  --output data/models/logistic_term80_runs100_seed001.json
+  --input data/raw/logistic_teacher_term100_runs100_seed001.csv \
+  --output data/models/logistic_term100_runs100_seed001.json
 ```
 
 学習後、accuracy、precision、recall、f1-score が標準出力に表示されます。
@@ -193,8 +199,8 @@ python scripts/train_logistic.py \
 
 ```bash
 python scripts/evaluate_logistic.py \
-  --model data/models/logistic_term80_runs100_seed001.json \
-  --input data/raw/logistic_teacher_term80_runs100_seed001.csv
+  --model data/models/logistic_term100_runs100_seed001.json \
+  --input data/raw/logistic_teacher_term100_runs100_seed001.csv
 ```
 
 標準出力に以下が表示されます。
@@ -217,8 +223,8 @@ data/results/logistic_eval_<model名>_<input名>.json
 
 ```bash
 python scripts/evaluate_logistic.py \
-  --model data/models/logistic_term80_runs100_seed001.json \
-  --input data/raw/logistic_teacher_term80_runs30_seed1001.csv \
+  --model data/models/logistic_term100_runs100_seed001.json \
+  --input data/raw/logistic_teacher_term100_runs30_seed1001.csv \
   --output data/results/logistic_eval_seed1001.json
 ```
 
@@ -226,8 +232,8 @@ python scripts/evaluate_logistic.py \
 
 ```bash
 python scripts/evaluate_logistic.py \
-  --model data/models/logistic_term80_runs100_seed001.json \
-  --input data/raw/logistic_teacher_term80_runs30_seed1001.csv \
+  --model data/models/logistic_term100_runs100_seed001.json \
+  --input data/raw/logistic_teacher_term100_runs30_seed1001.csv \
   --no-save
 ```
 
@@ -350,5 +356,5 @@ ns-3 側では、以下の手順で推論します。
 - 現在の baseline は Python 側の教師データ作成・ロジスティック回帰学習までを対象としています。
 - ns-3.44 の `APselection.cc` への `logistic` 割り当て関数実装は今後の作業です。
 - `estimated_satisfaction_ap0/1/2` は現在使っていません。
-- AP 数は 3 台固定、端末数は基本 80 台固定の前提です。
+- AP 数は 3 台固定、端末数は基本 100 台固定の前提です。
 - AP 容量超過時の補正は現時点では行いません。
