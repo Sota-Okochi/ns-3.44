@@ -11,12 +11,16 @@ import re
 import numpy as np
 
 
-def summarize(source):
+def summarize(source, files=None):
     latest = {}
-    for path in source.glob('master_log_*.csv'):
+    for path in (files if files is not None else source.glob('master_log_*.csv')):
         match = re.fullmatch(r'master_log_(\d+)_(\d{8}_\d{6})\.csv', path.name)
+        if files is not None and not match:
+            raise ValueError(f'Invalid master log filename: {path}')
         if match:
             seed, timestamp = match.groups()
+            if files is not None and seed in latest:
+                raise ValueError(f'Duplicate seed in explicit inputs: {seed}')
             if seed not in latest or timestamp > latest[seed][0]:
                 latest[seed] = (timestamp, path)
     if not latest:
@@ -64,8 +68,11 @@ def summarize(source):
         # Nonnegative RTT slope. This is observational, not a causal load model.
         slope = max(0.0, float(np.cov(n, rtt, ddof=0)[0, 1] / np.var(n))) if np.var(n) else 0.0
         base_rtt = float(np.mean(rtt) - slope * np.mean(n))
-        if base_rtt <= 0:
-            raise ValueError('Nonpositive RTT intercept; review calibration')
+        if base_rtt < model['min_rtt_ms']:
+            # Constrained least squares on the intercept boundary; do not just
+            # clamp the intercept while retaining an incompatible slope.
+            base_rtt = model['min_rtt_ms']
+            slope = max(0.0, float(np.dot(n, rtt - base_rtt) / np.dot(n, n))) if np.dot(n, n) else 0.0
         # Retain prior TP slopes: narrow load coverage cannot identify zero-load TP.
         factor = 1 / (1 + model['tp_alpha_per_user'][ap] * n)
         base_tp = float(np.dot(factor, tp) / np.dot(factor, factor))
@@ -78,7 +85,8 @@ def summarize(source):
                           quantiles=[0, .05, .5, .95, 1],
                           values=np.quantile(values, [0, .05, .5, .95, 1], axis=0).tolist(),
                           means=np.mean(values, axis=0).tolist()))
-    return dict(selection='latest filename timestamp per seed; all cycles; one AP snapshot per cycle',
+    selection = 'explicit files' if files is not None else 'latest filename timestamp per seed'
+    return dict(selection=selection + '; all cycles; one AP snapshot per cycle',
                 sources=manifest, first_cycle_app_counts=dict(sorted(apps.items())),
                 statistics=stats, link_model=model)
 
@@ -87,7 +95,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--source', type=Path, default=Path(__file__).resolve().parents[2] / 'OUTPUT/100/random')
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--files', type=Path, nargs='+', help='Use only these logs instead of discovering latest logs.')
     args = parser.parse_args()
-    report = summarize(args.source)
+    report = summarize(args.source, args.files)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, indent=2, ensure_ascii=False) + '\n')

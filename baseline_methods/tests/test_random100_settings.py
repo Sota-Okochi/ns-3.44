@@ -13,15 +13,25 @@ sys.path.insert(0, str(ROOT))
 from simulation.config import load_sim_config
 from simulation.services import cal, create, rand
 from scripts.generate_logistic_teacher import _build_feature_rows
+from scripts.calibrate_random100 import summarize
 
 
 class SettingsTest(unittest.TestCase):
     def test_calibration_matches_config(self):
-        report = json.loads((ROOT / 'data/results/random100_calibration.json').read_text())
+        report = json.loads((ROOT / load_sim_config()['calibration_report']).read_text())
         self.assertEqual(load_sim_config()['link_model'], report['link_model'])
         self.assertEqual(load_sim_config()['termNum'], 100)
-        self.assertEqual(len(report['sources']), 8)
-        self.assertEqual(sum(s['rows'] for s in report['sources']), 4000)
+        self.assertEqual(len(report['sources']), 5)
+        self.assertEqual(sum(s['rows'] for s in report['sources']), 1300)
+        self.assertEqual(load_sim_config()['app_distribution'], [.2, .4, .15, .25])
+
+    def test_explicit_calibration_reproducible(self):
+        report = json.loads((ROOT / load_sim_config()['calibration_report']).read_text())
+        source = ROOT.parent / 'OUTPUT/100/random'
+        files = [source / entry['file'] for entry in report['sources']]
+        self.assertEqual(summarize(source, files), report)
+        with self.assertRaises(ValueError):
+            summarize(source, [files[0], files[0]])
 
     def snapshot(self):
         random.seed(123)

@@ -11,7 +11,7 @@ confApp = load_app_config()
 
 APP_NUM_MAX = len(confApp) #アプリケーションの種類の数
 
-# ns-3 の app_type は 1..4。master/config.cc の一様分布に合わせる。
+# ns-3 の app_type は 1..4。master/config.cc のアプリ比率に合わせる。
 APP_DISTRIBUTION = list(enumerate(load_sim_config()["app_distribution"], start=1))
 if len(APP_DISTRIBUTION) != APP_NUM_MAX or any(p < 0 for _, p in APP_DISTRIBUTION) or not Math.isclose(sum(p for _, p in APP_DISTRIBUTION), 1.0):
     raise ValueError("app_distribution must contain nonnegative probabilities summing to 1")
