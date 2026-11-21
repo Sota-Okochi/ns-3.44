@@ -238,7 +238,7 @@ std::vector<std::string> splitString(const std::string &input, const std::string
 APselection::APselection(){
 	    m_logisticModelPath =
         std::string(PROJECT_SOURCE_PATH) +
-        "/baseline_methods/baseline_methods/data/models/logistic_model_term100_v1.json";
+        "/baseline_methods/data/models/logistic_model_term100_v1.json";
 }
 
 APselection::~APselection(){
