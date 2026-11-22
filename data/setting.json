@@ -1,7 +1,7 @@
 {
   "baseStations": 3,
   "terminals": 100,
-  "rngSeed": 1005,
+  "rngSeed": 1008,
   "numCycles": 5,
   "cycleTimeSec": 9.5,
   "warmupBeforeCycleSec": 3.0,

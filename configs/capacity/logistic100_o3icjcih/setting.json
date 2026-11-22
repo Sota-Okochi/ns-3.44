@@ -1,0 +1,18 @@
+{
+  "baseStations": 3,
+  "terminals": 100,
+  "rngSeed": 1001,
+  "numCycles": 5,
+  "cycleTimeSec": 9.5,
+  "warmupBeforeCycleSec": 3.0,
+  "monitorStartSec": 1.1,
+  "monitorStopSec": 6.0,
+  "browserFirstBurstSec": 1.2,
+  "browserSecondBurstSec": 2.1,
+  "browserBurstIntervalSec": 1.0,
+  "browserNumRequests": 4,
+  "browserRequestSize": 768000,
+  "cycleEndMarginSec": 0.5,
+  "handoverGraceCycles": 0,
+  "browserPostHandoverDelaySec": 0.0
+}
