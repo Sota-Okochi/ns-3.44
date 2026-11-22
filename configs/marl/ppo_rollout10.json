@@ -1,0 +1,19 @@
+{
+  "actor_lr": 0.0001,
+  "critic_lr": 0.0003,
+  "clip": 0.1,
+  "epochs": 4,
+  "minibatch": 16,
+  "rollout_episodes": 10,
+  "entropy": 0.01,
+  "grad_norm": 0.5,
+  "epsilon": 0.01,
+  "browser_mbps": 3.0,
+  "video_mbps": 8.0,
+  "voice_ms": 100.0,
+  "game_ms": 40.0,
+  "gamma": 1.0,
+  "gae_lambda": 1.0,
+  "width": 64,
+  "head_width": 128
+}

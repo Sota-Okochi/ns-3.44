@@ -1,0 +1,24 @@
+Command terminated by signal 2
+	Command being timed: "python3 -u scripts/run_marl.py --mode smoke --episodes 10 --terminals 100 --model-seed 1 --workers 10 --parallel-validated --setting configs/marl/transfer100_setting.json --config configs/marl/ppo_rollout10.json --capacity configs/capacity/random_walk_all.json --validation-interval 50 --episode-timeout 14400 --report-conn-timeout 0.2 --binary build/qoe-floor001-v1/master --init-checkpoint results/marl/train80_new_episodes1024_261110/best.pt --output results/marl/resource100_w10_20261122_151620/run"
+	User time (seconds): 2.04
+	System time (seconds): 1.03
+	Percent of CPU this job got: 40%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:07.53
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 678196
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 2
+	Minor (reclaiming a frame) page faults: 80137
+	Voluntary context switches: 2769
+	Involuntary context switches: 876601
+	Swaps: 0
+	File system inputs: 24
+	File system outputs: 784
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0

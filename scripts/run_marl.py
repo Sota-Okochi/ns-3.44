@@ -2,7 +2,7 @@
 """Run isolated marl_ppo ns-3 episodes; default is a ONE-episode, no-update smoke run.
 
 Never builds ns-3. Workers only collect from one frozen learner. Use --workers 1
-until the 1 -> 2 -> 8 resource audit has been completed.
+until the resource audit for the requested terminal count/parallelism is complete.
 """
 import argparse
 import csv
@@ -220,13 +220,15 @@ def main(argv=None):
                    help='Smoke only: original episode index to reproduce environment/action seeds')
     p.add_argument('--terminals', type=int, default=30)
     p.add_argument('--model-seed', type=int, default=1)
-    p.add_argument('--workers', type=int, choices=[1, 2, 8], default=1)
+    p.add_argument('--workers', type=int, choices=[1, 2, 8, 10], default=1)
     p.add_argument('--parallel-validated', action='store_true', help='Explicit acknowledgement: resource audit for requested parallelism completed')
     p.add_argument('--output', type=Path, required=True)
     p.add_argument('--setting', type=Path, default=ROOT/'data/setting.json')
     p.add_argument('--capacity', type=Path, default=ROOT/'configs/capacity/constant.json')
     p.add_argument('--config', type=Path, help='Optional JSON Config overrides, saved in manifest')
     p.add_argument('--binary', type=Path, required=True, help='Already built master binary; this runner never builds')
+    p.add_argument('--init-checkpoint', type=Path, help='Trusted weights only; fresh train/smoke, not resume')
+    p.add_argument('--validation-interval', type=int, default=VALIDATION_INTERVAL)
     p.add_argument('--checkpoint', type=Path, help='Trusted local marl checkpoint only')
     p.add_argument('--recover-run', type=Path, help='Trusted stopped run: restore recovery.pt and reuse matching completed episodes into NEW output')
     p.add_argument('--report-conn-timeout', type=float, default=.2)
@@ -236,6 +238,9 @@ def main(argv=None):
     p.add_argument('--probe-interval', type=float, default=.2)
     p.add_argument('--probe-timeout', type=float, default=1.)
     args = p.parse_args(argv)
+    if args.init_checkpoint and (args.checkpoint or args.resume or args.recover_run or args.mode not in ('train', 'smoke')):
+        p.error('--init-checkpoint requires fresh train/smoke; cannot combine with resume/checkpoint/recovery')
+    if args.init_checkpoint: args.init_checkpoint = args.init_checkpoint.resolve()
     if args.recover_run:
         if args.checkpoint or args.resume or args.mode != 'train':
             p.error('--recover-run requires train and cannot combine with --checkpoint/--resume')
@@ -250,12 +255,14 @@ def main(argv=None):
     if args.episodes < 1 or args.terminals < 1 or args.model_seed < 1 or not math.isfinite(args.episode_timeout) or args.episode_timeout <= 0:
         p.error('Counts, model seed and timeout must be positive')
     if args.workers > 1 and not args.parallel_validated:
-        p.error('Perform the 1 -> 2 -> 8 resource audit; acknowledge with --parallel-validated')
+        p.error('Audit resources for this terminal count/parallelism; acknowledge with --parallel-validated')
     if not args.binary.is_file(): p.error('Build master separately and supply --binary')
     if args.mode in ('validation', 'test') and not args.checkpoint: p.error('Evaluation requires --checkpoint')
     if args.resume and (args.mode != 'train' or not args.checkpoint): p.error('--resume needs train and --checkpoint')
     if args.mode == 'train' and args.checkpoint and not args.resume: p.error('Training checkpoint requires --resume')
     config = Config(**(json.loads(args.config.read_text()) if args.config else {})); config.validate()
+    if args.validation_interval < 1 or (args.mode == 'train' and args.validation_interval % config.rollout_episodes):
+        p.error('Validation interval must be positive and, for training, a multiple of rollout_episodes')
     if args.mode == 'train' and args.episodes % config.rollout_episodes:
         p.error('Training episode budget must be a multiple of rollout_episodes; use smoke for one episode')
     if args.probe_count < 1 or not all(math.isfinite(v) and v > 0 for v in (args.probe_interval, args.probe_timeout, args.report_conn_timeout)):
@@ -265,11 +272,12 @@ def main(argv=None):
     torch.use_deterministic_algorithms(True)
     learner = Learner(config, args.model_seed)
     checkpoint = learner.load(args.checkpoint) if args.checkpoint else {}
+    transfer = learner.initialize_weights(args.init_checkpoint) if args.init_checkpoint else checkpoint.get('transfer')
     start_episode = checkpoint.get('completed_episodes', 0) if args.resume else 0
     if args.resume and (checkpoint.get('terminals') != args.terminals or checkpoint.get('capacity') != json.loads(args.capacity.read_text()) or checkpoint.get('setting') != json.loads(args.setting.read_text()) or checkpoint.get('probe') != [args.probe_count, args.probe_interval, args.probe_timeout] or checkpoint.get('report_conn_timeout') != args.report_conn_timeout):
         p.error('Resume environment differs from checkpoint')
     manifest = dict(args={k:str(v) if isinstance(v, Path) else v for k,v in vars(args).items()},
-                    config=asdict(config), report_transport='internal_callback_v1', validation_seeds=list(VALIDATION_SEEDS), validation_interval=VALIDATION_INTERVAL, schema=SCHEMA, seed_schema='marl_seed_v1', torch_version=torch.__version__,
+                    config=asdict(config), report_transport='internal_callback_v1', validation_seeds=list(VALIDATION_SEEDS), validation_interval=args.validation_interval, schema=SCHEMA, seed_schema='marl_seed_v1', torch_version=torch.__version__,
                     python=sys.version, binary_sha256=hashlib.sha256(args.binary.read_bytes()).hexdigest())
     sources = list((ROOT/'rl/marl').glob('*.py'))+[Path(__file__), ROOT/'contrib/kameda/model/server/marl-ppo.cc',
                ROOT/'contrib/kameda/model/client/APMonitorTerminal.cc', ROOT/'master/applications.cc']
@@ -278,12 +286,15 @@ def main(argv=None):
     libraries = args.binary.parent/'lib'
     manifest['library_sha256'] = {f.name:hashlib.sha256(f.read_bytes()).hexdigest()
                                   for f in sorted(libraries.glob('*.so*')) if f.is_file()}
-    experiment = dict(validation_seeds=list(VALIDATION_SEEDS), validation_interval=VALIDATION_INTERVAL, config=asdict(config), model_seed=args.model_seed, terminals=args.terminals,
+    experiment = dict(validation_seeds=list(VALIDATION_SEEDS), validation_interval=args.validation_interval, config=asdict(config), model_seed=args.model_seed, terminals=args.terminals,
                       capacity=json.loads(args.capacity.read_text()), setting=json.loads(args.setting.read_text()),
                       probe=[args.probe_count,args.probe_interval,args.probe_timeout],
                       report_conn_timeout=args.report_conn_timeout, report_transport='internal_callback_v1', binary=manifest['binary_sha256'],
                       libraries=manifest['library_sha256'], sources=manifest['source_sha256'],
                       torch=manifest['torch_version'], python=sys.version, seed_schema='marl_seed_v1')
+    if transfer is not None:
+        manifest['transfer'] = transfer
+        experiment['transfer'] = transfer
     experiment_id = digest(experiment)
     manifest['experiment_id'] = experiment_id
     if args.resume and checkpoint.get('experiment_id') != experiment_id:
@@ -326,10 +337,10 @@ def main(argv=None):
     def save(name, count, score, **extra):
         learner.save(args.output/name, completed_episodes=count, terminals=args.terminals,
                      capacity=json.loads(args.capacity.read_text()), best_score=score,
-                     validation_seeds=list(VALIDATION_SEEDS), validation_interval=VALIDATION_INTERVAL,
+                     validation_seeds=list(VALIDATION_SEEDS), validation_interval=args.validation_interval,
                      setting=json.loads(args.setting.read_text()), seed_schema='marl_seed_v1',
                      probe=[args.probe_count, args.probe_interval, args.probe_timeout],
-                     report_conn_timeout=args.report_conn_timeout, experiment_id=experiment_id, **extra)
+                     report_conn_timeout=args.report_conn_timeout, experiment_id=experiment_id, transfer=transfer, **extra)
 
     def validate(count):
         nonlocal best_score
@@ -349,7 +360,7 @@ def main(argv=None):
         collect([(e, environment_seed(learner.seed,e))
                  for e in range(args.episode_start, args.episode_start+args.episodes)], 'smoke', args.output)
     else:
-        interval = VALIDATION_INTERVAL
+        interval = args.validation_interval
         if not args.resume: validate(0)
         elif args.recover_run and checkpoint.get('pending_phase') == 'validation': validate(start_episode)
         for begin in range(start_episode, args.episodes, config.rollout_episodes):

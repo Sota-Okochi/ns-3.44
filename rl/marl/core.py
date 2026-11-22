@@ -256,3 +256,28 @@ class Learner:
         self.actor_opt.load_state_dict(ck['actor_opt']); self.critic_opt.load_state_dict(ck['critic_opt'])
         self.updates = ck['updates']; torch.set_rng_state(ck['torch_rng'])
         return ck
+
+    def initialize_weights(self, path):
+        """Transfer trusted local weights into a fresh experiment, never optimizer/history."""
+        from pathlib import Path
+        path = Path(path)
+        if self.updates or self.actor_opt.state or self.critic_opt.state:
+            raise ValueError('Weight initialization requires a fresh learner')
+        ck = torch.load(path, map_location='cpu', weights_only=False)
+        # Only collection batch size may differ; preserve observation/reward semantics.
+        expected = asdict(self.config)
+        source = dict(ck['config'])
+        expected.pop('rollout_episodes'); source.pop('rollout_episodes')
+        if ck['schema'] != SCHEMA or source != expected:
+            raise ValueError('Transfer schema/config mismatch (only rollout_episodes may differ)')
+        self.actor.load_state_dict(ck['actor'])
+        self.critic.load_state_dict(ck['critic'])
+        return dict(path=str(path.resolve()), sha256=hashlib.sha256(path.read_bytes()).hexdigest(),
+                    source_terminals=ck.get('terminals'), source_seed=ck['seed'],
+                    source_completed_episodes=ck.get('completed_episodes'),
+                    source_updates=ck['updates'], source_config=ck['config'],
+                    source_environment={k: ck.get(k) for k in
+                                        ('setting', 'capacity', 'probe', 'report_conn_timeout',
+                                         'validation_seeds', 'validation_interval')},
+                    source_experiment_id=ck.get('experiment_id'),
+                    transferred=['actor', 'critic'], optimizer_reset=True)
