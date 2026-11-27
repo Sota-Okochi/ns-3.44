@@ -4,8 +4,10 @@ import json
 from pathlib import Path
 import tempfile
 import threading
+import subprocess
+from types import SimpleNamespace
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 
 import torch
 from test_marl_ppo import runner, message
@@ -29,6 +31,47 @@ def result(learner, args, episode, env, phase, base):
 
 
 class CollectionTest(unittest.TestCase):
+    def test_rss_missing_empty_invalid_and_valid(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp)/'rss.txt'
+            self.assertIsNone(runner.read_max_rss_kib(path))
+            for content, expected in [('', None), ('\n', None), ('invalid\n', None),
+                                      ('1400932\n', 1400932),
+                                      ('Command exited with non-zero status 1\n123\n', 123)]:
+                path.write_text(content)
+                self.assertEqual(runner.read_max_rss_kib(path), expected)
+
+    def test_timeout_with_empty_rss_preserves_status(self):
+        # No real sockets or simulation: reproduce GNU time being killed before
+        # writing RSS, and ensure the original timeout survives quarantine.
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            setting = root/'setting.json'; setting.write_text('{}')
+            capacity = root/'capacity.json'
+            capacity.write_text('{"capacity_variation":{"mode":"constant"}}')
+            args = SimpleNamespace(setting=setting, capacity=capacity, terminals=4,
+                binary=root/'binary', probe_count=10, probe_interval=.2,
+                probe_timeout=1., report_conn_timeout=.2, episode_timeout=14400)
+            server = MagicMock(); server.server_address = ('127.0.0.1', 12345)
+            process = MagicMock(); process.pid = 12345
+            process.wait.side_effect = [subprocess.TimeoutExpired('simulation', 14400), 0]
+            def popen(command, **kwargs):
+                Path(command[command.index('-o')+1]).write_text('')
+                return process
+            with patch.object(runner, 'Server') as factory, \
+                 patch.object(runner, 'generate_events', return_value=[]), \
+                 patch.object(runner.subprocess, 'Popen', side_effect=popen), \
+                 patch.object(runner.os, 'killpg') as kill:
+                factory.return_value.__enter__.return_value = server
+                with self.assertRaisesRegex(RuntimeError, 'Episode quarantined.*timed out'):
+                    runner.run_episode(Learner(seed=1), args, 0, 693, 'train', root)
+                kill.assert_called_once_with(12345, runner.signal.SIGTERM)
+            status = json.loads((root/'train_000000_seed693/status.json').read_text())
+            self.assertFalse(status['valid'])
+            self.assertIsNone(status['max_rss_kib'])
+            self.assertIsNone(status['returncode'])
+            self.assertIn('14400', status['error'])
+
     def test_rollout8_staged_validation(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp); binary=root/'binary'; binary.write_text('fake')

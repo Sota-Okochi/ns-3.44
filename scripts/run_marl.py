@@ -55,6 +55,17 @@ def write_capacity_events(path, events):
         writer.writerows(events)
 
 
+def read_max_rss_kib(path):
+    """GNU time may leave no measurement when its process group is terminated."""
+    try:
+        lines = path.read_text().splitlines()
+    except FileNotFoundError:
+        return None
+    if not lines or not lines[-1].isdigit():
+        return None
+    return int(lines[-1])
+
+
 class Session:
     """One episode only. No state is shared with other TCP endpoints."""
     def __init__(self, learner, n, env_seed, episode, phase, directory):
@@ -198,7 +209,7 @@ def run_episode(learner, args, episode, env_seed, phase, base):
                       error=error or session.error, seconds=time.monotonic()-start,
                       terminal=session.ended, transitions=len(session.transitions))
         rss = directory/'max_rss_kib.txt'
-        status['max_rss_kib'] = int(rss.read_text().splitlines()[-1]) if rss.exists() and rss.read_text().splitlines()[-1].isdigit() else None
+        status['max_rss_kib'] = read_max_rss_kib(rss)
         ok = status['returncode'] == 0 and not status['error'] and session.ended and len(session.transitions) == 4
         status['valid'] = ok
         write_json(directory/'status.json', status)
